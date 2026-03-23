@@ -6,6 +6,7 @@ import { ScheduleView } from './components/ScheduleView';
 import { AgentsView } from './components/AgentsView';
 import { MyShiftsView } from './components/MyShiftsView';
 import { AuthPage } from './components/AuthPage';
+import { SetNewPassword } from './components/SetNewPassword';
 
 function AppContent() {
   const { state } = useApp();
@@ -21,7 +22,7 @@ function AppContent() {
 }
 
 function AuthenticatedApp() {
-  const { profile, loading } = useAuth();
+  const { profile, loading, isPasswordRecovery } = useAuth();
 
   if (loading) {
     return (
@@ -32,6 +33,10 @@ function AuthenticatedApp() {
         </div>
       </div>
     );
+  }
+
+  if (isPasswordRecovery) {
+    return <SetNewPassword />;
   }
 
   if (!profile) {

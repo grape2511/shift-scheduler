@@ -7,11 +7,14 @@ interface AuthContextType {
   session: Session | null;
   profile: User | null;
   loading: boolean;
+  isPasswordRecovery: boolean;
   signUp: (email: string, password: string, name: string, role?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
+  clearPasswordRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -44,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -56,7 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
       setSession(session);
       if (session?.user) {
         const p = await fetchProfile(session.user.id);
@@ -97,6 +104,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message || null };
   };
 
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (!error) setIsPasswordRecovery(false);
+    return { error: error?.message || null };
+  };
+
+  const clearPasswordRecovery = () => setIsPasswordRecovery(false);
+
   const updateProfile = async (updates: Partial<User>) => {
     if (!session?.user) return;
     await supabase.from('profiles').update(updates).eq('id', session.user.id);
@@ -106,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signUp, signIn, signOut, updateProfile, resetPassword }}>
+    <AuthContext.Provider value={{ session, profile, loading, isPasswordRecovery, signUp, signIn, signOut, updateProfile, resetPassword, updatePassword, clearPasswordRecovery }}>
       {children}
     </AuthContext.Provider>
   );
