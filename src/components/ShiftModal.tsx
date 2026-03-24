@@ -43,6 +43,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   const [requiredAgents, setRequiredAgents] = useState(editShift?.requiredAgents || 1);
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(editShift?.assignedAgentIds || []);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
+  const [showSaveOptions, setShowSaveOptions] = useState(false);
   const isRecurring = !!editShift?.recurringGroupId;
   const isAdmin = state.currentUser.role === 'admin';
   const isAssignedToMe = editShift?.assignedAgentIds.includes(state.currentUser.id) ?? false;
@@ -54,15 +55,21 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
     }
   }, []);
 
+  const getUpdatedShift = (): Shift => ({
+    ...editShift!,
+    name, date, startTime, endTime, timezone, color, recurring, requiredAgents, assignedAgentIds: selectedAgentIds,
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
     if (editShift) {
-      dispatch({
-        type: 'UPDATE_SHIFT',
-        payload: { ...editShift, name, date, startTime, endTime, timezone, color, recurring, requiredAgents, assignedAgentIds: selectedAgentIds },
-      });
+      if (isRecurring) {
+        setShowSaveOptions(true);
+        return;
+      }
+      dispatch({ type: 'UPDATE_SHIFT', payload: getUpdatedShift() });
     } else {
       dispatch({
         type: 'ADD_SHIFT',
@@ -80,6 +87,21 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
         },
       });
     }
+    onClose();
+  };
+
+  const handleSaveThis = () => {
+    dispatch({ type: 'UPDATE_SHIFT', payload: getUpdatedShift() });
+    onClose();
+  };
+
+  const handleSaveFuture = () => {
+    dispatch({ type: 'UPDATE_SHIFT_FUTURE', payload: getUpdatedShift() });
+    onClose();
+  };
+
+  const handleSaveAll = () => {
+    dispatch({ type: 'UPDATE_SHIFT_ALL_RECURRING', payload: getUpdatedShift() });
     onClose();
   };
 
@@ -429,22 +451,59 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
             </div>
           )}
 
+          {/* Save Scope Options (recurring edit) */}
+          {showSaveOptions && isRecurring && (
+            <div className="bg-indigo-50 rounded-lg border border-indigo-200 overflow-hidden">
+              <p className="px-4 py-2 text-xs font-medium text-indigo-700 border-b border-indigo-200">Apply changes to:</p>
+              <button
+                type="button"
+                onClick={handleSaveThis}
+                className="w-full text-left px-4 py-2.5 text-sm text-indigo-700 hover:bg-indigo-100 transition-colors"
+              >
+                This shift only
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveFuture}
+                className="w-full text-left px-4 py-2.5 text-sm text-indigo-700 hover:bg-indigo-100 transition-colors border-t border-indigo-200"
+              >
+                This & all future recurrences
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAll}
+                className="w-full text-left px-4 py-2.5 text-sm text-indigo-700 font-semibold hover:bg-indigo-100 transition-colors border-t border-indigo-200"
+              >
+                All recurrences
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSaveOptions(false)}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-500 hover:bg-gray-100 transition-colors border-t border-indigo-200"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           {/* Submit */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              {editShift ? 'Save Changes' : 'Create Shift'}
-            </button>
-          </div>
+          {!showSaveOptions && (
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                {editShift ? 'Save Changes' : 'Create Shift'}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

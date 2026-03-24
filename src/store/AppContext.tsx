@@ -38,6 +38,8 @@ type Action =
   | { type: 'CREATE_SWAP_REQUEST'; payload: SwapRequest }
   | { type: 'ACCEPT_SWAP_REQUEST'; payload: string }
   | { type: 'DECLINE_SWAP_REQUEST'; payload: string }
+  | { type: 'UPDATE_SHIFT_ALL_RECURRING'; payload: Shift }
+  | { type: 'UPDATE_SHIFT_FUTURE'; payload: Shift }
   | { type: 'CLOCK_IN'; payload: ClockRecord }
   | { type: 'CLOCK_OUT'; payload: { shiftId: string; userId: string; clockOut: string } }
   | { type: 'LOAD_STATE'; payload: AppState };
@@ -215,6 +217,39 @@ function reducer(state: AppState, action: Action): AppState {
         shifts: state.shifts.map(s => s.id === action.payload.id ? action.payload : s),
         notifications: [...state.notifications, ...notifications],
       };
+    }
+
+    case 'UPDATE_SHIFT_ALL_RECURRING': {
+      const updated = action.payload;
+      const oldShift = state.shifts.find(s => s.id === updated.id);
+      if (!oldShift?.recurringGroupId) return state;
+      const groupId = oldShift.recurringGroupId;
+      const notifications: Notification[] = [];
+      const newShifts = state.shifts.map(s => {
+        if (s.recurringGroupId !== groupId) return s;
+        notifications.push(...s.assignedAgentIds.map(agentId =>
+          createNotification(agentId, `Shift "${updated.name}" on ${s.date} has been updated`, 'change')
+        ));
+        return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents, assignedAgentIds: updated.assignedAgentIds };
+      });
+      return { ...state, shifts: newShifts, notifications: [...state.notifications, ...notifications] };
+    }
+
+    case 'UPDATE_SHIFT_FUTURE': {
+      const updated = action.payload;
+      const oldShift = state.shifts.find(s => s.id === updated.id);
+      if (!oldShift?.recurringGroupId) return state;
+      const groupId = oldShift.recurringGroupId;
+      const fromDate = updated.date;
+      const notifications: Notification[] = [];
+      const newShifts = state.shifts.map(s => {
+        if (s.recurringGroupId !== groupId || s.date < fromDate) return s;
+        notifications.push(...s.assignedAgentIds.map(agentId =>
+          createNotification(agentId, `Shift "${updated.name}" on ${s.date} has been updated`, 'change')
+        ));
+        return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents, assignedAgentIds: updated.assignedAgentIds };
+      });
+      return { ...state, shifts: newShifts, notifications: [...state.notifications, ...notifications] };
     }
 
     case 'DELETE_SHIFT': {
