@@ -113,13 +113,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updatePassword = async (newPassword: string) => {
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (!error) {
+      const result = await Promise.race([
+        supabase.auth.updateUser({ password: newPassword }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Request timed out. Please try again.')), 10000)),
+      ]);
+      if (!result.error) {
         setIsPasswordRecovery(false);
         return { error: null };
       }
-      return { error: error.message };
+      return { error: result.error.message };
     } catch (e: any) {
+      // On timeout or error, still clear recovery state so user can sign in with new password
+      // (the password may have actually been updated)
+      setIsPasswordRecovery(false);
       return { error: e?.message || 'Failed to update password' };
     }
   };
