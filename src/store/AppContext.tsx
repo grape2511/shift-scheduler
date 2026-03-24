@@ -501,18 +501,22 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
 
   // Load data from Supabase on mount
   const refreshData = useCallback(async () => {
-    const [users, shifts, timeOffs, notifications, swapRequests, clockRecords] = await Promise.all([
-      db.fetchAllProfiles(),
-      db.fetchAllShifts(),
-      db.fetchAllTimeOffs(),
-      db.fetchNotifications(currentUser.id),
-      db.fetchAllSwapRequests(),
-      db.fetchAllClockRecords(),
-    ]);
-    dispatch({
-      type: 'LOAD_STATE',
-      payload: { currentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords },
-    });
+    try {
+      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords] = await Promise.all([
+        db.fetchAllProfiles(),
+        db.fetchAllShifts(),
+        db.fetchAllTimeOffs(),
+        db.fetchNotifications(currentUser.id),
+        db.fetchAllSwapRequests(),
+        db.fetchAllClockRecords().catch(() => [] as ClockRecord[]),
+      ]);
+      dispatch({
+        type: 'LOAD_STATE',
+        payload: { currentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords },
+      });
+    } catch (e) {
+      console.error('refreshData failed:', e);
+    }
   }, [currentUser]);
 
   useEffect(() => {
