@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus } from 'lucide-react';
+import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut } from 'lucide-react';
+import { v4 as uuid } from 'uuid';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -10,7 +11,7 @@ interface ShiftCardProps {
 }
 
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
-  const { state, dispatch, agents, getAgentById, hasConflict } = useApp();
+  const { state, dispatch, agents, getAgentById, hasConflict, getClockRecord } = useApp();
   const [showAssign, setShowAssign] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const isAdmin = state.currentUser.role === 'admin';
@@ -55,6 +56,54 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   };
 
   const isAssignedToMe = shift.assignedAgentIds.includes(state.currentUser.id);
+  const myClockRecord = isAssignedToMe ? getClockRecord(shift.id, state.currentUser.id) : undefined;
+
+  const handleClockIn = () => {
+    dispatch({
+      type: 'CLOCK_IN',
+      payload: {
+        id: uuid(),
+        shiftId: shift.id,
+        userId: state.currentUser.id,
+        clockIn: new Date().toISOString(),
+        clockOut: null,
+      },
+    });
+  };
+
+  const handleClockOut = () => {
+    dispatch({
+      type: 'CLOCK_OUT',
+      payload: {
+        shiftId: shift.id,
+        userId: state.currentUser.id,
+        clockOut: new Date().toISOString(),
+      },
+    });
+  };
+
+  const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
+    ? state.currentUser.timezone
+    : undefined;
+
+  const formatClockTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: userTimezone });
+  };
+
+  // Convert shift times to user's local timezone for display
+  const formatShiftTime = (time: string) => {
+    if (!userTimezone || userTimezone === shift.timezone) return time;
+    // Create a date in the shift's timezone and convert to user's timezone
+    const dateStr = `${shift.date}T${time}:00`;
+    try {
+      const d = new Date(dateStr);
+      // Adjust for the shift timezone to user timezone
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: userTimezone });
+    } catch {
+      return time;
+    }
+  };
 
   const required = shift.requiredAgents || 1;
   const filled = assignedAgents.length;
@@ -121,7 +170,10 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             <h3 className="font-semibold text-gray-900">{shift.name}</h3>
             <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
               <Clock className="w-3.5 h-3.5" />
-              {shift.startTime} – {shift.endTime}
+              {formatShiftTime(shift.startTime)} – {formatShiftTime(shift.endTime)}
+              {userTimezone && userTimezone !== shift.timezone && (
+                <span className="text-xs text-indigo-400 ml-1">(your time)</span>
+              )}
               <span className="text-xs text-gray-400 ml-1">({shift.timezone.split('/').pop()})</span>
             </div>
           </div>
@@ -287,6 +339,47 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             </button>
           )}
         </div>
+
+        {/* Clock In/Out for assigned agent */}
+        {isAssignedToMe && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            {!myClockRecord ? (
+              <button
+                onClick={handleClockIn}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Clock In
+              </button>
+            ) : !myClockRecord.clockOut ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  Clocked in at {formatClockTime(myClockRecord.clockIn!)}
+                </div>
+                <button
+                  onClick={handleClockOut}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Clock Out
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>Clocked: {formatClockTime(myClockRecord.clockIn!)} – {formatClockTime(myClockRecord.clockOut)}</span>
+                <span className="font-medium text-gray-700">
+                  {(() => {
+                    const diff = new Date(myClockRecord.clockOut).getTime() - new Date(myClockRecord.clockIn!).getTime();
+                    const hrs = Math.floor(diff / 3600000);
+                    const mins = Math.round((diff % 3600000) / 60000);
+                    return `${hrs}h ${mins}m`;
+                  })()}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

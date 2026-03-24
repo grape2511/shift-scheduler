@@ -7,6 +7,8 @@ export interface User {
   role: Role;
   color: string;
   country?: string;
+  timezone?: string;
+  enabledHolidayCountries?: string[]; // admin only: which countries' holidays to show on calendar
 }
 
 export interface Shift {
@@ -49,6 +51,14 @@ export interface SwapRequest {
   reason?: string;
   status: 'pending' | 'accepted' | 'declined';
   timestamp: string;
+}
+
+export interface ClockRecord {
+  id: string;
+  shiftId: string;
+  userId: string;
+  clockIn: string | null;  // ISO timestamp
+  clockOut: string | null; // ISO timestamp
 }
 
 export type ViewMode = 'month' | 'week' | 'day';

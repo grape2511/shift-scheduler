@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
 
 interface LayoutProps {
@@ -10,8 +10,34 @@ interface LayoutProps {
   onTabChange: (tab: string) => void;
 }
 
+const COMMON_TIMEZONES = [
+  'auto',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Sao_Paulo',
+  'Europe/London',
+  'Europe/Amsterdam',
+  'Europe/Berlin',
+  'Europe/Paris',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'Europe/Warsaw',
+  'Asia/Jerusalem',
+  'Asia/Kolkata',
+  'Asia/Tokyo',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+];
+
+function formatTimezoneLabel(tz: string): string {
+  if (tz === 'auto') return `Auto (${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
+  return tz.replace(/_/g, ' ');
+}
+
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
-  const { state, getUnreadNotificationCount } = useApp();
+  const { state, dispatch, getUnreadNotificationCount } = useApp();
   const { signOut } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -114,10 +140,38 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                 {showUserMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
                       <div className="px-3 py-2 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900">{state.currentUser.name}</p>
                         <p className="text-xs text-gray-400">{state.currentUser.email}</p>
+                      </div>
+                      {/* Timezone selector */}
+                      <div className="px-3 py-2 border-b border-gray-100">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1.5">
+                          <Globe className="w-3.5 h-3.5" />
+                          Timezone
+                        </div>
+                        <select
+                          value={state.currentUser.timezone || 'auto'}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_USER',
+                            payload: { id: state.currentUser.id, updates: { timezone: e.target.value } },
+                          })}
+                          className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          {COMMON_TIMEZONES.map(tz => (
+                            <option key={tz} value={tz}>{formatTimezoneLabel(tz)}</option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          Local time: {new Date().toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZone: state.currentUser.timezone && state.currentUser.timezone !== 'auto'
+                              ? state.currentUser.timezone
+                              : undefined,
+                          })}
+                        </p>
                       </div>
                       <button
                         onClick={handleSignOut}

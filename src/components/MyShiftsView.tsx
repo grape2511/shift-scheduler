@@ -2,17 +2,22 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { ShiftCard } from './ShiftCard';
-import { Calendar, AlertTriangle, X, ArrowRightLeft, Check, XCircle } from 'lucide-react';
+import { Calendar, AlertTriangle, X, ArrowRightLeft, Check, XCircle, Clock } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
+import { getHolidays, getCountryName } from '../utils/holidays';
 
 export function MyShiftsView() {
-  const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById } = useApp();
+  const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours } = useApp();
   const [showTimeOff, setShowTimeOff] = useState(false);
   const [timeOffDate, setTimeOffDate] = useState('');
   const [timeOffReason, setTimeOffReason] = useState('');
 
   const myShifts = getShiftsForAgent(state.currentUser.id);
   const today = startOfDay(new Date());
+  const now = new Date();
+  const monthlyHours = getMonthlyHours(state.currentUser.id, now.getFullYear(), now.getMonth());
+  const TARGET_HOURS = 40;
+  const isOvertime = monthlyHours > TARGET_HOURS;
 
   const upcomingShifts = myShifts.filter(s => !isBefore(parseISO(s.date), today));
   const pastShifts = myShifts.filter(s => isBefore(parseISO(s.date), today));
@@ -47,14 +52,49 @@ export function MyShiftsView() {
           <h2 className="text-lg font-semibold text-gray-900">My Shifts</h2>
           <p className="text-sm text-gray-500">{upcomingShifts.length} upcoming shifts</p>
         </div>
-        <button
-          onClick={() => setShowTimeOff(!showTimeOff)}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
-        >
-          <AlertTriangle className="w-4 h-4" />
-          Mark Time Off
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Monthly Hours Counter */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg">
+            <Clock className="w-4 h-4 text-gray-400" />
+            <div className="text-sm">
+              <span className="text-xs text-gray-400 block leading-tight">{format(now, 'MMMM')}</span>
+              <span className={`font-bold ${isOvertime ? 'text-red-600' : 'text-gray-900'}`}>
+                {monthlyHours}/{TARGET_HOURS}h
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowTimeOff(!showTimeOff)}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            OOO
+          </button>
+        </div>
       </div>
+
+      {/* My Public Holidays */}
+      {state.currentUser.country && (() => {
+        const holidays = getHolidays(state.currentUser.country!, now.getFullYear())
+          .filter(h => h.date >= format(now, 'yyyy-MM-dd'))
+          .slice(0, 5);
+        if (holidays.length === 0) return null;
+        return (
+          <div className="mb-6 bg-purple-50 rounded-xl border border-purple-200 p-4">
+            <h3 className="text-sm font-medium text-purple-700 mb-2">
+              Upcoming Public Holidays ({getCountryName(state.currentUser.country!)})
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {holidays.map(h => (
+                <div key={h.date} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-sm">
+                  <span className="text-purple-700 font-medium">{format(parseISO(h.date), 'MMM d')}</span>
+                  <span className="text-purple-500">{h.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Time Off Form */}
       {showTimeOff && (

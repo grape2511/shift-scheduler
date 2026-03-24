@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { User, Shift, TimeOff, Notification, SwapRequest } from '../types';
+import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord } from '../types';
 
 // ---- Profiles ----
 
@@ -13,11 +13,23 @@ export async function fetchAllProfiles(): Promise<User[]> {
     role: p.role as User['role'],
     color: p.color,
     country: p.country || undefined,
+    timezone: p.timezone || undefined,
+    enabledHolidayCountries: p.enabled_holiday_countries || undefined,
   }));
 }
 
-export async function updateProfile(id: string, updates: Partial<User>) {
-  const { error } = await supabase.from('profiles').update(updates).eq('id', id);
+export async function updateProfile(id: string, updates: Partial<User> & { enabled_holiday_countries?: string[] }) {
+  // Map camelCase to snake_case for Supabase
+  const dbUpdates: Record<string, unknown> = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.email !== undefined) dbUpdates.email = updates.email;
+  if (updates.role !== undefined) dbUpdates.role = updates.role;
+  if (updates.color !== undefined) dbUpdates.color = updates.color;
+  if (updates.country !== undefined) dbUpdates.country = updates.country;
+  if (updates.timezone !== undefined) dbUpdates.timezone = updates.timezone;
+  if (updates.enabledHolidayCountries !== undefined) dbUpdates.enabled_holiday_countries = updates.enabledHolidayCountries;
+  if (updates.enabled_holiday_countries !== undefined) dbUpdates.enabled_holiday_countries = updates.enabled_holiday_countries;
+  const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
   if (error) console.error('updateProfile', error);
 }
 
@@ -203,4 +215,29 @@ export async function insertSwapRequest(req: SwapRequest) {
 export async function updateSwapRequestStatus(id: string, status: 'accepted' | 'declined') {
   const { error } = await supabase.from('swap_requests').update({ status }).eq('id', id);
   if (error) console.error('updateSwapRequestStatus', error);
+}
+
+// ---- Clock Records ----
+
+export async function fetchAllClockRecords(): Promise<ClockRecord[]> {
+  const { data, error } = await supabase.from('clock_records').select('*');
+  if (error) { console.error('fetchAllClockRecords', error); return []; }
+  return (data || []).map(r => ({
+    id: r.id,
+    shiftId: r.shift_id,
+    userId: r.user_id,
+    clockIn: r.clock_in,
+    clockOut: r.clock_out,
+  }));
+}
+
+export async function upsertClockRecord(record: ClockRecord) {
+  const { error } = await supabase.from('clock_records').upsert({
+    id: record.id,
+    shift_id: record.shiftId,
+    user_id: record.userId,
+    clock_in: record.clockIn,
+    clock_out: record.clockOut,
+  }, { onConflict: 'shift_id,user_id' });
+  if (error) console.error('upsertClockRecord', error);
 }

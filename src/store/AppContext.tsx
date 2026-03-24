@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { User, Shift, TimeOff, Notification, SwapRequest } from '../types';
+import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord } from '../types';
 import { AGENT_COLORS, getNextColor } from '../utils/colors';
 import { addDays, addWeeks, formatDate } from '../utils/dates';
 import { getHolidaysForDate as getPublicHolidays, type PublicHoliday } from '../utils/holidays';
@@ -13,6 +13,7 @@ interface AppState {
   timeOffs: TimeOff[];
   notifications: Notification[];
   swapRequests: SwapRequest[];
+  clockRecords: ClockRecord[];
 }
 
 type Action =
@@ -37,6 +38,8 @@ type Action =
   | { type: 'CREATE_SWAP_REQUEST'; payload: SwapRequest }
   | { type: 'ACCEPT_SWAP_REQUEST'; payload: string }
   | { type: 'DECLINE_SWAP_REQUEST'; payload: string }
+  | { type: 'CLOCK_IN'; payload: ClockRecord }
+  | { type: 'CLOCK_OUT'; payload: { shiftId: string; userId: string; clockOut: string } }
   | { type: 'LOAD_STATE'; payload: AppState };
 
 const defaultAdmin: User = {
@@ -61,6 +64,7 @@ const initialState: AppState = {
   timeOffs: [],
   notifications: [],
   swapRequests: [],
+  clockRecords: [],
 };
 
 function createNotification(userId: string, message: string, type: Notification['type']): Notification {
@@ -449,6 +453,19 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case 'CLOCK_IN':
+      return { ...state, clockRecords: [...state.clockRecords, action.payload] };
+
+    case 'CLOCK_OUT':
+      return {
+        ...state,
+        clockRecords: state.clockRecords.map(r =>
+          r.shiftId === action.payload.shiftId && r.userId === action.payload.userId
+            ? { ...r, clockOut: action.payload.clockOut }
+            : r
+        ),
+      };
+
     default:
       return state;
   }
@@ -469,6 +486,9 @@ interface AppContextType {
   getPendingSwapRequests: () => SwapRequest[];
   getSwapRequestsForShift: (shiftId: string) => SwapRequest[];
   getPublicHolidaysForDate: (date: string) => { agent: User; holidays: PublicHoliday[] }[];
+  getClockRecord: (shiftId: string, userId: string) => ClockRecord | undefined;
+  getMonthlyHours: (agentId: string, year: number, month: number) => number;
+  getEnabledHolidayCountries: () => string[];
   refreshData: () => Promise<void>;
 }
 
@@ -481,16 +501,17 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
 
   // Load data from Supabase on mount
   const refreshData = useCallback(async () => {
-    const [users, shifts, timeOffs, notifications, swapRequests] = await Promise.all([
+    const [users, shifts, timeOffs, notifications, swapRequests, clockRecords] = await Promise.all([
       db.fetchAllProfiles(),
       db.fetchAllShifts(),
       db.fetchAllTimeOffs(),
       db.fetchNotifications(currentUser.id),
       db.fetchAllSwapRequests(),
+      db.fetchAllClockRecords(),
     ]);
     dispatch({
       type: 'LOAD_STATE',
-      payload: { currentUser, users, shifts, timeOffs, notifications, swapRequests },
+      payload: { currentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords },
     });
   }, [currentUser]);
 
@@ -543,12 +564,27 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     newSwaps.forEach(r => db.insertSwapRequest(r));
     updatedSwaps.forEach(r => db.updateSwapRequestStatus(r.id, r.status as 'accepted' | 'declined'));
 
+    // Sync clock records
+    const newClockRecords = state.clockRecords.filter(r => !prev.clockRecords.some(pr => pr.id === r.id));
+    const updatedClockRecords = state.clockRecords.filter(r => {
+      const pr = prev.clockRecords.find(pr => pr.id === r.id);
+      return pr && JSON.stringify(pr) !== JSON.stringify(r);
+    });
+    newClockRecords.forEach(r => db.upsertClockRecord(r));
+    updatedClockRecords.forEach(r => db.upsertClockRecord(r));
+
     // Sync user updates
     const updatedUsers = state.users.filter(u => {
       const pu = prev.users.find(pu => pu.id === u.id);
       return pu && JSON.stringify(pu) !== JSON.stringify(u);
     });
-    updatedUsers.forEach(u => db.updateProfile(u.id, { country: u.country, color: u.color, name: u.name }));
+    updatedUsers.forEach(u => db.updateProfile(u.id, {
+      country: u.country,
+      color: u.color,
+      name: u.name,
+      timezone: u.timezone,
+      enabledHolidayCountries: u.enabledHolidayCountries,
+    }));
   }, [state]);
 
   const agents = state.users.filter(u => u.role === 'agent');
@@ -598,14 +634,76 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
 
   const getPublicHolidaysForDate = (date: string) => {
     const results: { agent: User; holidays: PublicHoliday[] }[] = [];
+    const seenCountries = new Set<string>();
+
+    // Show holidays for enabled countries (admin setting)
+    const enabledCountries = getEnabledHolidayCountries();
+    for (const countryCode of enabledCountries) {
+      const holidays = getPublicHolidays(countryCode, date);
+      if (holidays.length > 0) {
+        seenCountries.add(countryCode);
+        // Use a pseudo-user to represent the country
+        results.push({
+          agent: { id: `country-${countryCode}`, name: countryCode, email: '', role: 'agent', color: '#a855f7', country: countryCode },
+          holidays,
+        });
+      }
+    }
+
+    // Also show per-agent holidays if their country isn't already covered
     for (const agent of agents) {
-      if (!agent.country) continue;
+      if (!agent.country || seenCountries.has(agent.country)) continue;
       const holidays = getPublicHolidays(agent.country, date);
       if (holidays.length > 0) {
         results.push({ agent, holidays });
       }
     }
+
+    // For agents viewing, also include their own country
+    if (state.currentUser.role === 'agent' && state.currentUser.country) {
+      const alreadyShown = results.some(r => r.agent.country === state.currentUser.country);
+      if (!alreadyShown) {
+        const holidays = getPublicHolidays(state.currentUser.country, date);
+        if (holidays.length > 0) {
+          results.push({ agent: state.currentUser, holidays });
+        }
+      }
+    }
+
     return results;
+  };
+
+  const getClockRecord = (shiftId: string, userId: string) =>
+    state.clockRecords.find(r => r.shiftId === shiftId && r.userId === userId);
+
+  const getMonthlyHours = (agentId: string, year: number, month: number) => {
+    const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const agentShifts = state.shifts.filter(
+      s => s.assignedAgentIds.includes(agentId) && s.date.startsWith(monthStr)
+    );
+    let totalMinutes = 0;
+    for (const shift of agentShifts) {
+      const clockRecord = getClockRecord(shift.id, agentId);
+      if (clockRecord?.clockIn && clockRecord?.clockOut) {
+        // Use actual clocked hours
+        const diff = new Date(clockRecord.clockOut).getTime() - new Date(clockRecord.clockIn).getTime();
+        totalMinutes += diff / 60000;
+      } else {
+        // Use scheduled shift hours
+        const [sh, sm] = shift.startTime.split(':').map(Number);
+        const [eh, em] = shift.endTime.split(':').map(Number);
+        let mins = (eh * 60 + em) - (sh * 60 + sm);
+        if (mins < 0) mins += 24 * 60; // overnight shift
+        totalMinutes += mins;
+      }
+    }
+    return Math.round((totalMinutes / 60) * 10) / 10; // 1 decimal
+  };
+
+  const getEnabledHolidayCountries = (): string[] => {
+    // Find admin users and get their enabled holiday countries
+    const admin = state.users.find(u => u.role === 'admin' && u.enabledHolidayCountries && u.enabledHolidayCountries.length > 0);
+    return admin?.enabledHolidayCountries || [];
   };
 
   const getPendingSwapRequests = () =>
@@ -630,6 +728,9 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       getPendingSwapRequests,
       getSwapRequestsForShift,
       getPublicHolidaysForDate,
+      getClockRecord,
+      getMonthlyHours,
+      getEnabledHolidayCountries,
       refreshData,
     }}>
       {children}

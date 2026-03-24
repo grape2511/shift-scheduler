@@ -1,14 +1,29 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Trash2, Mail, MapPin } from 'lucide-react';
+import { Plus, Trash2, Mail, MapPin, Clock, Globe } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
 
+const TARGET_HOURS = 40;
+
 export function AgentsView() {
-  const { agents, addAgent, dispatch } = useApp();
+  const { state, agents, addAgent, dispatch, getMonthlyHours, getEnabledHolidayCountries } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [country, setCountry] = useState('NL');
+
+  const enabledCountries = getEnabledHolidayCountries();
+
+  const toggleHolidayCountry = (code: string) => {
+    const current = state.currentUser.enabledHolidayCountries || [];
+    const updated = current.includes(code)
+      ? current.filter(c => c !== code)
+      : [...current, code];
+    dispatch({
+      type: 'UPDATE_USER',
+      payload: { id: state.currentUser.id, updates: { enabledHolidayCountries: updated } },
+    });
+  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +116,35 @@ export function AgentsView() {
         </form>
       )}
 
+      {/* Public Holidays Management */}
+      <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Globe className="w-4 h-4 text-purple-500" />
+          <h3 className="text-sm font-semibold text-gray-900">Calendar Public Holidays</h3>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">
+          Select which countries' public holidays to show on the shared calendar.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {COUNTRIES.map(c => {
+            const isEnabled = (state.currentUser.enabledHolidayCountries || []).includes(c.code);
+            return (
+              <button
+                key={c.code}
+                onClick={() => toggleHolidayCountry(c.code)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  isEnabled
+                    ? 'bg-purple-100 border-purple-300 text-purple-700'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-purple-200 hover:text-purple-600'
+                }`}
+              >
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Agents Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {agents.map(agent => (
@@ -149,6 +193,39 @@ export function AgentsView() {
                 Public holidays from {getCountryName(agent.country)} calendar
               </p>
             )}
+            {/* Monthly Hours */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>This month</span>
+                </div>
+                {(() => {
+                  const now = new Date();
+                  const hours = getMonthlyHours(agent.id, now.getFullYear(), now.getMonth());
+                  const isOvertime = hours > TARGET_HOURS;
+                  return (
+                    <span className={`text-sm font-bold ${isOvertime ? 'text-red-600' : 'text-gray-700'}`}>
+                      {hours}/{TARGET_HOURS}h
+                    </span>
+                  );
+                })()}
+              </div>
+              {(() => {
+                const now = new Date();
+                const hours = getMonthlyHours(agent.id, now.getFullYear(), now.getMonth());
+                const pct = Math.min((hours / TARGET_HOURS) * 100, 100);
+                const isOvertime = hours > TARGET_HOURS;
+                return (
+                  <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${isOvertime ? 'bg-red-500' : 'bg-green-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         ))}
       </div>

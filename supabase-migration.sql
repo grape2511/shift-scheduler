@@ -119,6 +119,26 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- 6. Clock Records (for clock in/out tracking)
+create table clock_records (
+  id uuid primary key default gen_random_uuid(),
+  shift_id uuid references shifts(id) on delete cascade not null,
+  user_id uuid references profiles(id) on delete cascade not null,
+  clock_in timestamptz,
+  clock_out timestamptz,
+  unique(shift_id, user_id)
+);
+
+alter table clock_records enable row level security;
+
+create policy "Anyone can view clock_records" on clock_records for select using (true);
+create policy "Users can insert own clock_records" on clock_records for insert with check (auth.uid() = user_id);
+create policy "Users can update own clock_records" on clock_records for update using (auth.uid() = user_id);
+
+-- Add timezone and enabled_holiday_countries to profiles
+alter table profiles add column if not exists timezone text default 'auto';
+alter table profiles add column if not exists enabled_holiday_countries text[] default '{}';
+
 -- ============================================
 -- Indexes for performance
 -- ============================================
@@ -128,3 +148,5 @@ create index idx_shifts_recurring_group on shifts(recurring_group_id);
 create index idx_time_offs_user_date on time_offs(user_id, date);
 create index idx_notifications_user on notifications(user_id, created_at desc);
 create index idx_swap_requests_status on swap_requests(status);
+create index idx_clock_records_shift on clock_records(shift_id);
+create index idx_clock_records_user on clock_records(user_id);
