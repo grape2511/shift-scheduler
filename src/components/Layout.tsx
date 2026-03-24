@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
+import { COUNTRIES } from '../utils/holidays';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -171,6 +172,29 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                               ? state.currentUser.timezone
                               : undefined,
                           })}
+                        </p>
+                      </div>
+                      {/* Country selector */}
+                      <div className="px-3 py-2 border-b border-gray-100">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1.5">
+                          <MapPin className="w-3.5 h-3.5" />
+                          Country
+                        </div>
+                        <select
+                          value={state.currentUser.country || ''}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_USER',
+                            payload: { id: state.currentUser.id, updates: { country: e.target.value || undefined } },
+                          })}
+                          className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">No country set</option>
+                          {COUNTRIES.map(c => (
+                            <option key={c.code} value={c.code}>{c.name}</option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          Sets your public holidays on the calendar
                         </p>
                       </div>
                       <button
