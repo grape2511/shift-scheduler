@@ -6,13 +6,11 @@ import { COUNTRIES, getCountryName } from '../utils/holidays';
 const TARGET_HOURS = 40;
 
 export function AgentsView() {
-  const { state, agents, addAgent, dispatch, getMonthlyHours, getEnabledHolidayCountries } = useApp();
+  const { state, agents, addAgent, dispatch, getMonthlyHours } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [country, setCountry] = useState('NL');
-
-  const enabledCountries = getEnabledHolidayCountries();
 
   const toggleHolidayCountry = (code: string) => {
     const current = state.currentUser.enabledHolidayCountries || [];
