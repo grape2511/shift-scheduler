@@ -50,16 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile);
-      }
-      setLoading(false);
-    });
+    // Check if URL contains recovery token
+    if (window.location.hash.includes('type=recovery')) {
+      setIsPasswordRecovery(true);
+    }
 
-    // Listen for auth changes
+    // Listen for auth changes FIRST so we don't miss events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
@@ -71,6 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
       }
+      setLoading(false);
+    });
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user.id).then(setProfile);
+      }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -107,9 +113,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (newPassword: string) => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (!error) setIsPasswordRecovery(false);
-    return { error: error?.message || null };
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (!error) {
+        setIsPasswordRecovery(false);
+        return { error: null };
+      }
+      return { error: error.message };
+    } catch (e: any) {
+      return { error: e?.message || 'Failed to update password' };
+    }
   };
 
   const clearPasswordRecovery = () => setIsPasswordRecovery(false);
