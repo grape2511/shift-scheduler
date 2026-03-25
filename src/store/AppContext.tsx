@@ -750,7 +750,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       t => t.userId === agentId && t.date.startsWith(yearPrefix)
     ).length;
     const agent = state.users.find(u => u.id === agentId);
-    const total = agent?.ptoAllowance ?? 25;
+    const total = agent?.ptoAllowance ?? 21;
     return { used, total, remaining: total - used };
   };
 

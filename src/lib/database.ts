@@ -15,7 +15,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     country: p.country || undefined,
     timezone: p.timezone || undefined,
     enabledHolidayCountries: p.enabled_holiday_countries || undefined,
-    ptoAllowance: p.pto_allowance ?? 25,
+    ptoAllowance: p.pto_allowance ?? 21,
   }));
 }
 

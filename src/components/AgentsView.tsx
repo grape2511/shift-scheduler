@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
+import { v4 as uuid } from 'uuid';
+import { format, parseISO } from 'date-fns';
 
 const TARGET_HOURS = 40;
 
@@ -12,6 +14,24 @@ export function AgentsView() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [country, setCountry] = useState('NL');
+  const [addingTimeOffFor, setAddingTimeOffFor] = useState<string | null>(null);
+  const [timeOffDate, setTimeOffDate] = useState('');
+  const [timeOffReason, setTimeOffReason] = useState('');
+  const [expandedPto, setExpandedPto] = useState<string | null>(null);
+
+  const handleAddTimeOffForAgent = (agentId: string) => {
+    if (!timeOffDate) return;
+    dispatch({
+      type: 'ADD_TIME_OFF',
+      payload: { id: uuid(), userId: agentId, date: timeOffDate, reason: timeOffReason || undefined },
+    });
+    setTimeOffDate('');
+    setTimeOffReason('');
+    setAddingTimeOffFor(null);
+  };
+
+  const getAgentTimeOffs = (agentId: string) =>
+    state.timeOffs.filter(t => t.userId === agentId).sort((a, b) => b.date.localeCompare(a.date));
 
   const toggleHolidayCountry = (code: string) => {
     const current = state.currentUser.enabledHolidayCountries || [];
@@ -253,24 +273,27 @@ export function AgentsView() {
             </div>
             {/* PTO Balance */}
             <div className="mt-2 pt-2 border-t border-gray-100">
-              <div className="flex items-center justify-between">
+              <button
+                onClick={() => setExpandedPto(expandedPto === agent.id ? null : agent.id)}
+                className="w-full flex items-center justify-between"
+              >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Days off</span>
                 </div>
-                {(() => {
-                  const { remaining, total, used } = getPtoBalance(agent.id);
-                  const isOver = used > total;
-                  return (
-                    <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  {(() => {
+                    const { remaining, total, used } = getPtoBalance(agent.id);
+                    const isOver = used > total;
+                    return (
                       <span className={`text-sm font-bold ${isOver ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>
                         {remaining}/{total}
                       </span>
-                      <span className="text-[10px] text-gray-400">left</span>
-                    </div>
-                  );
-                })()}
-              </div>
+                    );
+                  })()}
+                  <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${expandedPto === agent.id ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
               {(() => {
                 const { used, total } = getPtoBalance(agent.id);
                 const pct = Math.min((used / total) * 100, 100);
@@ -284,20 +307,93 @@ export function AgentsView() {
                   </div>
                 );
               })()}
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-[10px] text-gray-400">Allowance:</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={agent.ptoAllowance ?? 25}
-                  onChange={e => dispatch({
-                    type: 'UPDATE_USER',
-                    payload: { id: agent.id, updates: { ptoAllowance: parseInt(e.target.value) || 0 } },
-                  })}
-                  className="w-14 px-1.5 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <span className="text-[10px] text-gray-400">days/year</span>
-              </div>
+
+              {expandedPto === agent.id && (
+                <div className="mt-3 space-y-3">
+                  {/* Allowance setting */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-400">Allowance:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={agent.ptoAllowance ?? 21}
+                      onChange={e => dispatch({
+                        type: 'UPDATE_USER',
+                        payload: { id: agent.id, updates: { ptoAllowance: parseInt(e.target.value) || 0 } },
+                      })}
+                      className="w-14 px-1.5 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <span className="text-[10px] text-gray-400">days/year</span>
+                  </div>
+
+                  {/* Add day off */}
+                  {addingTimeOffFor === agent.id ? (
+                    <div className="bg-amber-50 rounded-lg border border-amber-200 p-2.5 space-y-2">
+                      <input
+                        type="date"
+                        value={timeOffDate}
+                        onChange={e => setTimeOffDate(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <input
+                        type="text"
+                        value={timeOffReason}
+                        onChange={e => setTimeOffReason(e.target.value)}
+                        placeholder="Reason (optional)"
+                        className="w-full px-2 py-1.5 text-xs border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffReason(''); }}
+                          className="flex-1 px-2 py-1 text-xs text-gray-600 hover:bg-amber-100 rounded-lg"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleAddTimeOffForAgent(agent.id)}
+                          disabled={!timeOffDate}
+                          className="flex-1 px-2 py-1 text-xs font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setAddingTimeOffFor(agent.id)}
+                      className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Day Off
+                    </button>
+                  )}
+
+                  {/* Existing time off entries */}
+                  {(() => {
+                    const timeOffs = getAgentTimeOffs(agent.id);
+                    if (timeOffs.length === 0) return null;
+                    return (
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-gray-400 font-medium">Time off entries:</span>
+                        {timeOffs.map(to => (
+                          <div key={to.id} className="flex items-center justify-between px-2 py-1 bg-amber-50 rounded-lg text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-amber-800">{format(parseISO(to.date), 'MMM d, yyyy')}</span>
+                              {to.reason && <span className="text-amber-600">– {to.reason}</span>}
+                            </div>
+                            <button
+                              onClick={() => dispatch({ type: 'REMOVE_TIME_OFF', payload: to.id })}
+                              className="p-0.5 text-amber-400 hover:text-red-500 rounded transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         ))}
