@@ -51,8 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
-    // Check if URL contains recovery token
-    if (window.location.hash.includes('type=recovery')) {
+    // Check if URL contains auth tokens (OAuth callback or recovery)
+    const hash = window.location.hash;
+    const hasAuthCallback = hash.includes('access_token') || hash.includes('type=recovery');
+
+    if (hash.includes('type=recovery')) {
       setIsPasswordRecovery(true);
     }
 
@@ -71,27 +74,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Get initial session with timeout to prevent hanging on stale sessions
-    const timeout = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
+    // If we're in an OAuth/recovery callback, let onAuthStateChange handle it
+    // Otherwise, check for an existing session
+    if (!hasAuthCallback) {
+      const timeout = setTimeout(() => setLoading(false), 5000);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      clearTimeout(timeout);
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile);
-      }
-      setLoading(false);
-    }).catch(() => {
-      clearTimeout(timeout);
-      setLoading(false);
-    });
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        clearTimeout(timeout);
+        setSession(session);
+        if (session?.user) {
+          fetchProfile(session.user.id).then(setProfile);
+        }
+        setLoading(false);
+      }).catch(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
 
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+      return () => {
+        clearTimeout(timeout);
+        subscription.unsubscribe();
+      };
+    }
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string, name: string, role = 'agent') => {
