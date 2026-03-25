@@ -91,13 +91,15 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_USER':
       return { ...state, users: [...state.users, action.payload] };
 
-    case 'UPDATE_USER':
-      return {
-        ...state,
-        users: state.users.map(u =>
-          u.id === action.payload.id ? { ...u, ...action.payload.updates } : u
-        ),
-      };
+    case 'UPDATE_USER': {
+      const updatedUsers = state.users.map(u =>
+        u.id === action.payload.id ? { ...u, ...action.payload.updates } : u
+      );
+      const updatedCurrentUser = state.currentUser.id === action.payload.id
+        ? { ...state.currentUser, ...action.payload.updates }
+        : state.currentUser;
+      return { ...state, users: updatedUsers, currentUser: updatedCurrentUser };
+    }
 
     case 'REMOVE_USER':
       return {
