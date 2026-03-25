@@ -7,7 +7,7 @@ import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { getHolidays, getCountryName } from '../utils/holidays';
 
 export function MyShiftsView() {
-  const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours } = useApp();
+  const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours, getPtoBalance } = useApp();
   const [showTimeOff, setShowTimeOff] = useState(false);
   const [timeOffDate, setTimeOffDate] = useState('');
   const [timeOffReason, setTimeOffReason] = useState('');
@@ -27,6 +27,10 @@ export function MyShiftsView() {
   const handleAddTimeOff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!timeOffDate) return;
+    const { remaining } = getPtoBalance(state.currentUser.id);
+    if (remaining <= 0) {
+      if (!confirm('You have no remaining paid days off this year. Continue anyway?')) return;
+    }
     dispatch({
       type: 'ADD_TIME_OFF',
       payload: {
@@ -63,6 +67,22 @@ export function MyShiftsView() {
               </span>
             </div>
           </div>
+          {/* PTO Balance */}
+          {(() => {
+            const { remaining, total, used } = getPtoBalance(state.currentUser.id);
+            const isOver = used > total;
+            return (
+              <div className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <div className="text-sm">
+                  <span className="text-xs text-gray-400 block leading-tight">{now.getFullYear()}</span>
+                  <span className={`font-bold ${isOver ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-900'}`}>
+                    {remaining}/{total} days
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
           <button
             onClick={() => setShowTimeOff(!showTimeOff)}
             className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"

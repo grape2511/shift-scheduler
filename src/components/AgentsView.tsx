@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Trash2, Mail, MapPin, Clock, Globe } from 'lucide-react';
+import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
 
 const TARGET_HOURS = 40;
 
 export function AgentsView() {
-  const { state, agents, addAgent, dispatch, getMonthlyHours } = useApp();
+  const { state, agents, addAgent, dispatch, getMonthlyHours, getPtoBalance } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -223,6 +223,54 @@ export function AgentsView() {
                   </div>
                 );
               })()}
+            </div>
+            {/* PTO Balance */}
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Days off</span>
+                </div>
+                {(() => {
+                  const { remaining, total, used } = getPtoBalance(agent.id);
+                  const isOver = used > total;
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-sm font-bold ${isOver ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>
+                        {remaining}/{total}
+                      </span>
+                      <span className="text-[10px] text-gray-400">left</span>
+                    </div>
+                  );
+                })()}
+              </div>
+              {(() => {
+                const { used, total } = getPtoBalance(agent.id);
+                const pct = Math.min((used / total) * 100, 100);
+                const isOver = used > total;
+                return (
+                  <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${isOver ? 'bg-red-500' : 'bg-blue-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                );
+              })()}
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-[10px] text-gray-400">Allowance:</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={agent.ptoAllowance ?? 25}
+                  onChange={e => dispatch({
+                    type: 'UPDATE_USER',
+                    payload: { id: agent.id, updates: { ptoAllowance: parseInt(e.target.value) || 0 } },
+                  })}
+                  className="w-14 px-1.5 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <span className="text-[10px] text-gray-400">days/year</span>
+              </div>
             </div>
           </div>
         ))}

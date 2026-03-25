@@ -524,6 +524,7 @@ interface AppContextType {
   getClockRecord: (shiftId: string, userId: string) => ClockRecord | undefined;
   getMonthlyHours: (agentId: string, year: number, month: number) => number;
   getEnabledHolidayCountries: () => string[];
+  getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number };
   refreshData: () => Promise<void>;
 }
 
@@ -623,6 +624,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       name: u.name,
       timezone: u.timezone,
       enabledHolidayCountries: u.enabledHolidayCountries,
+      ptoAllowance: u.ptoAllowance,
     }));
   }, [state]);
 
@@ -739,6 +741,17 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     return Math.round((totalMinutes / 60) * 10) / 10; // 1 decimal
   };
 
+  const getPtoBalance = (agentId: string, year?: number) => {
+    const y = year ?? new Date().getFullYear();
+    const yearPrefix = `${y}-`;
+    const used = state.timeOffs.filter(
+      t => t.userId === agentId && t.date.startsWith(yearPrefix)
+    ).length;
+    const agent = state.users.find(u => u.id === agentId);
+    const total = agent?.ptoAllowance ?? 25;
+    return { used, total, remaining: total - used };
+  };
+
   const getEnabledHolidayCountries = (): string[] => {
     // Find admin users and get their enabled holiday countries
     const admin = state.users.find(u => u.role === 'admin' && u.enabledHolidayCountries && u.enabledHolidayCountries.length > 0);
@@ -770,6 +783,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       getClockRecord,
       getMonthlyHours,
       getEnabledHolidayCountries,
+      getPtoBalance,
       refreshData,
     }}>
       {children}

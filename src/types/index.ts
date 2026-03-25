@@ -9,6 +9,7 @@ export interface User {
   country?: string;
   timezone?: string;
   enabledHolidayCountries?: string[]; // admin only: which countries' holidays to show on calendar
+  ptoAllowance?: number; // annual paid days off
 }
 
 export interface Shift {

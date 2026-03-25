@@ -15,6 +15,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     country: p.country || undefined,
     timezone: p.timezone || undefined,
     enabledHolidayCountries: p.enabled_holiday_countries || undefined,
+    ptoAllowance: p.pto_allowance ?? 25,
   }));
 }
 
@@ -29,6 +30,7 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (updates.timezone !== undefined) dbUpdates.timezone = updates.timezone;
   if (updates.enabledHolidayCountries !== undefined) dbUpdates.enabled_holiday_countries = updates.enabledHolidayCountries;
   if (updates.enabled_holiday_countries !== undefined) dbUpdates.enabled_holiday_countries = updates.enabled_holiday_countries;
+  if (updates.ptoAllowance !== undefined) dbUpdates.pto_allowance = updates.ptoAllowance;
   const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
   if (error) console.error('updateProfile', error);
 }

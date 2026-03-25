@@ -135,9 +135,10 @@ create policy "Anyone can view clock_records" on clock_records for select using 
 create policy "Users can insert own clock_records" on clock_records for insert with check (auth.uid() = user_id);
 create policy "Users can update own clock_records" on clock_records for update using (auth.uid() = user_id);
 
--- Add timezone and enabled_holiday_countries to profiles
+-- Add timezone, enabled_holiday_countries, and pto_allowance to profiles
 alter table profiles add column if not exists timezone text default 'auto';
 alter table profiles add column if not exists enabled_holiday_countries text[] default '{}';
+alter table profiles add column if not exists pto_allowance integer default 25;
 
 -- ============================================
 -- Indexes for performance
