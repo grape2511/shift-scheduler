@@ -56,15 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsPasswordRecovery(true);
     }
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile);
-      }
-      setLoading(false);
-    });
-
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -77,9 +68,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
       }
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Get initial session with timeout to prevent hanging on stale sessions
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(timeout);
+      setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user.id).then(setProfile);
+      }
+      setLoading(false);
+    }).catch(() => {
+      clearTimeout(timeout);
+      setLoading(false);
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, name: string, role = 'agent') => {
