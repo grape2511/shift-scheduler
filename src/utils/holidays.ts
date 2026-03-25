@@ -9,12 +9,18 @@ export const COUNTRIES = [
   { code: 'DE', name: 'Germany' },
   { code: 'GB', name: 'United Kingdom' },
   { code: 'FR', name: 'France' },
+  { code: 'FI', name: 'Finland' },
+  { code: 'GR', name: 'Greece' },
+  { code: 'HU', name: 'Hungary' },
   { code: 'IL', name: 'Israel' },
   { code: 'ES', name: 'Spain' },
   { code: 'IT', name: 'Italy' },
+  { code: 'PH', name: 'Philippines' },
   { code: 'PL', name: 'Poland' },
+  { code: 'RO', name: 'Romania' },
   { code: 'BR', name: 'Brazil' },
   { code: 'IN', name: 'India' },
+  { code: 'VE', name: 'Venezuela' },
   { code: 'AU', name: 'Australia' },
   { code: 'JP', name: 'Japan' },
   { code: 'CA', name: 'Canada' },
@@ -238,6 +244,91 @@ function getHolidaysForCountry(code: string, year: number): PublicHoliday[] {
         { date: getNthWeekday(year, 9, 1, 2), name: 'Thanksgiving' },
         { date: `${year}-12-25`, name: 'Christmas Day' },
         { date: `${year}-12-26`, name: 'Boxing Day' },
+      ];
+    case 'FI':
+      return [
+        { date: `${year}-01-01`, name: "New Year's Day" },
+        { date: `${year}-01-06`, name: 'Epiphany' },
+        { date: fmt(goodFriday), name: 'Good Friday' },
+        { date: fmt(easterMonday), name: 'Easter Monday' },
+        { date: `${year}-05-01`, name: 'May Day' },
+        { date: fmt(ascension), name: 'Ascension Day' },
+        { date: getNthWeekday(year, 5, 6, 3), name: 'Midsummer Eve' },
+        { date: `${year}-12-06`, name: 'Independence Day' },
+        { date: `${year}-12-24`, name: 'Christmas Eve' },
+        { date: `${year}-12-25`, name: 'Christmas Day' },
+        { date: `${year}-12-26`, name: "St. Stephen's Day" },
+      ];
+    case 'GR':
+      return [
+        { date: `${year}-01-01`, name: "New Year's Day" },
+        { date: `${year}-01-06`, name: 'Epiphany' },
+        { date: fmt(goodFriday), name: 'Good Friday' },
+        { date: fmt(easterMonday), name: 'Easter Monday' },
+        { date: `${year}-03-25`, name: 'Independence Day' },
+        { date: `${year}-05-01`, name: 'Labour Day' },
+        { date: fmt(whitMonday), name: 'Whit Monday' },
+        { date: `${year}-08-15`, name: 'Assumption Day' },
+        { date: `${year}-10-28`, name: 'Ohi Day' },
+        { date: `${year}-12-25`, name: 'Christmas Day' },
+        { date: `${year}-12-26`, name: 'Second Day of Christmas' },
+      ];
+    case 'HU':
+      return [
+        { date: `${year}-01-01`, name: "New Year's Day" },
+        { date: `${year}-03-15`, name: 'National Day' },
+        { date: fmt(goodFriday), name: 'Good Friday' },
+        { date: fmt(easterMonday), name: 'Easter Monday' },
+        { date: `${year}-05-01`, name: 'Labour Day' },
+        { date: fmt(whitMonday), name: 'Whit Monday' },
+        { date: `${year}-08-20`, name: "St. Stephen's Day" },
+        { date: `${year}-10-23`, name: 'Republic Day' },
+        { date: `${year}-11-01`, name: "All Saints' Day" },
+        { date: `${year}-12-25`, name: 'Christmas Day' },
+        { date: `${year}-12-26`, name: 'Second Day of Christmas' },
+      ];
+    case 'RO':
+      return [
+        { date: `${year}-01-01`, name: "New Year's Day" },
+        { date: `${year}-01-02`, name: "Day After New Year" },
+        { date: `${year}-01-24`, name: 'Union Day' },
+        { date: fmt(easterMonday), name: 'Easter Monday' },
+        { date: `${year}-05-01`, name: 'Labour Day' },
+        { date: `${year}-06-01`, name: "Children's Day" },
+        { date: fmt(whitMonday), name: 'Whit Monday' },
+        { date: `${year}-08-15`, name: 'Assumption Day' },
+        { date: `${year}-11-30`, name: "St. Andrew's Day" },
+        { date: `${year}-12-01`, name: 'National Day' },
+        { date: `${year}-12-25`, name: 'Christmas Day' },
+        { date: `${year}-12-26`, name: 'Second Day of Christmas' },
+      ];
+    case 'PH':
+      return [
+        { date: `${year}-01-01`, name: "New Year's Day" },
+        { date: fmt(goodFriday), name: 'Good Friday' },
+        { date: `${year}-04-09`, name: 'Araw ng Kagitingan' },
+        { date: `${year}-05-01`, name: 'Labour Day' },
+        { date: `${year}-06-12`, name: 'Independence Day' },
+        { date: `${year}-08-21`, name: 'Ninoy Aquino Day' },
+        { date: getNthWeekday(year, 7, 1, 4), name: 'National Heroes Day' },
+        { date: `${year}-11-01`, name: "All Saints' Day" },
+        { date: `${year}-11-30`, name: 'Bonifacio Day' },
+        { date: `${year}-12-25`, name: 'Christmas Day' },
+        { date: `${year}-12-30`, name: 'Rizal Day' },
+      ];
+    case 'VE':
+      return [
+        { date: `${year}-01-01`, name: "New Year's Day" },
+        { date: fmt(addDaysToDate(easter, -48)), name: 'Carnival Monday' },
+        { date: fmt(addDaysToDate(easter, -47)), name: 'Carnival Tuesday' },
+        { date: fmt(goodFriday), name: 'Good Friday' },
+        { date: `${year}-04-19`, name: 'Declaration of Independence' },
+        { date: `${year}-05-01`, name: 'Labour Day' },
+        { date: `${year}-06-24`, name: 'Battle of Carabobo' },
+        { date: `${year}-07-05`, name: 'Independence Day' },
+        { date: `${year}-07-24`, name: 'Bolivar Day' },
+        { date: `${year}-10-12`, name: 'Indigenous Resistance Day' },
+        { date: `${year}-12-25`, name: 'Christmas Day' },
       ];
     default:
       return [];
