@@ -56,35 +56,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsPasswordRecovery(true);
     }
 
-    // Failsafe: always stop loading after 5 seconds no matter what
-    const timeout = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
+    let mounted = true;
 
-    // onAuthStateChange fires INITIAL_SESSION on load, then any auth events
+    // Initialize session
+    const init = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(session);
+        if (session?.user) {
+          fetchProfile(session.user.id).then(p => {
+            if (mounted) setProfile(p);
+          });
+        }
+      } catch {
+        // Session expired or invalid - that's fine, show login
+      }
+      if (mounted) setLoading(false);
+    };
+
+    // Start init with a race against a timeout
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 4000);
+
+    init().then(() => clearTimeout(timeout));
+
+    // Listen for subsequent auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
       }
-
+      if (!mounted) return;
       setSession(session);
-
       if (session?.user) {
-        try {
-          const p = await fetchProfile(session.user.id);
-          setProfile(p);
-        } catch {
-          setProfile(null);
-        }
+        fetchProfile(session.user.id).then(p => {
+          if (mounted) setProfile(p);
+        });
       } else {
         setProfile(null);
       }
-
       setLoading(false);
-      clearTimeout(timeout);
     });
 
     return () => {
+      mounted = false;
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
