@@ -624,6 +624,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       country: u.country,
       color: u.color,
       name: u.name,
+      role: u.role,
       timezone: u.timezone,
       enabledHolidayCountries: u.enabledHolidayCountries,
       ptoAllowance: u.ptoAllowance,
