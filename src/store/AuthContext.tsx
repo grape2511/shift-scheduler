@@ -41,6 +41,9 @@ async function fetchProfile(userId: string): Promise<User | null> {
     role: data.role as User['role'],
     color: data.color,
     country: data.country || undefined,
+    timezone: data.timezone || undefined,
+    enabledHolidayCountries: data.enabled_holiday_countries || undefined,
+    ptoAllowance: data.pto_allowance ?? 21,
   };
 }
 
