@@ -48,8 +48,8 @@ export function UserManagement() {
         <h3 className="text-sm font-medium text-gray-900 mb-3">Roles</h3>
         <div className="space-y-2">
           {ROLES.map(r => (
-            <div key={r.value} className="flex items-start gap-3">
-              <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${r.color} shrink-0 mt-0.5`}>
+            <div key={r.value} className="flex items-center gap-3">
+              <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${r.color} shrink-0 w-20 text-center`}>
                 {r.label}
               </span>
               <span className="text-xs text-gray-500">{r.description}</span>
