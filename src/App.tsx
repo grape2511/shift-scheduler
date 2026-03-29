@@ -7,6 +7,7 @@ import { AgentsView } from './components/AgentsView';
 import { MyShiftsView } from './components/MyShiftsView';
 import { AuthPage } from './components/AuthPage';
 import { SetNewPassword } from './components/SetNewPassword';
+import { UserManagement } from './components/UserManagement';
 
 function AppContent() {
   const { state } = useApp();
@@ -15,8 +16,9 @@ function AppContent() {
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
       {activeTab === 'schedule' && <ScheduleView />}
-      {activeTab === 'agents' && state.currentUser.role === 'admin' && <AgentsView />}
+      {activeTab === 'agents' && (state.currentUser.role === 'admin' || state.currentUser.role === 'team-lead') && <AgentsView />}
       {activeTab === 'my-shifts' && <MyShiftsView />}
+      {activeTab === 'user-management' && state.currentUser.role === 'admin' && <UserManagement />}
     </Layout>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
 import { COUNTRIES } from '../utils/holidays';
 
@@ -46,11 +46,13 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const unreadCount = getUnreadNotificationCount();
 
   const isAdmin = state.currentUser.role === 'admin';
+  const isLeadOrAdmin = isAdmin || state.currentUser.role === 'team-lead';
 
   const tabs = [
     { id: 'schedule', label: 'Schedule', icon: Calendar },
-    ...(isAdmin ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
+    ...(isLeadOrAdmin ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
     { id: 'my-shifts', label: 'My Shifts', icon: Clock },
+    ...(isAdmin ? [{ id: 'user-management', label: 'Users', icon: Shield }] : []),
   ];
 
   const handleSignOut = async () => {
