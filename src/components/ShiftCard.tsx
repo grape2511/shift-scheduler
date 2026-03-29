@@ -144,7 +144,15 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
           <span className={`text-[10px] font-semibold ${isFull ? 'text-white/90' : 'text-yellow-200'}`}>
             {filled}/{required} filled
           </span>
-          {!isAssignedToMe && !isFull && (
+          {isAssignedToMe ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleUnassign(state.currentUser.id); }}
+              className="text-[10px] font-semibold bg-white/25 hover:bg-red-400/50 rounded px-1.5 py-0.5 transition-colors"
+              title="Leave this shift"
+            >
+              Leave
+            </button>
+          ) : !isFull ? (
             <button
               onClick={(e) => { e.stopPropagation(); handleSelfJoin(); }}
               className="text-[10px] font-semibold bg-white/25 hover:bg-white/40 rounded px-1.5 py-0.5 transition-colors"
@@ -152,7 +160,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             >
               + Join
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -329,6 +337,15 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             </div>
           )}
 
+          {isAssignedToMe && (
+            <button
+              onClick={() => handleUnassign(state.currentUser.id)}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              <UserMinus className="w-3.5 h-3.5" />
+              Leave Shift
+            </button>
+          )}
           {!isAssignedToMe && !isFull && (
             <button
               onClick={handleSelfJoin}
