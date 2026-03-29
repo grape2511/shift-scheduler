@@ -1,5 +1,6 @@
 import { useApp } from '../store/AppContext';
 import { Mail } from 'lucide-react';
+import { updateProfile } from '../lib/database';
 import type { Role } from '../types';
 
 const ROLES: { value: Role; label: string; description: string; color: string }[] = [
@@ -25,6 +26,7 @@ export function UserManagement() {
       type: 'UPDATE_USER',
       payload: { id: userId, updates: { role: newRole } },
     });
+    updateProfile(userId, { role: newRole });
   };
 
   const sortedUsers = [...state.users].sort((a, b) => {

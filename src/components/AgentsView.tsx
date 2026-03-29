@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
+import { updateProfile } from '../lib/database';
 import { v4 as uuid } from 'uuid';
 import { format, parseISO } from 'date-fns';
 
@@ -42,6 +43,7 @@ export function AgentsView() {
       type: 'UPDATE_USER',
       payload: { id: state.currentUser.id, updates: { enabledHolidayCountries: updated } },
     });
+    updateProfile(state.currentUser.id, { enabledHolidayCountries: updated });
   };
 
   const handleAdd = (e: React.FormEvent) => {
@@ -59,7 +61,9 @@ export function AgentsView() {
   };
 
   const handleCountryChange = (agentId: string, newCountry: string) => {
-    dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { country: newCountry } } });
+    const country = newCountry || undefined;
+    dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { country } } });
+    updateProfile(agentId, { country: newCountry || null } as any);
   };
 
   return (
@@ -317,10 +321,11 @@ export function AgentsView() {
                       type="number"
                       min={0}
                       value={agent.ptoAllowance ?? 21}
-                      onChange={e => dispatch({
-                        type: 'UPDATE_USER',
-                        payload: { id: agent.id, updates: { ptoAllowance: parseInt(e.target.value) || 0 } },
-                      })}
+                      onChange={e => {
+                        const val = parseInt(e.target.value) || 0;
+                        dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { ptoAllowance: val } } });
+                        updateProfile(agent.id, { ptoAllowance: val });
+                      }}
                       className="w-14 px-1.5 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <span className="text-[10px] text-gray-400">days/year</span>
