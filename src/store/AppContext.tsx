@@ -549,9 +549,11 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         db.fetchAllSwapRequests(),
         db.fetchAllClockRecords().catch(() => [] as ClockRecord[]),
       ]);
+      // Use the freshly fetched profile for currentUser so admin settings persist
+      const freshCurrentUser = users.find(u => u.id === currentUser.id) || currentUser;
       dispatch({
         type: 'LOAD_STATE',
-        payload: { currentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords },
+        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords },
       });
     } catch (e) {
       console.error('refreshData failed:', e);
