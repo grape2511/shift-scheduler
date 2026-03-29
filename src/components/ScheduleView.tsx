@@ -6,23 +6,12 @@ import { Calendar, CalendarDays, List } from 'lucide-react';
 import type { ViewMode } from '../types';
 
 export function ScheduleView() {
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
 
   return (
     <div>
       {/* View Toggle */}
       <div className="flex items-center gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setViewMode('month')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            viewMode === 'month'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          Month
-        </button>
         <button
           onClick={() => setViewMode('week')}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -33,6 +22,17 @@ export function ScheduleView() {
         >
           <CalendarDays className="w-4 h-4" />
           Week
+        </button>
+        <button
+          onClick={() => setViewMode('month')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            viewMode === 'month'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          Month
         </button>
         <button
           onClick={() => setViewMode('day')}
