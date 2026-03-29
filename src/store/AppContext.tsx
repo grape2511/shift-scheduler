@@ -677,7 +677,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     }));
   }, [state]);
 
-  const agents = state.users.filter(u => u.role === 'agent');
+  const agents = state.users.filter(u => u.role === 'agent' || u.role === 'team-lead' || u.role === 'admin');
 
   const getAgentById = (id: string) => state.users.find(u => u.id === id);
 
@@ -749,8 +749,8 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       }
     }
 
-    // For agents viewing, also include their own country
-    if (state.currentUser.role === 'agent' && state.currentUser.country) {
+    // For current user, also include their own country
+    if (state.currentUser.country) {
       const alreadyShown = results.some(r => r.agent.country === state.currentUser.country);
       if (!alreadyShown) {
         const holidays = getPublicHolidays(state.currentUser.country, date);
