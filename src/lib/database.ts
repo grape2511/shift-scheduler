@@ -16,6 +16,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     timezone: p.timezone || undefined,
     enabledHolidayCountries: p.enabled_holiday_countries || undefined,
     ptoAllowance: p.pto_allowance ?? 21,
+    slackWebhookUrl: p.slack_webhook_url || undefined,
   }));
 }
 
@@ -31,6 +32,7 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (updates.enabledHolidayCountries !== undefined) dbUpdates.enabled_holiday_countries = updates.enabledHolidayCountries;
   if (updates.enabled_holiday_countries !== undefined) dbUpdates.enabled_holiday_countries = updates.enabled_holiday_countries;
   if (updates.ptoAllowance !== undefined) dbUpdates.pto_allowance = updates.ptoAllowance;
+  if (updates.slackWebhookUrl !== undefined) dbUpdates.slack_webhook_url = updates.slackWebhookUrl;
   const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
   if (error) console.error('updateProfile', error);
 }

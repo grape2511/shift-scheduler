@@ -44,6 +44,7 @@ async function fetchProfile(userId: string): Promise<User | null> {
     timezone: data.timezone || undefined,
     enabledHolidayCountries: data.enabled_holiday_countries || undefined,
     ptoAllowance: data.pto_allowance ?? 21,
+    slackWebhookUrl: data.slack_webhook_url || undefined,
   };
 }
 

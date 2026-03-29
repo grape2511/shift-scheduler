@@ -5,6 +5,7 @@ import { AGENT_COLORS, getNextColor } from '../utils/colors';
 import { addDays, addWeeks, formatDate } from '../utils/dates';
 import { getHolidaysForDate as getPublicHolidays, type PublicHoliday } from '../utils/holidays';
 import * as db from '../lib/database';
+import { sendSlackNotification } from '../utils/slack';
 
 interface AppState {
   currentUser: User;
@@ -581,6 +582,49 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     if (newShifts.length > 0) db.insertShifts(newShifts);
     if (deletedShiftIds.length > 0) db.deleteShifts(deletedShiftIds);
     updatedShifts.forEach(s => db.updateShift(s));
+
+    // Slack notifications
+    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+    if (slackUrl) {
+      const getAgentName = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
+
+      if (newShifts.length > 0) {
+        if (newShifts.length > 5) {
+          sendSlackNotification(slackUrl, `📅 *${newShifts.length} shifts created*: "${newShifts[0].name}" starting ${newShifts[0].date}`);
+        } else {
+          newShifts.forEach(s => sendSlackNotification(slackUrl,
+            `📅 *New shift*: "${s.name}" on ${s.date} (${s.startTime}–${s.endTime})${s.assignedAgentIds.length > 0 ? ` — Assigned: ${s.assignedAgentIds.map(getAgentName).join(', ')}` : ''}`
+          ));
+        }
+      }
+
+      if (deletedShiftIds.length > 0) {
+        const deletedShifts = prev.shifts.filter(s => deletedShiftIds.includes(s.id));
+        if (deletedShifts.length > 5) {
+          sendSlackNotification(slackUrl, `❌ *${deletedShifts.length} shifts cancelled*: "${deletedShifts[0].name}"`);
+        } else {
+          deletedShifts.forEach(s => sendSlackNotification(slackUrl,
+            `❌ *Shift cancelled*: "${s.name}" on ${s.date} (${s.startTime}–${s.endTime})`
+          ));
+        }
+      }
+
+      updatedShifts.forEach(s => {
+        const old = prev.shifts.find(ps => ps.id === s.id);
+        if (!old) return;
+        const newAgents = s.assignedAgentIds.filter(id => !old.assignedAgentIds.includes(id));
+        const removedAgents = old.assignedAgentIds.filter(id => !s.assignedAgentIds.includes(id));
+        if (newAgents.length > 0) {
+          sendSlackNotification(slackUrl, `👤 *${newAgents.map(getAgentName).join(', ')}* assigned to "${s.name}" on ${s.date}`);
+        }
+        if (removedAgents.length > 0) {
+          sendSlackNotification(slackUrl, `🚫 *${removedAgents.map(getAgentName).join(', ')}* removed from "${s.name}" on ${s.date}`);
+        }
+        if (old.startTime !== s.startTime || old.endTime !== s.endTime || old.name !== s.name) {
+          sendSlackNotification(slackUrl, `✏️ *Shift updated*: "${s.name}" on ${s.date} (${s.startTime}–${s.endTime})`);
+        }
+      });
+    }
 
     // Sync time offs
     const newTimeOffs = state.timeOffs.filter(t => !prev.timeOffs.some(pt => pt.id === t.id));
