@@ -198,7 +198,9 @@ export function MyShiftsView() {
       {/* Upcoming Shifts */}
       {upcomingShifts.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-gray-300 text-5xl mb-4">🗓️</div>
+          <div className="w-16 h-16 mx-auto mb-4 bg-indigo-100 rounded-2xl flex items-center justify-center">
+            <Calendar className="w-8 h-8 text-indigo-400" />
+          </div>
           <h3 className="text-lg font-medium text-gray-500">No upcoming shifts</h3>
           <p className="text-sm text-gray-400 mt-1">You haven't been assigned to any shifts yet</p>
         </div>
