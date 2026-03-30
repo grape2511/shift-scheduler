@@ -44,7 +44,8 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(editShift?.assignedAgentIds || []);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false);
-  const [rotationAgents, setRotationAgents] = useState<string[]>([]);
+  const [groupA, setGroupA] = useState<string[]>([]); // Sat week 1, Sun week 2
+  const [groupB, setGroupB] = useState<string[]>([]); // Sun week 1, Sat week 2
   const isRecurring = !!editShift?.recurringGroupId;
   const isAdmin = state.currentUser.role === 'admin';
   const isAssignedToMe = editShift?.assignedAgentIds.includes(state.currentUser.id) ?? false;
@@ -71,7 +72,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
         return;
       }
       dispatch({ type: 'UPDATE_SHIFT', payload: getUpdatedShift() });
-    } else if (recurring === 'weekend-rotation' && rotationAgents.length > 0) {
+    } else if (recurring === 'weekend-rotation' && (groupA.length > 0 || groupB.length > 0)) {
       dispatch({
         type: 'ADD_WEEKEND_ROTATION',
         payload: {
@@ -87,7 +88,8 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
             requiredAgents,
             color,
           },
-          rotationAgents,
+          groupA,
+          groupB,
         },
       });
     } else {
@@ -184,7 +186,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -331,61 +333,90 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
             )}
           </div>
 
-          {/* Weekend Rotation Agents */}
+          {/* Weekend Rotation Groups */}
           {recurring === 'weekend-rotation' && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                Rotation Agents (will alternate Sat ↔ Sun)
+              <label className="block text-xs font-medium text-gray-500 mb-2">
+                Assign agents to two groups that alternate Sat ↔ Sun
               </label>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {agents.map(agent => {
-                  const isSelected = rotationAgents.includes(agent.id);
-                  const idx = rotationAgents.indexOf(agent.id);
-                  return (
-                    <button
-                      key={agent.id}
-                      type="button"
-                      onClick={() =>
-                        setRotationAgents(prev =>
-                          isSelected
-                            ? prev.filter(id => id !== agent.id)
-                            : [...prev, agent.id]
-                        )
-                      }
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors text-left ${
-                        isSelected
-                          ? 'border-indigo-400 bg-indigo-50'
-                          : 'border-gray-150 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0"
-                        style={{ backgroundColor: agent.color }}
-                      >
-                        {agent.name[0]}
-                      </div>
-                      <span className="text-sm text-gray-700 flex-1">{agent.name}</span>
-                      {isSelected && (
-                        <span className="text-[10px] font-medium text-indigo-600">
-                          Week 1: {idx % 2 === 0 ? 'Sat' : 'Sun'}
-                        </span>
-                      )}
-                      {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Group A */}
+                <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
+                  <p className="text-xs font-semibold text-blue-700 mb-2">Group A — Sat week 1, Sun week 2</p>
+                  <div className="space-y-1.5">
+                    {agents.map(agent => {
+                      const inA = groupA.includes(agent.id);
+                      const inB = groupB.includes(agent.id);
+                      if (inB) return null;
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => setGroupA(prev => inA ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors ${
+                            inA ? 'border-blue-400 bg-blue-100 text-blue-800' : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                          }`}
+                        >
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: agent.color }}>
+                            {agent.name[0]}
+                          </div>
+                          <span className="flex-1 truncate">{agent.name.split(' ')[0]}</span>
+                          {inA && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Group B */}
+                <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/50">
+                  <p className="text-xs font-semibold text-purple-700 mb-2">Group B — Sun week 1, Sat week 2</p>
+                  <div className="space-y-1.5">
+                    {agents.map(agent => {
+                      const inA = groupA.includes(agent.id);
+                      const inB = groupB.includes(agent.id);
+                      if (inA) return null;
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => setGroupB(prev => inB ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors ${
+                            inB ? 'border-purple-400 bg-purple-100 text-purple-800' : 'border-gray-200 bg-white text-gray-700 hover:border-purple-300'
+                          }`}
+                        >
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: agent.color }}>
+                            {agent.name[0]}
+                          </div>
+                          <span className="flex-1 truncate">{agent.name.split(' ')[0]}</span>
+                          {inB && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-              {rotationAgents.length > 0 && (
-                <div className="mt-2 bg-indigo-50 rounded-lg border border-indigo-200 p-2.5">
-                  <p className="text-[10px] font-medium text-indigo-700 mb-1">Preview (first 4 weeks):</p>
-                  {[0, 1, 2, 3].map(week => (
-                    <div key={week} className="flex items-center gap-2 text-[10px] text-indigo-600 py-0.5">
-                      <span className="w-12 font-medium">Week {week + 1}:</span>
-                      <span>Sat → {rotationAgents.filter((_, i) => (i + week) % 2 === 0).map(id => agents.find(a => a.id === id)?.name?.split(' ')[0]).join(', ') || '—'}</span>
-                      <span className="text-indigo-400">|</span>
-                      <span>Sun → {rotationAgents.filter((_, i) => (i + week) % 2 === 1).map(id => agents.find(a => a.id === id)?.name?.split(' ')[0]).join(', ') || '—'}</span>
-                    </div>
-                  ))}
+
+              {/* Preview */}
+              {(groupA.length > 0 || groupB.length > 0) && (
+                <div className="mt-3 bg-gray-50 rounded-lg border border-gray-200 p-3">
+                  <p className="text-[10px] font-medium text-gray-500 mb-1.5">Preview (first 4 weeks):</p>
+                  <div className="grid grid-cols-3 gap-1 text-[10px]">
+                    <span className="font-medium text-gray-400"></span>
+                    <span className="font-medium text-gray-500 text-center">Saturday</span>
+                    <span className="font-medium text-gray-500 text-center">Sunday</span>
+                    {[0, 1, 2, 3].map(week => {
+                      const satGroup = week % 2 === 0 ? groupA : groupB;
+                      const sunGroup = week % 2 === 0 ? groupB : groupA;
+                      return (
+                        <div key={week} className="contents">
+                          <span className="font-medium text-gray-500 py-0.5">Week {week + 1}</span>
+                          <span className="text-blue-600 text-center py-0.5">{satGroup.map(id => agents.find(a => a.id === id)?.name?.split(' ')[0]).join(', ') || '—'}</span>
+                          <span className="text-purple-600 text-center py-0.5">{sunGroup.map(id => agents.find(a => a.id === id)?.name?.split(' ')[0]).join(', ') || '—'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -656,7 +687,7 @@ function AgentShiftView({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

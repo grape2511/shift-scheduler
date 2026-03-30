@@ -39,7 +39,7 @@ type Action =
   | { type: 'CREATE_SWAP_REQUEST'; payload: SwapRequest }
   | { type: 'ACCEPT_SWAP_REQUEST'; payload: string }
   | { type: 'DECLINE_SWAP_REQUEST'; payload: string }
-  | { type: 'ADD_WEEKEND_ROTATION'; payload: { shift: Shift; rotationAgents: string[] } }
+  | { type: 'ADD_WEEKEND_ROTATION'; payload: { shift: Shift; groupA: string[]; groupB: string[] } }
   | { type: 'UPDATE_SHIFT_ALL_RECURRING'; payload: Shift }
   | { type: 'UPDATE_SHIFT_FUTURE'; payload: Shift }
   | { type: 'CLOCK_IN'; payload: ClockRecord }
@@ -209,7 +209,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'ADD_WEEKEND_ROTATION': {
-      const { shift, rotationAgents } = action.payload;
+      const { shift, groupA, groupB } = action.payload;
       const groupId = uuid();
       const baseDate = new Date(shift.date + 'T12:00:00');
       const newShifts: Shift[] = [];
@@ -228,36 +228,34 @@ function reducer(state: AppState, action: Action): AppState {
         const sunDate = new Date(satDate);
         sunDate.setDate(sunDate.getDate() + 1);
 
-        // Agents alternate: even-indexed agents get Sat on even weeks, Sun on odd weeks
-        const satAgents = rotationAgents.filter((_, i) => (i + week) % 2 === 0);
-        const sunAgents = rotationAgents.filter((_, i) => (i + week) % 2 === 1);
+        // Even weeks: Group A on Sat, Group B on Sun
+        // Odd weeks: Group B on Sat, Group A on Sun
+        const satAgents = week % 2 === 0 ? groupA : groupB;
+        const sunAgents = week % 2 === 0 ? groupB : groupA;
 
-        // Saturday shift
-        const satShift: Shift = {
+        newShifts.push({
           ...shift,
           id: uuid(),
           date: formatDate(satDate),
-          assignedAgentIds: satAgents,
+          assignedAgentIds: [...satAgents],
           recurringGroupId: groupId,
-        };
-        newShifts.push(satShift);
+        });
 
-        // Sunday shift
-        const sunShift: Shift = {
+        newShifts.push({
           ...shift,
           id: uuid(),
           date: formatDate(sunDate),
-          assignedAgentIds: sunAgents,
+          assignedAgentIds: [...sunAgents],
           recurringGroupId: groupId,
-        };
-        newShifts.push(sunShift);
+        });
       }
 
       // Notify all rotation agents
-      rotationAgents.forEach(agentId => {
+      [...groupA, ...groupB].forEach(agentId => {
+        const inA = groupA.includes(agentId);
         notifications.push(createNotification(
           agentId,
-          `You've been added to weekend rotation for "${shift.name}" — alternating Sat/Sun for 26 weeks`,
+          `You've been added to weekend rotation for "${shift.name}" — starting ${inA ? 'Saturday' : 'Sunday'}, alternating for 26 weeks`,
           'assignment'
         ));
       });
