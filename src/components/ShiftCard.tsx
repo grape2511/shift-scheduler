@@ -123,7 +123,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
         {/* Agent names */}
         {assignedAgents.length > 0 && (
           <div className="mt-1 space-y-0.5">
-            {assignedAgents.slice(0, 3).map(agent => (
+            {assignedAgents.map(agent => (
               <div key={agent!.id} className="flex items-center gap-1 text-[10px] text-white/90">
                 <div
                   className="w-3.5 h-3.5 rounded-full border border-white/40 flex items-center justify-center text-[7px] shrink-0"
@@ -134,9 +134,6 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                 <span className="truncate">{agent!.name.split(' ')[0]}</span>
               </div>
             ))}
-            {assignedAgents.length > 3 && (
-              <span className="text-[10px] text-white/70">+{assignedAgents.length - 3} more</span>
-            )}
           </div>
         )}
         {/* Vacancy indicator + Join */}
