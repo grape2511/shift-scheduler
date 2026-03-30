@@ -11,7 +11,8 @@ export interface User {
   enabledHolidayCountries?: string[]; // admin only: which countries' holidays to show on calendar
   ptoAllowance?: number; // annual paid days off
   sickDaysAllowance?: number; // annual sick days (default 7)
-  label?: string; // admin-set label (e.g. "EU Team", "Senior")
+  label?: string; // deprecated, kept for backwards compat
+  labels?: string[]; // multiple labels from predefined list
   slackWebhookUrl?: string;
 }
 

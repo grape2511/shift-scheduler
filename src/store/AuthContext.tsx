@@ -46,6 +46,7 @@ async function fetchProfile(userId: string): Promise<User | null> {
     ptoAllowance: data.pto_allowance ?? 21,
     sickDaysAllowance: data.sick_days_allowance ?? 7,
     label: data.label || undefined,
+    labels: data.labels || undefined,
     slackWebhookUrl: data.slack_webhook_url || undefined,
   };
 }

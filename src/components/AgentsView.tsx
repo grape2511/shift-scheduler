@@ -21,6 +21,33 @@ export function AgentsView() {
   const [expandedPto, setExpandedPto] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [labelDropdownFor, setLabelDropdownFor] = useState<string | null>(null);
+  const [newLabelInput, setNewLabelInput] = useState('');
+
+  // Collect all unique labels across all agents
+  const allLabels = Array.from(new Set(
+    agents.flatMap(a => a.labels || []).concat(agents.map(a => a.label).filter(Boolean) as string[])
+  )).sort();
+
+  const toggleLabel = (agentId: string, label: string) => {
+    const agent = agents.find(a => a.id === agentId);
+    const current = agent?.labels || [];
+    const updated = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
+    dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { labels: updated } } });
+    updateProfile(agentId, { labels: updated });
+  };
+
+  const addNewLabel = (agentId: string) => {
+    if (!newLabelInput.trim()) return;
+    const agent = agents.find(a => a.id === agentId);
+    const current = agent?.labels || [];
+    if (!current.includes(newLabelInput.trim())) {
+      const updated = [...current, newLabelInput.trim()];
+      dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { labels: updated } } });
+      updateProfile(agentId, { labels: updated });
+    }
+    setNewLabelInput('');
+  };
 
   const handleAddTimeOffForAgent = (agentId: string) => {
     if (!timeOffDate) return;
@@ -275,9 +302,11 @@ export function AgentsView() {
 
       {/* Agents */}
       {(() => {
+        const q = searchQuery.toLowerCase();
         const filteredAgents = agents.filter(a =>
-          a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          a.email.toLowerCase().includes(searchQuery.toLowerCase())
+          a.name.toLowerCase().includes(q) ||
+          a.email.toLowerCase().includes(q) ||
+          (a.labels || []).some(l => l.toLowerCase().includes(q))
         );
 
         if (viewMode === 'list') {
@@ -345,13 +374,13 @@ export function AgentsView() {
                 {agent.name[0]}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 flex-wrap">
                   <h3 className="font-medium text-gray-900 truncate">{agent.name}</h3>
-                  {agent.label && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full shrink-0">
-                      {agent.label}
+                  {(agent.labels || []).map(l => (
+                    <span key={l} className="px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full shrink-0">
+                      {l}
                     </span>
-                  )}
+                  ))}
                 </div>
                 {agent.email && (
                   <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
@@ -385,19 +414,62 @@ export function AgentsView() {
                 Public holidays from {getCountryName(agent.country)} calendar
               </p>
             )}
-            {/* Label */}
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="text"
-                value={agent.label || ''}
-                onChange={e => {
-                  const val = e.target.value;
-                  dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { label: val || undefined } } });
-                  updateProfile(agent.id, { label: val || undefined });
-                }}
-                placeholder="Add label..."
-                className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-gray-300"
-              />
+            {/* Labels */}
+            <div className="mt-2 relative">
+              <div className="flex items-center gap-1 flex-wrap">
+                {(agent.labels || []).map(l => (
+                  <span key={l} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full">
+                    {l}
+                    <button onClick={() => toggleLabel(agent.id, l)} className="text-indigo-400 hover:text-red-500">
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+                <button
+                  onClick={() => setLabelDropdownFor(labelDropdownFor === agent.id ? null : agent.id)}
+                  className="px-1.5 py-0.5 text-[10px] font-medium text-gray-400 border border-dashed border-gray-300 rounded-full hover:border-indigo-300 hover:text-indigo-500 transition-colors"
+                >
+                  + Label
+                </button>
+              </div>
+              {labelDropdownFor === agent.id && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setLabelDropdownFor(null)} />
+                  <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 max-h-48 overflow-y-auto">
+                    {allLabels.map(l => {
+                      const hasIt = (agent.labels || []).includes(l);
+                      return (
+                        <button
+                          key={l}
+                          onClick={() => toggleLabel(agent.id, l)}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${hasIt ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${hasIt ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+                            {hasIt && <Check className="w-2.5 h-2.5 text-white" />}
+                          </div>
+                          {l}
+                        </button>
+                      );
+                    })}
+                    <div className="border-t border-gray-100 px-2 py-1.5 flex gap-1">
+                      <input
+                        type="text"
+                        value={newLabelInput}
+                        onChange={e => setNewLabelInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewLabel(agent.id); } }}
+                        placeholder="New label..."
+                        className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <button
+                        onClick={() => addNewLabel(agent.id)}
+                        className="px-2 py-1 text-xs font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             {/* Monthly Hours */}
             <div className="mt-3 pt-3 border-t border-gray-100">

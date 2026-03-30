@@ -18,6 +18,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     ptoAllowance: p.pto_allowance ?? 21,
     sickDaysAllowance: p.sick_days_allowance ?? 7,
     label: p.label || undefined,
+    labels: p.labels || undefined,
     slackWebhookUrl: p.slack_webhook_url || undefined,
   }));
 }
@@ -36,6 +37,7 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (updates.ptoAllowance !== undefined) dbUpdates.pto_allowance = updates.ptoAllowance;
   if (updates.sickDaysAllowance !== undefined) dbUpdates.sick_days_allowance = updates.sickDaysAllowance;
   if (updates.label !== undefined) dbUpdates.label = updates.label || null;
+  if (updates.labels !== undefined) dbUpdates.labels = updates.labels || [];
   if (updates.slackWebhookUrl !== undefined) dbUpdates.slack_webhook_url = updates.slackWebhookUrl;
   const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
   if (error) console.error('updateProfile', error);
