@@ -6,9 +6,10 @@ import type { SwapRequest } from '../types';
 
 interface NotificationPanelProps {
   onClose: () => void;
+  onTabChange?: (tab: string) => void;
 }
 
-export function NotificationPanel(_props: NotificationPanelProps) {
+export function NotificationPanel({ onClose, onTabChange }: NotificationPanelProps) {
   const { state, dispatch, getUserNotifications, getAgentById } = useApp();
   const notifications = getUserNotifications();
   const [activeSwap, setActiveSwap] = useState<SwapRequest | null>(null);
@@ -20,13 +21,19 @@ export function NotificationPanel(_props: NotificationPanelProps) {
     'swap-request': ArrowRightLeft,
   };
 
-  const handleNotificationClick = (notifId: string, swapRequestId?: string) => {
+  const handleNotificationClick = (notifId: string, message: string, swapRequestId?: string) => {
     dispatch({ type: 'MARK_NOTIFICATION_READ', payload: notifId });
     if (swapRequestId) {
       const swap = (state.swapRequests || []).find(r => r.id === swapRequestId && r.status === 'pending');
       if (swap) {
         setActiveSwap(swap);
+        return;
       }
+    }
+    // Navigate to time-off tab for time-off requests
+    if (message.includes('requesting') && message.includes('off on') && onTabChange) {
+      onTabChange('time-off-approval');
+      onClose();
     }
   };
 
@@ -172,7 +179,7 @@ export function NotificationPanel(_props: NotificationPanelProps) {
             return (
               <button
                 key={notif.id}
-                onClick={() => handleNotificationClick(notif.id, notif.swapRequestId)}
+                onClick={() => handleNotificationClick(notif.id, notif.message, notif.swapRequestId)}
                 className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
                   !notif.read ? 'bg-indigo-50/50' : ''
                 }`}

@@ -115,7 +115,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
                     <div className="absolute right-0 top-full mt-2 z-50">
-                      <NotificationPanel onClose={() => setShowNotifications(false)} />
+                      <NotificationPanel onClose={() => setShowNotifications(false)} onTabChange={onTabChange} />
                     </div>
                   </>
                 )}

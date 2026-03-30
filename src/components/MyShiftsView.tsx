@@ -8,6 +8,7 @@ import { getHolidays, getCountryName } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
 import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification } from '../lib/database';
+import { sendSlackNotification } from '../utils/slack';
 
 export function MyShiftsView() {
   const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours, getPtoBalance } = useApp();
@@ -66,6 +67,13 @@ export function MyShiftsView() {
         };
         dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
         insertNotification(notif);
+      }
+      // Slack notification
+      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+      if (slackUrl) {
+        sendSlackNotification(slackUrl,
+          `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffCategory}* off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`
+        );
       }
     }
     setTimeOffDate('');
