@@ -101,7 +101,7 @@ export function WeekView() {
           return (
             <div
               key={dateStr}
-              className={`bg-white min-h-[160px] ${today ? 'bg-indigo-50/30' : ''}`}
+              className={`bg-white min-h-[120px] sm:min-h-[160px] ${today ? 'bg-indigo-50/30' : ''}`}
             >
               {/* Day Header */}
               <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">

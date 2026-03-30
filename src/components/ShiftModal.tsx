@@ -245,7 +245,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
           </div>
 
           {/* Time */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Start Time</label>
               <input
@@ -339,7 +339,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
               <label className="block text-xs font-medium text-gray-500 mb-2">
                 Assign agents to two groups that alternate Sat ↔ Sun
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Group A */}
                 <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
                   <p className="text-xs font-semibold text-blue-700 mb-2">Group A — Sat week 1, Sun week 2</p>

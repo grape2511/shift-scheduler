@@ -145,7 +145,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                 {showUserMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="absolute right-0 top-full mt-2 w-56 sm:w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
                       <div className="px-3 py-2 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900">{state.currentUser.name}</p>
                         <p className="text-xs text-gray-400">{state.currentUser.email}</p>

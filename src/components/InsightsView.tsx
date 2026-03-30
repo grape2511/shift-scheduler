@@ -223,9 +223,9 @@ export function InsightsView() {
                 <th className="text-left px-4 py-2.5">Agent</th>
                 <th className="text-right px-4 py-2.5">Shifts</th>
                 <th className="text-right px-4 py-2.5">Hours</th>
-                <th className="text-right px-4 py-2.5">PTO</th>
-                <th className="text-right px-4 py-2.5">Sick</th>
-                <th className="px-4 py-2.5 w-40">Hours Distribution</th>
+                <th className="hidden sm:table-cell text-right px-4 py-2.5">PTO</th>
+                <th className="hidden sm:table-cell text-right px-4 py-2.5">Sick</th>
+                <th className="hidden md:table-cell px-4 py-2.5 w-40">Hours Distribution</th>
               </tr>
             </thead>
             <tbody>
@@ -247,9 +247,9 @@ export function InsightsView() {
                     </td>
                     <td className="text-right px-4 py-3 text-sm text-gray-700">{shifts}</td>
                     <td className="text-right px-4 py-3 text-sm font-bold text-gray-900">{hours}h</td>
-                    <td className="text-right px-4 py-3 text-sm text-gray-500">{ptoDays || '—'}</td>
-                    <td className="text-right px-4 py-3 text-sm text-gray-500">{sickDays || '—'}</td>
-                    <td className="px-4 py-3">
+                    <td className="hidden sm:table-cell text-right px-4 py-3 text-sm text-gray-500">{ptoDays || '—'}</td>
+                    <td className="hidden sm:table-cell text-right px-4 py-3 text-sm text-gray-500">{sickDays || '—'}</td>
+                    <td className="hidden md:table-cell px-4 py-3">
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>

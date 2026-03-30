@@ -113,7 +113,7 @@ export function TimeOffApproval() {
                 </div>
 
                 {/* Context: who else is off and shift coverage */}
-                <div className="mt-3 pt-3 border-t border-amber-100 grid grid-cols-2 gap-3">
+                <div className="mt-3 pt-3 border-t border-amber-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <p className="text-[10px] font-medium text-gray-400 uppercase mb-1">Also off this day</p>
                     {otherOffsOnDay.length > 0 ? (
@@ -185,7 +185,7 @@ export function TimeOffApproval() {
             return (
               <div
                 key={dateStr}
-                className={`bg-white min-h-[80px] ${isCurrentDay ? 'bg-indigo-50/30' : ''} ${!inMonth ? 'opacity-40' : ''}`}
+                className={`bg-white min-h-[50px] sm:min-h-[80px] ${isCurrentDay ? 'bg-indigo-50/30' : ''} ${!inMonth ? 'opacity-40' : ''}`}
               >
                 <div className="px-2 py-1 flex items-center justify-between">
                   <span className={`text-xs font-semibold ${isCurrentDay ? 'w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[10px]' : 'text-gray-500'}`}>

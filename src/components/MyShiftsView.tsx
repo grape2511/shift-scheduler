@@ -96,9 +96,9 @@ export function MyShiftsView() {
           <h2 className="text-lg font-semibold text-gray-900">My Shifts</h2>
           <p className="text-sm text-gray-500">{upcomingShifts.length} upcoming shifts</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Monthly Hours Counter */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white border border-gray-200 rounded-lg">
             <Clock className="w-4 h-4 text-gray-400" />
             <div className="text-sm">
               <span className="text-xs text-gray-400 block leading-tight">{format(now, 'MMMM')}</span>
@@ -138,7 +138,8 @@ export function MyShiftsView() {
             className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
           >
             <Calendar className="w-4 h-4" />
-            Request Time Off / OOO
+            <span className="hidden sm:inline">Request Time Off / OOO</span>
+            <span className="sm:hidden">Time Off</span>
           </button>
         </div>
       </div>
@@ -248,7 +249,7 @@ export function MyShiftsView() {
             <h3 className="text-sm font-semibold text-gray-900 mb-3">My Days Off</h3>
 
             {/* Stats row */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
               <div className="bg-amber-50 rounded-lg p-2.5 text-center">
                 <p className="text-xl font-bold text-amber-700">{monthTimeOffs.length}</p>
                 <p className="text-[9px] text-amber-500 font-medium uppercase">{format(now, 'MMM')}</p>
@@ -308,7 +309,7 @@ export function MyShiftsView() {
                   return (
                     <div
                       key={dateStr}
-                      className={`bg-white min-h-[80px] sm:min-h-[100px] ${
+                      className={`bg-white min-h-[60px] sm:min-h-[100px] ${
                         isCurrentDay ? 'bg-indigo-50/30' : ''
                       } ${!inMonth ? 'opacity-40' : ''} ${
                         timeOff ? 'bg-amber-50/50' : ''

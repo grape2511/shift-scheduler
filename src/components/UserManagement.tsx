@@ -60,7 +60,7 @@ export function UserManagement() {
 
       {/* Users list */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-2.5 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wider">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4 px-4 py-2.5 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wider">
           <span>User</span>
           <span>Current Role</span>
           <span>Change Role</span>
@@ -70,7 +70,7 @@ export function UserManagement() {
           return (
             <div
               key={user.id}
-              className={`grid grid-cols-[1fr_auto_auto] gap-4 items-center px-4 py-3 border-b border-gray-50 last:border-0 ${
+              className={`grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4 items-center px-4 py-3 border-b border-gray-50 last:border-0 ${
                 isCurrentUser ? 'bg-indigo-50/30' : ''
               }`}
             >

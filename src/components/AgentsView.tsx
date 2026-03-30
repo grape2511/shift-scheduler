@@ -312,12 +312,12 @@ export function AgentsView() {
         if (viewMode === 'list') {
           return (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wider">
                 <span>Agent</span>
-                <span>Country</span>
+                <span className="hidden sm:block">Country</span>
                 <span>Hours</span>
-                <span>PTO</span>
-                <span>Sick</span>
+                <span className="hidden sm:block">PTO</span>
+                <span className="hidden sm:block">Sick</span>
                 <span></span>
               </div>
               {filteredAgents.map(agent => {
@@ -327,7 +327,7 @@ export function AgentsView() {
                 const isOvertime = hours > TARGET_HOURS;
                 const isOverPto = used > total;
                 return (
-                  <div key={agent.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                  <div key={agent.id} className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0" style={{ backgroundColor: agent.color }}>
                         {agent.name.charAt(0).toUpperCase()}
@@ -340,10 +340,10 @@ export function AgentsView() {
                         </div>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 w-24 text-center">{agent.country ? getCountryName(agent.country) : '—'}</span>
+                    <span className="hidden sm:block text-xs text-gray-500 w-24 text-center">{agent.country ? getCountryName(agent.country) : '—'}</span>
                     <span className={`text-sm font-bold w-16 text-right ${isOvertime ? 'text-red-600' : 'text-gray-700'}`}>{hours}/{TARGET_HOURS}h</span>
-                    <span className={`text-sm font-bold w-16 text-right ${isOverPto ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>{remaining}/{total}</span>
-                    <span className={`text-sm font-bold w-12 text-right ${sickRemaining <= 1 ? 'text-red-600' : 'text-gray-500'}`}>{sickRemaining}/{sickTotal}</span>
+                    <span className={`hidden sm:block text-sm font-bold w-16 text-right ${isOverPto ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>{remaining}/{total}</span>
+                    <span className={`hidden sm:block text-sm font-bold w-12 text-right ${sickRemaining <= 1 ? 'text-red-600' : 'text-gray-500'}`}>{sickRemaining}/{sickTotal}</span>
                     <button
                       onClick={() => dispatch({ type: 'REMOVE_USER', payload: agent.id })}
                       className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg transition-colors"

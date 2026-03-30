@@ -132,7 +132,8 @@ export function MonthView() {
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-px bg-gray-200">
+        <div className="overflow-x-auto">
+        <div className="min-w-[640px] grid grid-cols-7 gap-px bg-gray-200">
           {calendarDays.map(day => {
             const dateStr = formatDate(day);
             const shifts = getShiftsForDate(dateStr);
@@ -144,7 +145,7 @@ export function MonthView() {
             return (
               <div
                 key={dateStr}
-                className={`bg-white min-h-[100px] sm:min-h-[120px] ${
+                className={`bg-white min-h-[60px] sm:min-h-[120px] ${
                   today ? 'bg-indigo-50/30' : ''
                 } ${!inMonth ? 'opacity-40' : ''}`}
               >
@@ -219,6 +220,7 @@ export function MonthView() {
               </div>
             );
           })}
+        </div>
         </div>
       </div>
 
