@@ -130,6 +130,7 @@ export async function fetchAllTimeOffs(): Promise<TimeOff[]> {
     date: t.date,
     reason: t.reason || undefined,
     category: t.category || undefined,
+    status: t.status || 'approved',
   }));
 }
 
@@ -140,6 +141,7 @@ export async function insertTimeOff(timeOff: TimeOff) {
     date: timeOff.date,
     reason: timeOff.reason || null,
     category: timeOff.category || null,
+    status: timeOff.status || 'approved',
   });
   if (error) console.error('insertTimeOff', error);
 }
@@ -147,6 +149,11 @@ export async function insertTimeOff(timeOff: TimeOff) {
 export async function deleteTimeOff(id: string) {
   const { error } = await supabase.from('time_offs').delete().eq('id', id);
   if (error) console.error('deleteTimeOff', error);
+}
+
+export async function updateTimeOffStatus(id: string, status: string) {
+  const { error } = await supabase.from('time_offs').update({ status }).eq('id', id);
+  if (error) console.error('updateTimeOffStatus', error);
 }
 
 // ---- Notifications ----

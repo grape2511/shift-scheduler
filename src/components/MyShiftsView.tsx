@@ -37,16 +37,37 @@ export function MyShiftsView() {
     } else if (timeOffCategory !== 'sick' && balance.remaining <= 0) {
       if (!confirm('You have no remaining paid days off this year. Continue anyway?')) return;
     }
+    const isAdmin = state.currentUser.role === 'admin';
+    const timeOffId = uuid();
+    const status = isAdmin ? 'approved' : 'pending';
     dispatch({
       type: 'ADD_TIME_OFF',
       payload: {
-        id: uuid(),
+        id: timeOffId,
         userId: state.currentUser.id,
         date: timeOffDate,
         reason: timeOffReason || undefined,
         category: timeOffCategory,
+        status,
       },
     });
+    // Notify the approver (einav@adrevival.io)
+    if (!isAdmin) {
+      const approver = state.users.find(u => u.email === 'einav@adrevival.io');
+      if (approver) {
+        dispatch({
+          type: 'ADD_NOTIFICATION',
+          payload: {
+            id: uuid(),
+            userId: approver.id,
+            message: `${state.currentUser.name} is requesting ${timeOffCategory || 'time'} off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`,
+            timestamp: new Date().toISOString(),
+            read: false,
+            type: 'info',
+          },
+        });
+      }
+    }
     setTimeOffDate('');
     setTimeOffReason('');
     setTimeOffCategory('vacation');
@@ -319,7 +340,7 @@ export function MyShiftsView() {
                             onClick={() => inMonth && handleCalendarDayClick(dateStr)}
                             title="Click to remove"
                           >
-                            {catInfo.label}{timeOff.reason ? `: ${timeOff.reason}` : ''}
+                            {(timeOff.status || 'approved') === 'pending' ? '⏳ ' : ''}{catInfo.label}{timeOff.reason ? `: ${timeOff.reason}` : ''}{(timeOff.status || 'approved') === 'rejected' ? ' ❌' : ''}
                           </div>
                         </div>
                       )}
@@ -366,10 +387,12 @@ export function MyShiftsView() {
                     {upcoming.slice(0, 5).map(to => {
                       const catInfo = getCategoryInfo(to.category);
                       return (
-                        <div key={to.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                        <div key={to.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${(to.status || 'approved') === 'pending' ? 'bg-amber-50 border border-amber-200' : (to.status || 'approved') === 'rejected' ? 'bg-red-50 border border-red-200 opacity-60' : 'bg-gray-50'}`}>
                           <div className="flex items-center gap-2 text-sm">
                             <span className="text-gray-800 font-medium">{format(parseISO(to.date), 'EEE, MMM d')}</span>
                             <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
+                            {(to.status || 'approved') === 'pending' && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded text-amber-700 bg-amber-100">Pending</span>}
+                            {(to.status || 'approved') === 'rejected' && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded text-red-700 bg-red-100">Rejected</span>}
                             {to.reason && <span className="text-gray-400 text-xs">– {to.reason}</span>}
                           </div>
                           <button onClick={() => handleRemoveTimeOff(to.id)} className="p-0.5 text-gray-300 hover:text-red-500 rounded transition-colors">

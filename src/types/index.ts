@@ -41,12 +41,15 @@ export const TIME_OFF_CATEGORIES: { value: TimeOffCategory; label: string; color
   { value: 'other', label: 'Other', color: 'text-gray-700 bg-gray-100' },
 ];
 
+export type TimeOffStatus = 'pending' | 'approved' | 'rejected';
+
 export interface TimeOff {
   id: string;
   userId: string;
   date: string; // ISO date string YYYY-MM-DD
   reason?: string;
   category?: TimeOffCategory;
+  status?: TimeOffStatus; // default 'approved' for backwards compat
 }
 
 export interface Notification {

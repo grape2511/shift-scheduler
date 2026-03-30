@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield, BarChart3 } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield, BarChart3, CalendarCheck } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
 import { COUNTRIES } from '../utils/holidays';
 
@@ -52,6 +52,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     ...(isLeadOrAdmin ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
     { id: 'my-shifts', label: 'My Shifts', icon: Clock },
+    ...(isAdmin ? [{ id: 'time-off-approval', label: 'Time Off', icon: CalendarCheck }] : []),
     ...(isAdmin ? [{ id: 'insights', label: 'Insights', icon: BarChart3 }] : []),
     ...(isAdmin ? [{ id: 'user-management', label: 'Users', icon: Shield }] : []),
   ];

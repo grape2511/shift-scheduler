@@ -31,6 +31,7 @@ type Action =
   | { type: 'ASSIGN_AGENT'; payload: { shiftId: string; agentId: string } }
   | { type: 'UNASSIGN_AGENT'; payload: { shiftId: string; agentId: string } }
   | { type: 'ADD_TIME_OFF'; payload: TimeOff }
+  | { type: 'UPDATE_TIME_OFF_STATUS'; payload: { id: string; status: string } }
   | { type: 'REMOVE_TIME_OFF'; payload: string }
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'MARK_NOTIFICATION_READ'; payload: string }
@@ -420,6 +421,14 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_TIME_OFF':
       return { ...state, timeOffs: [...state.timeOffs, action.payload] };
 
+    case 'UPDATE_TIME_OFF_STATUS':
+      return {
+        ...state,
+        timeOffs: state.timeOffs.map(t =>
+          t.id === action.payload.id ? { ...t, status: action.payload.status as any } : t
+        ),
+      };
+
     case 'REMOVE_TIME_OFF':
       return { ...state, timeOffs: state.timeOffs.filter(t => t.id !== action.payload) };
 
@@ -760,7 +769,8 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
   const hasConflict = (agentId: string, date: string) => {
-    if (state.timeOffs.some(t => t.userId === agentId && t.date === date)) return true;
+    // Only approved time offs block assignments
+    if (state.timeOffs.some(t => t.userId === agentId && t.date === date && (t.status || 'approved') === 'approved')) return true;
     const agent = state.users.find(u => u.id === agentId);
     if (agent?.country) {
       return getPublicHolidays(agent.country, date).length > 0;
@@ -855,7 +865,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const y = year ?? new Date().getFullYear();
     const yearPrefix = `${y}-`;
     const agentTimeOffs = state.timeOffs.filter(
-      t => t.userId === agentId && t.date.startsWith(yearPrefix)
+      t => t.userId === agentId && t.date.startsWith(yearPrefix) && (t.status || 'approved') === 'approved'
     );
     const sickUsed = agentTimeOffs.filter(t => t.category === 'sick').length;
     const used = agentTimeOffs.filter(t => t.category !== 'sick').length;
