@@ -864,7 +864,7 @@ function AgentShiftView({
               >
                 Leave Shift
               </button>
-            ) : !full ? (
+            ) : (
               <button
                 type="button"
                 onClick={onJoin}
@@ -872,7 +872,7 @@ function AgentShiftView({
               >
                 Join Shift
               </button>
-            ) : null}
+            )}
           </div>
         </div>
       </div>

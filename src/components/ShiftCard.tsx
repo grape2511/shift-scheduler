@@ -107,7 +107,6 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
 
   const required = shift.requiredAgents || 1;
   const filled = assignedAgents.length;
-  const isFull = filled >= required;
 
   if (compact) {
     return (
@@ -138,7 +137,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
         )}
         {/* Vacancy indicator + Join */}
         <div className="mt-1 flex items-center justify-between">
-          <span className={`text-[10px] font-semibold ${isFull ? 'text-white/90' : 'text-yellow-200'}`}>
+          <span className={`text-[10px] font-semibold ${filled > required ? 'text-green-200' : filled >= required ? 'text-white/90' : 'text-yellow-200'}`}>
             {filled}/{required} filled
           </span>
           {isAssignedToMe ? (
@@ -149,7 +148,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             >
               Leave
             </button>
-          ) : !isFull ? (
+          ) : (
             <button
               onClick={(e) => { e.stopPropagation(); handleSelfJoin(); }}
               className="text-[10px] font-semibold bg-white/25 hover:bg-white/40 rounded px-1.5 py-0.5 transition-colors"
@@ -157,7 +156,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             >
               + Join
             </button>
-          ) : null}
+          )}
         </div>
       </div>
     );
@@ -349,7 +348,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
               Leave Shift
             </button>
           )}
-          {!isAssignedToMe && !isFull && (
+          {!isAssignedToMe && (
             <button
               onClick={handleSelfJoin}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
