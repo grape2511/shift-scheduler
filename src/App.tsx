@@ -8,6 +8,7 @@ import { MyShiftsView } from './components/MyShiftsView';
 import { AuthPage } from './components/AuthPage';
 import { SetNewPassword } from './components/SetNewPassword';
 import { UserManagement } from './components/UserManagement';
+import { ShiftPrompt } from './components/ShiftPrompt';
 
 function AppContent() {
   const { state } = useApp();
@@ -61,6 +62,7 @@ function AuthenticatedApp() {
   return (
     <AppProvider currentUser={profile}>
       <AppContent />
+      <ShiftPrompt />
     </AppProvider>
   );
 }
