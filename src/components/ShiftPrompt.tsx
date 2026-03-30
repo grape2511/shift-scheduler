@@ -140,7 +140,7 @@ export function ShiftPrompt() {
             <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mb-4">
               <div className="flex items-center gap-2 text-sm text-blue-700">
                 <MessageSquare className="w-4 h-4 shrink-0" />
-                <p>Don't forget to say <strong>good morning</strong> in <strong>#support_team_on_duty</strong> on Slack!</p>
+                <p>Remember to greet your teammates <strong>good morning</strong> in <strong>#support_team_on_duty</strong> on Slack!</p>
               </div>
             </div>
 
