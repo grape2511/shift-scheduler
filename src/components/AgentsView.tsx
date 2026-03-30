@@ -345,7 +345,14 @@ export function AgentsView() {
                 {agent.name[0]}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-gray-900 truncate">{agent.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-gray-900 truncate">{agent.name}</h3>
+                  {agent.label && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full shrink-0">
+                      {agent.label}
+                    </span>
+                  )}
+                </div>
                 {agent.email && (
                   <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
                     <Mail className="w-3 h-3" />
@@ -378,6 +385,20 @@ export function AgentsView() {
                 Public holidays from {getCountryName(agent.country)} calendar
               </p>
             )}
+            {/* Label */}
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="text"
+                value={agent.label || ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { label: val || undefined } } });
+                  updateProfile(agent.id, { label: val || undefined });
+                }}
+                placeholder="Add label..."
+                className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-gray-300"
+              />
+            </div>
             {/* Monthly Hours */}
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex items-center justify-between">

@@ -45,6 +45,7 @@ async function fetchProfile(userId: string): Promise<User | null> {
     enabledHolidayCountries: data.enabled_holiday_countries || undefined,
     ptoAllowance: data.pto_allowance ?? 21,
     sickDaysAllowance: data.sick_days_allowance ?? 7,
+    label: data.label || undefined,
     slackWebhookUrl: data.slack_webhook_url || undefined,
   };
 }
