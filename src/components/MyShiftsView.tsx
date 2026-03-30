@@ -121,6 +121,18 @@ export function MyShiftsView() {
         </div>
       </div>
 
+      {/* PTO Policy Link */}
+      <div className="mb-4 flex items-center gap-2 text-xs text-indigo-600">
+        <a
+          href="https://www.notion.so/PTO-Sick-Days-and-Holiday-Policy-27ec329efb4180258b20f57502902041"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          📋 Read our PTO, Sick Days &amp; Holiday Policy
+        </a>
+      </div>
+
       {/* My Public Holidays */}
       {state.currentUser.country && (() => {
         const holidays = getHolidays(state.currentUser.country!, now.getFullYear())
