@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X } from 'lucide-react';
+import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
 import { updateProfile } from '../lib/database';
 import { v4 as uuid } from 'uuid';
@@ -19,6 +19,8 @@ export function AgentsView() {
   const [timeOffDate, setTimeOffDate] = useState('');
   const [timeOffReason, setTimeOffReason] = useState('');
   const [expandedPto, setExpandedPto] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleAddTimeOffForAgent = (agentId: string) => {
     if (!timeOffDate) return;
@@ -68,7 +70,7 @@ export function AgentsView() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Agents</h2>
           <p className="text-sm text-gray-500">{agents.length} team members</p>
@@ -80,6 +82,36 @@ export function AgentsView() {
           <Plus className="w-4 h-4" />
           Add Agent
         </button>
+      </div>
+
+      {/* Search and View Toggle */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search agents..."
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            title="Grid view"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            title="List view"
+          >
+            <List className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Add Agent Form */}
@@ -241,9 +273,64 @@ export function AgentsView() {
         )}
       </div>
 
-      {/* Agents Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {agents.map(agent => (
+      {/* Agents */}
+      {(() => {
+        const filteredAgents = agents.filter(a =>
+          a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.email.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        if (viewMode === 'list') {
+          return (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <span>Agent</span>
+                <span>Country</span>
+                <span>Hours</span>
+                <span>Days Off</span>
+                <span></span>
+              </div>
+              {filteredAgents.map(agent => {
+                const now = new Date();
+                const hours = getMonthlyHours(agent.id, now.getFullYear(), now.getMonth());
+                const { remaining, total, used } = getPtoBalance(agent.id);
+                const isOvertime = hours > TARGET_HOURS;
+                const isOverPto = used > total;
+                return (
+                  <div key={agent.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0" style={{ backgroundColor: agent.color }}>
+                        {agent.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{agent.name}</p>
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <Mail className="w-3 h-3" />
+                          <span className="truncate">{agent.email}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-500 w-24 text-center">{agent.country ? getCountryName(agent.country) : '—'}</span>
+                    <span className={`text-sm font-bold w-16 text-right ${isOvertime ? 'text-red-600' : 'text-gray-700'}`}>{hours}/{TARGET_HOURS}h</span>
+                    <span className={`text-sm font-bold w-16 text-right ${isOverPto ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>{remaining}/{total}</span>
+                    <button
+                      onClick={() => dispatch({ type: 'REMOVE_USER', payload: agent.id })}
+                      className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+              {filteredAgents.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-gray-400">No agents match your search</div>
+              )}
+            </div>
+          );
+        }
+
+        return (<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filteredAgents.map(agent => (
           <div
             key={agent.id}
             className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow"
@@ -449,7 +536,11 @@ export function AgentsView() {
             </div>
           </div>
         ))}
-      </div>
+        {filteredAgents.length === 0 && (
+          <div className="col-span-full px-4 py-8 text-center text-sm text-gray-400">No agents match your search</div>
+        )}
+      </div>);
+      })()}
     </div>
   );
 }
