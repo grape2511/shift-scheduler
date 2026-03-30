@@ -20,7 +20,7 @@ export function MyShiftsView() {
   const today = startOfDay(new Date());
   const now = new Date();
   const monthlyHours = getMonthlyHours(state.currentUser.id, now.getFullYear(), now.getMonth());
-  const TARGET_HOURS = 40;
+  const TARGET_HOURS = 208;
   const isOvertime = monthlyHours > TARGET_HOURS;
 
   const upcomingShifts = myShifts.filter(s => !isBefore(parseISO(s.date), today));

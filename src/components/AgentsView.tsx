@@ -6,7 +6,7 @@ import { updateProfile } from '../lib/database';
 import { v4 as uuid } from 'uuid';
 import { format, parseISO } from 'date-fns';
 
-const TARGET_HOURS = 40;
+const TARGET_HOURS = 208;
 
 export function AgentsView() {
   const { state, agents, addAgent, dispatch, getMonthlyHours, getPtoBalance } = useApp();
