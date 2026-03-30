@@ -7,6 +7,7 @@ import { format, parseISO, isBefore, startOfDay, addMonths, isSameMonth, isToday
 import { getHolidays, getCountryName } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
+import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification } from '../lib/database';
 
 export function MyShiftsView() {
   const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours, getPtoBalance } = useApp();
@@ -39,33 +40,32 @@ export function MyShiftsView() {
     }
     const isAdmin = state.currentUser.role === 'admin';
     const timeOffId = uuid();
-    const status = isAdmin ? 'approved' : 'pending';
-    dispatch({
-      type: 'ADD_TIME_OFF',
-      payload: {
-        id: timeOffId,
-        userId: state.currentUser.id,
-        date: timeOffDate,
-        reason: timeOffReason || undefined,
-        category: timeOffCategory,
-        status,
-      },
-    });
+    const status = (isAdmin ? 'approved' : 'pending') as 'approved' | 'pending';
+    const timeOffRecord = {
+      id: timeOffId,
+      userId: state.currentUser.id,
+      date: timeOffDate,
+      reason: timeOffReason || undefined,
+      category: timeOffCategory,
+      status,
+    };
+    dispatch({ type: 'ADD_TIME_OFF', payload: timeOffRecord });
+    // Write directly to DB (don't rely on sync)
+    insertTimeOff(timeOffRecord);
     // Notify the approver (einav@adrevival.io)
     if (!isAdmin) {
       const approver = state.users.find(u => u.email === 'einav@adrevival.io');
       if (approver) {
-        dispatch({
-          type: 'ADD_NOTIFICATION',
-          payload: {
-            id: uuid(),
-            userId: approver.id,
-            message: `${state.currentUser.name} is requesting ${timeOffCategory || 'time'} off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`,
-            timestamp: new Date().toISOString(),
-            read: false,
-            type: 'info',
-          },
-        });
+        const notif = {
+          id: uuid(),
+          userId: approver.id,
+          message: `${state.currentUser.name} is requesting ${timeOffCategory || 'time'} off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          type: 'info' as const,
+        };
+        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+        insertNotification(notif);
       }
     }
     setTimeOffDate('');
@@ -86,6 +86,7 @@ export function MyShiftsView() {
 
   const handleRemoveTimeOff = (id: string) => {
     dispatch({ type: 'REMOVE_TIME_OFF', payload: id });
+    dbDeleteTimeOff(id);
   };
 
   return (
