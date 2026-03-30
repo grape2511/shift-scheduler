@@ -37,7 +37,7 @@ export const TIME_OFF_CATEGORIES: { value: TimeOffCategory; label: string; color
   { value: 'sick', label: 'Sick Day', color: 'text-red-700 bg-red-50' },
   { value: 'personal', label: 'Personal', color: 'text-purple-700 bg-purple-50' },
   { value: 'family', label: 'Family / Emergency', color: 'text-amber-700 bg-amber-50' },
-  { value: 'religious', label: 'Religious Holiday', color: 'text-teal-700 bg-teal-50' },
+  { value: 'religious', label: 'Religious / Public Holiday', color: 'text-teal-700 bg-teal-50' },
   { value: 'other', label: 'Other', color: 'text-gray-700 bg-gray-100' },
 ];
 
