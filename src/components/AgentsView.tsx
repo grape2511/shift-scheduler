@@ -459,8 +459,8 @@ export function AgentsView() {
               {expandedPto === agent.id && (
                 <div className="mt-3 space-y-3">
                   {/* Allowance setting */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-400">Allowance:</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-gray-400">PTO:</span>
                     <input
                       type="number"
                       min={0}
@@ -470,7 +470,19 @@ export function AgentsView() {
                         dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { ptoAllowance: val } } });
                         updateProfile(agent.id, { ptoAllowance: val });
                       }}
-                      className="w-14 px-1.5 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-12 px-1 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <span className="text-[10px] text-gray-400">Sick:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={agent.sickDaysAllowance ?? 7}
+                      onChange={e => {
+                        const val = parseInt(e.target.value) || 0;
+                        dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { sickDaysAllowance: val } } });
+                        updateProfile(agent.id, { sickDaysAllowance: val });
+                      }}
+                      className="w-12 px-1 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <span className="text-[10px] text-gray-400">days/year</span>
                   </div>
