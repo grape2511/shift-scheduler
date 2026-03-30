@@ -495,21 +495,12 @@ function ActiveShiftClock() {
   const myShiftsToday = getShiftsForAgent(state.currentUser.id).filter(s => s.date === todayStr);
 
   // Find shifts needing clock action
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
 
   const activeShift = myShiftsToday.find(s => {
     const record = getClockRecord(s.id, state.currentUser.id);
     return record?.clockIn && !record?.clockOut;
   });
 
-  const needsClockIn = myShiftsToday.find(s => {
-    const [h, m] = s.startTime.split(':').map(Number);
-    const startMin = h * 60 + m;
-    const [eh, em] = s.endTime.split(':').map(Number);
-    const endMin = eh < h ? em + 1440 : eh * 60 + em;
-    const record = getClockRecord(s.id, state.currentUser.id);
-    return !record && nowMinutes >= startMin - 15 && nowMinutes < endMin;
-  });
 
   const activeRecord = activeShift ? getClockRecord(activeShift.id, state.currentUser.id) : undefined;
 
@@ -542,89 +533,69 @@ function ActiveShiftClock() {
     });
   };
 
-  if (!activeShift && !needsClockIn) {
-    // Show completed shifts for today
-    const completedToday = myShiftsToday.filter(s => {
-      const record = getClockRecord(s.id, state.currentUser.id);
-      return record?.clockIn && record?.clockOut;
-    });
-    if (completedToday.length === 0 && myShiftsToday.length === 0) return null;
-    if (completedToday.length === 0) return null;
+  if (myShiftsToday.length === 0) return null;
 
-    return (
-      <div className="mb-4 bg-gray-50 rounded-xl border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Today's Shifts</h3>
-        {completedToday.map(s => {
-          const record = getClockRecord(s.id, state.currentUser.id)!;
-          const diff = new Date(record.clockOut!).getTime() - new Date(record.clockIn!).getTime();
-          const hrs = Math.floor(diff / 3600000);
-          const mins = Math.round((diff % 3600000) / 60000);
+  return (
+    <div className="mb-4 bg-white rounded-xl border border-gray-200 p-4">
+      <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <Clock className="w-4 h-4 text-indigo-500" />
+        Today's Shifts
+      </h3>
+      <div className="space-y-2">
+        {myShiftsToday.map(s => {
+          const record = getClockRecord(s.id, state.currentUser.id);
+          const isClockedIn = record?.clockIn && !record?.clockOut;
+          const isCompleted = record?.clockIn && record?.clockOut;
+
           return (
-            <div key={s.id} className="flex items-center justify-between text-sm py-1">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-gray-700">{s.name}</span>
+            <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border ${
+              isClockedIn ? 'bg-green-50 border-green-200' : isCompleted ? 'bg-gray-50 border-gray-200' : 'bg-amber-50 border-amber-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                {isClockedIn && <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />}
+                {isCompleted && <div className="w-2.5 h-2.5 bg-gray-400 rounded-full" />}
+                {!record && <div className="w-2.5 h-2.5 bg-amber-400 rounded-full" />}
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{s.name}</p>
+                  <p className="text-xs text-gray-500">{s.startTime} – {s.endTime}</p>
+                </div>
               </div>
-              <span className="text-gray-500 font-medium">{hrs}h {mins}m</span>
+
+              <div className="flex items-center gap-3">
+                {isClockedIn && (
+                  <>
+                    <p className="text-lg font-mono font-bold text-green-800">{formatElapsed(elapsed)}</p>
+                    <button
+                      onClick={() => handleClockOut(s.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Clock Out
+                    </button>
+                  </>
+                )}
+                {isCompleted && (() => {
+                  const diff = new Date(record!.clockOut!).getTime() - new Date(record!.clockIn!).getTime();
+                  const hrs = Math.floor(diff / 3600000);
+                  const mins = Math.round((diff % 3600000) / 60000);
+                  return <span className="text-sm font-medium text-gray-500">{hrs}h {mins}m ✓</span>;
+                })()}
+                {!record && (
+                  <button
+                    onClick={() => handleClockIn(s.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    Clock In
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
-    );
-  }
-
-  if (activeShift && activeRecord) {
-    return (
-      <div className="mb-4 bg-green-50 rounded-xl border border-green-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-            <div>
-              <h3 className="text-sm font-semibold text-green-800">{activeShift.name}</h3>
-              <p className="text-xs text-green-600">Clocked in at {new Date(activeRecord.clockIn!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-2xl font-mono font-bold text-green-800">{formatElapsed(elapsed)}</p>
-            </div>
-            <button
-              onClick={() => handleClockOut(activeShift.id)}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Clock Out
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (needsClockIn) {
-    return (
-      <div className="mb-4 bg-amber-50 rounded-xl border border-amber-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-amber-600" />
-            <div>
-              <h3 className="text-sm font-semibold text-amber-800">{needsClockIn.name}</h3>
-              <p className="text-xs text-amber-600">{needsClockIn.startTime} – {needsClockIn.endTime}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => handleClockIn(needsClockIn.id)}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <LogIn className="w-4 h-4" />
-            Clock In
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
 function SwapRequestsSection({
