@@ -23,7 +23,7 @@ export interface Shift {
   endTime: string; // HH:mm
   timezone: string;
   assignedAgentIds: string[];
-  recurring: 'none' | 'daily' | 'weekly' | 'forever-daily' | 'forever-weekly' | 'weekdays' | 'weekends';
+  recurring: 'none' | 'daily' | 'weekly' | 'forever-daily' | 'forever-weekly' | 'weekdays' | 'weekends' | 'weekend-rotation';
   recurringGroupId?: string;
   requiredAgents: number;
   color: string;

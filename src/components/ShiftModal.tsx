@@ -44,6 +44,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(editShift?.assignedAgentIds || []);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false);
+  const [rotationAgents, setRotationAgents] = useState<string[]>([]);
   const isRecurring = !!editShift?.recurringGroupId;
   const isAdmin = state.currentUser.role === 'admin';
   const isAssignedToMe = editShift?.assignedAgentIds.includes(state.currentUser.id) ?? false;
@@ -70,6 +71,25 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
         return;
       }
       dispatch({ type: 'UPDATE_SHIFT', payload: getUpdatedShift() });
+    } else if (recurring === 'weekend-rotation' && rotationAgents.length > 0) {
+      dispatch({
+        type: 'ADD_WEEKEND_ROTATION',
+        payload: {
+          shift: {
+            id: uuid(),
+            name,
+            date,
+            startTime,
+            endTime,
+            timezone,
+            assignedAgentIds: [],
+            recurring: 'weekend-rotation',
+            requiredAgents,
+            color,
+          },
+          rotationAgents,
+        },
+      });
     } else {
       dispatch({
         type: 'ADD_SHIFT',
@@ -270,6 +290,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                 { value: 'weekly', label: 'Weekly (4w)' },
                 { value: 'weekdays', label: 'Weekdays' },
                 { value: 'weekends', label: 'Weekends' },
+                { value: 'weekend-rotation', label: 'Weekend Rotation' },
                 { value: 'forever-daily', label: 'Daily Forever' },
                 { value: 'forever-weekly', label: 'Weekly Forever' },
               ] as const).map(opt => (
@@ -305,7 +326,70 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
             {recurring === 'forever-weekly' && (
               <p className="text-xs text-gray-400 mt-1">Creates weekly shifts for the next 52 weeks</p>
             )}
+            {recurring === 'weekend-rotation' && (
+              <p className="text-xs text-gray-400 mt-1">Each agent alternates Sat/Sun every week for 26 weeks</p>
+            )}
           </div>
+
+          {/* Weekend Rotation Agents */}
+          {recurring === 'weekend-rotation' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                Rotation Agents (will alternate Sat ↔ Sun)
+              </label>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {agents.map(agent => {
+                  const isSelected = rotationAgents.includes(agent.id);
+                  const idx = rotationAgents.indexOf(agent.id);
+                  return (
+                    <button
+                      key={agent.id}
+                      type="button"
+                      onClick={() =>
+                        setRotationAgents(prev =>
+                          isSelected
+                            ? prev.filter(id => id !== agent.id)
+                            : [...prev, agent.id]
+                        )
+                      }
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors text-left ${
+                        isSelected
+                          ? 'border-indigo-400 bg-indigo-50'
+                          : 'border-gray-150 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0"
+                        style={{ backgroundColor: agent.color }}
+                      >
+                        {agent.name[0]}
+                      </div>
+                      <span className="text-sm text-gray-700 flex-1">{agent.name}</span>
+                      {isSelected && (
+                        <span className="text-[10px] font-medium text-indigo-600">
+                          Week 1: {idx % 2 === 0 ? 'Sat' : 'Sun'}
+                        </span>
+                      )}
+                      {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+              {rotationAgents.length > 0 && (
+                <div className="mt-2 bg-indigo-50 rounded-lg border border-indigo-200 p-2.5">
+                  <p className="text-[10px] font-medium text-indigo-700 mb-1">Preview (first 4 weeks):</p>
+                  {[0, 1, 2, 3].map(week => (
+                    <div key={week} className="flex items-center gap-2 text-[10px] text-indigo-600 py-0.5">
+                      <span className="w-12 font-medium">Week {week + 1}:</span>
+                      <span>Sat → {rotationAgents.filter((_, i) => (i + week) % 2 === 0).map(id => agents.find(a => a.id === id)?.name?.split(' ')[0]).join(', ') || '—'}</span>
+                      <span className="text-indigo-400">|</span>
+                      <span>Sun → {rotationAgents.filter((_, i) => (i + week) % 2 === 1).map(id => agents.find(a => a.id === id)?.name?.split(' ')[0]).join(', ') || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Required Agents */}
           <div>
@@ -321,8 +405,8 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
             <p className="text-xs text-gray-400 mt-1">How many agents are needed for this shift</p>
           </div>
 
-          {/* Assign Agents */}
-          <div>
+          {/* Assign Agents (hidden for weekend rotation) */}
+          {recurring !== 'weekend-rotation' && <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">
               <span className="flex items-center gap-1">
                 <UserPlus className="w-3.5 h-3.5" />
@@ -371,7 +455,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                 {selectedAgentIds.length} teammate{selectedAgentIds.length !== 1 ? 's' : ''} selected
               </p>
             )}
-          </div>
+          </div>}
 
           {/* Color */}
           <div>
