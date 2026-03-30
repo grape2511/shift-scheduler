@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { ShiftCard } from './ShiftCard';
-import { Calendar, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Calendar, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus, LogIn, LogOut } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getHolidays, getCountryName } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
@@ -151,6 +151,9 @@ export function MyShiftsView() {
           </button>
         </div>
       </div>
+
+      {/* Active Shift Clock */}
+      <ActiveShiftClock />
 
       {/* PTO Policy Link */}
       <div className="mb-4 flex items-center gap-2 text-xs text-indigo-600">
@@ -482,6 +485,146 @@ export function MyShiftsView() {
       )}
     </div>
   );
+}
+
+function ActiveShiftClock() {
+  const { state, dispatch, getShiftsForAgent, getClockRecord } = useApp();
+  const [elapsed, setElapsed] = useState(0);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const myShiftsToday = getShiftsForAgent(state.currentUser.id).filter(s => s.date === todayStr);
+
+  // Find shifts needing clock action
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+  const activeShift = myShiftsToday.find(s => {
+    const record = getClockRecord(s.id, state.currentUser.id);
+    return record?.clockIn && !record?.clockOut;
+  });
+
+  const needsClockIn = myShiftsToday.find(s => {
+    const [h, m] = s.startTime.split(':').map(Number);
+    const startMin = h * 60 + m;
+    const [eh, em] = s.endTime.split(':').map(Number);
+    const endMin = eh < h ? em + 1440 : eh * 60 + em;
+    const record = getClockRecord(s.id, state.currentUser.id);
+    return !record && nowMinutes >= startMin - 15 && nowMinutes < endMin;
+  });
+
+  const activeRecord = activeShift ? getClockRecord(activeShift.id, state.currentUser.id) : undefined;
+
+  useEffect(() => {
+    if (!activeRecord?.clockIn) return;
+    const update = () => setElapsed(Math.floor((Date.now() - new Date(activeRecord.clockIn!).getTime()) / 1000));
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [activeRecord?.clockIn]);
+
+  const formatElapsed = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleClockIn = (shiftId: string) => {
+    dispatch({
+      type: 'CLOCK_IN',
+      payload: { id: uuid(), shiftId, userId: state.currentUser.id, clockIn: new Date().toISOString(), clockOut: null },
+    });
+  };
+
+  const handleClockOut = (shiftId: string) => {
+    dispatch({
+      type: 'CLOCK_OUT',
+      payload: { shiftId, userId: state.currentUser.id, clockOut: new Date().toISOString() },
+    });
+  };
+
+  if (!activeShift && !needsClockIn) {
+    // Show completed shifts for today
+    const completedToday = myShiftsToday.filter(s => {
+      const record = getClockRecord(s.id, state.currentUser.id);
+      return record?.clockIn && record?.clockOut;
+    });
+    if (completedToday.length === 0 && myShiftsToday.length === 0) return null;
+    if (completedToday.length === 0) return null;
+
+    return (
+      <div className="mb-4 bg-gray-50 rounded-xl border border-gray-200 p-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Today's Shifts</h3>
+        {completedToday.map(s => {
+          const record = getClockRecord(s.id, state.currentUser.id)!;
+          const diff = new Date(record.clockOut!).getTime() - new Date(record.clockIn!).getTime();
+          const hrs = Math.floor(diff / 3600000);
+          const mins = Math.round((diff % 3600000) / 60000);
+          return (
+            <div key={s.id} className="flex items-center justify-between text-sm py-1">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-gray-700">{s.name}</span>
+              </div>
+              <span className="text-gray-500 font-medium">{hrs}h {mins}m</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (activeShift && activeRecord) {
+    return (
+      <div className="mb-4 bg-green-50 rounded-xl border border-green-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+            <div>
+              <h3 className="text-sm font-semibold text-green-800">{activeShift.name}</h3>
+              <p className="text-xs text-green-600">Clocked in at {new Date(activeRecord.clockIn!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-2xl font-mono font-bold text-green-800">{formatElapsed(elapsed)}</p>
+            </div>
+            <button
+              onClick={() => handleClockOut(activeShift.id)}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Clock Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsClockIn) {
+    return (
+      <div className="mb-4 bg-amber-50 rounded-xl border border-amber-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-amber-600" />
+            <div>
+              <h3 className="text-sm font-semibold text-amber-800">{needsClockIn.name}</h3>
+              <p className="text-xs text-amber-600">{needsClockIn.startTime} – {needsClockIn.endTime}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleClockIn(needsClockIn.id)}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <LogIn className="w-4 h-4" />
+            Clock In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function SwapRequestsSection({
