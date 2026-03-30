@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { ShiftCard } from './ShiftCard';
-import { Calendar, AlertTriangle, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Calendar, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getHolidays, getCountryName } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
@@ -113,10 +113,10 @@ export function MyShiftsView() {
           })()}
           <button
             onClick={() => setShowTimeOff(!showTimeOff)}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            <AlertTriangle className="w-4 h-4" />
-            OOO
+            <Calendar className="w-4 h-4" />
+            Request Time Off / OOO
           </button>
         </div>
       </div>
