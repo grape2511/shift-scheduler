@@ -283,21 +283,22 @@ export function AgentsView() {
         if (viewMode === 'list') {
           return (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wider">
                 <span>Agent</span>
                 <span>Country</span>
                 <span>Hours</span>
-                <span>Days Off</span>
+                <span>PTO</span>
+                <span>Sick</span>
                 <span></span>
               </div>
               {filteredAgents.map(agent => {
                 const now = new Date();
                 const hours = getMonthlyHours(agent.id, now.getFullYear(), now.getMonth());
-                const { remaining, total, used } = getPtoBalance(agent.id);
+                const { remaining, total, used, sickRemaining, sickTotal } = getPtoBalance(agent.id);
                 const isOvertime = hours > TARGET_HOURS;
                 const isOverPto = used > total;
                 return (
-                  <div key={agent.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                  <div key={agent.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0" style={{ backgroundColor: agent.color }}>
                         {agent.name.charAt(0).toUpperCase()}
@@ -313,6 +314,7 @@ export function AgentsView() {
                     <span className="text-xs text-gray-500 w-24 text-center">{agent.country ? getCountryName(agent.country) : '—'}</span>
                     <span className={`text-sm font-bold w-16 text-right ${isOvertime ? 'text-red-600' : 'text-gray-700'}`}>{hours}/{TARGET_HOURS}h</span>
                     <span className={`text-sm font-bold w-16 text-right ${isOverPto ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>{remaining}/{total}</span>
+                    <span className={`text-sm font-bold w-12 text-right ${sickRemaining <= 1 ? 'text-red-600' : 'text-gray-500'}`}>{sickRemaining}/{sickTotal}</span>
                     <button
                       onClick={() => dispatch({ type: 'REMOVE_USER', payload: agent.id })}
                       className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg transition-colors"
@@ -419,29 +421,37 @@ export function AgentsView() {
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Days off</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {(() => {
-                    const { remaining, total, used } = getPtoBalance(agent.id);
+                    const { remaining, total, used, sickRemaining, sickTotal } = getPtoBalance(agent.id);
                     const isOver = used > total;
+                    const isSickOver = sickRemaining <= 1;
                     return (
-                      <span className={`text-sm font-bold ${isOver ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>
-                        {remaining}/{total}
-                      </span>
+                      <>
+                        <span className={`text-xs font-bold ${isOver ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>
+                          PTO {remaining}/{total}
+                        </span>
+                        <span className={`text-xs font-bold ${isSickOver ? 'text-red-600' : 'text-gray-500'}`}>
+                          Sick {sickRemaining}/{sickTotal}
+                        </span>
+                      </>
                     );
                   })()}
                   <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${expandedPto === agent.id ? 'rotate-180' : ''}`} />
                 </div>
               </button>
               {(() => {
-                const { used, total } = getPtoBalance(agent.id);
-                const pct = Math.min((used / total) * 100, 100);
-                const isOver = used > total;
+                const { used, total, sickUsed, sickTotal } = getPtoBalance(agent.id);
+                const ptoPct = Math.min((used / total) * 100, 100);
+                const sickPct = Math.min((sickUsed / sickTotal) * 100, 100);
                 return (
-                  <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${isOver ? 'bg-red-500' : 'bg-blue-500'}`}
-                      style={{ width: `${pct}%` }}
-                    />
+                  <div className="mt-1.5 flex gap-1">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${used > total ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${ptoPct}%` }} />
+                    </div>
+                    <div className="w-8 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${sickUsed > sickTotal ? 'bg-red-500' : 'bg-red-400'}`} style={{ width: `${sickPct}%` }} />
+                    </div>
                   </div>
                 );
               })()}
