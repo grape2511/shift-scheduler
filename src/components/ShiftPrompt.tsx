@@ -5,7 +5,7 @@ import { LogIn, LogOut, Clock, MessageSquare, X } from 'lucide-react';
 
 export function ShiftPrompt() {
   const { state, dispatch, getShiftsForAgent, getClockRecord } = useApp();
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Map<string, number>>(new Map());
   const [elapsed, setElapsed] = useState(0);
 
   const isAgent = state.currentUser.role === 'agent' || state.currentUser.role === 'team-lead';
@@ -24,7 +24,9 @@ export function ShiftPrompt() {
     const adjustedEnd = endMin < startMin ? endMin + 1440 : endMin;
     const adjustedNow = nowMinutes < startMin && endMin < startMin ? nowMinutes + 1440 : nowMinutes;
     const record = getClockRecord(s.id, state.currentUser.id);
-    return !record && adjustedNow >= startMin - 15 && adjustedNow < adjustedEnd && !dismissed.has(`in-${s.id}`);
+    const dismissedAt = dismissed.get(`in-${s.id}`);
+    const isDismissed = dismissedAt && (Date.now() - dismissedAt) < 300000; // re-show after 5 min
+    return !record && adjustedNow >= startMin - 15 && adjustedNow < adjustedEnd && !isDismissed;
   });
 
   // Find shift that needs clock-out (ends within 15 min or past end, clocked in but not out)
@@ -37,7 +39,9 @@ export function ShiftPrompt() {
     const startMin = sh * 60 + sm;
     const adjustedEnd = endMin < startMin ? endMin + 1440 : endMin;
     const adjustedNow = nowMinutes < startMin ? nowMinutes + 1440 : nowMinutes;
-    return adjustedNow >= adjustedEnd - 15 && !dismissed.has(`out-${s.id}`);
+    const dismissedAt = dismissed.get(`out-${s.id}`);
+    const isDismissed = dismissedAt && (Date.now() - dismissedAt) < 300000; // re-show after 5 min
+    return adjustedNow >= adjustedEnd - 15 && !isDismissed;
   });
 
   // Find active clocked-in shift for timer
@@ -59,7 +63,7 @@ export function ShiftPrompt() {
   // Recheck every minute for prompts
   const [, setTick] = useState(0);
   useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -83,7 +87,7 @@ export function ShiftPrompt() {
         clockOut: null,
       },
     });
-    setDismissed(prev => new Set(prev).add(`in-${shiftId}`));
+    setDismissed(prev => new Map(prev).set(`in-${shiftId}`, Date.now()));
   };
 
   const handleClockOut = (shiftId: string) => {
@@ -95,7 +99,7 @@ export function ShiftPrompt() {
         clockOut: new Date().toISOString(),
       },
     });
-    setDismissed(prev => new Set(prev).add(`out-${shiftId}`));
+    setDismissed(prev => new Map(prev).set(`out-${shiftId}`, Date.now()));
   };
 
   return (
@@ -132,7 +136,7 @@ export function ShiftPrompt() {
                   <p className="text-xs text-gray-500">{needsClockIn.name} · {needsClockIn.startTime} – {needsClockIn.endTime}</p>
                 </div>
               </div>
-              <button onClick={() => setDismissed(prev => new Set(prev).add(`in-${needsClockIn.id}`))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+              <button onClick={() => setDismissed(prev => new Map(prev).set(`in-${needsClockIn.id}`, Date.now()))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -146,7 +150,7 @@ export function ShiftPrompt() {
 
             <div className="flex gap-2">
               <button
-                onClick={() => setDismissed(prev => new Set(prev).add(`in-${needsClockIn.id}`))}
+                onClick={() => setDismissed(prev => new Map(prev).set(`in-${needsClockIn.id}`, Date.now()))}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Later
@@ -177,7 +181,7 @@ export function ShiftPrompt() {
                   <p className="text-xs text-gray-500">{needsClockOut.name} · ends at {needsClockOut.endTime}</p>
                 </div>
               </div>
-              <button onClick={() => setDismissed(prev => new Set(prev).add(`out-${needsClockOut.id}`))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+              <button onClick={() => setDismissed(prev => new Map(prev).set(`out-${needsClockOut.id}`, Date.now()))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -198,7 +202,7 @@ export function ShiftPrompt() {
 
             <div className="flex gap-2">
               <button
-                onClick={() => setDismissed(prev => new Set(prev).add(`out-${needsClockOut.id}`))}
+                onClick={() => setDismissed(prev => new Map(prev).set(`out-${needsClockOut.id}`, Date.now()))}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Not Yet
