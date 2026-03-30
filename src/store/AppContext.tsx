@@ -527,7 +527,7 @@ interface AppContextType {
   getClockRecord: (shiftId: string, userId: string) => ClockRecord | undefined;
   getMonthlyHours: (agentId: string, year: number, month: number) => number;
   getEnabledHolidayCountries: () => string[];
-  getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number };
+  getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number; sickUsed: number; sickTotal: number; sickRemaining: number };
   refreshData: () => Promise<void>;
 }
 
@@ -674,6 +674,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       timezone: u.timezone,
       enabledHolidayCountries: u.enabledHolidayCountries,
       ptoAllowance: u.ptoAllowance,
+      sickDaysAllowance: u.sickDaysAllowance,
     }));
   }, [state]);
 
@@ -793,12 +794,15 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   const getPtoBalance = (agentId: string, year?: number) => {
     const y = year ?? new Date().getFullYear();
     const yearPrefix = `${y}-`;
-    const used = state.timeOffs.filter(
+    const agentTimeOffs = state.timeOffs.filter(
       t => t.userId === agentId && t.date.startsWith(yearPrefix)
-    ).length;
+    );
+    const sickUsed = agentTimeOffs.filter(t => t.category === 'sick').length;
+    const used = agentTimeOffs.filter(t => t.category !== 'sick').length;
     const agent = state.users.find(u => u.id === agentId);
     const total = agent?.ptoAllowance ?? 21;
-    return { used, total, remaining: total - used };
+    const sickTotal = agent?.sickDaysAllowance ?? 7;
+    return { used, total, remaining: total - used, sickUsed, sickTotal, sickRemaining: sickTotal - sickUsed };
   };
 
   const getEnabledHolidayCountries = (): string[] => {

@@ -10,6 +10,7 @@ export interface User {
   timezone?: string;
   enabledHolidayCountries?: string[]; // admin only: which countries' holidays to show on calendar
   ptoAllowance?: number; // annual paid days off
+  sickDaysAllowance?: number; // annual sick days (default 7)
   slackWebhookUrl?: string;
 }
 
@@ -27,11 +28,23 @@ export interface Shift {
   color: string;
 }
 
+export type TimeOffCategory = 'personal' | 'sick' | 'vacation' | 'family' | 'religious' | 'other';
+
+export const TIME_OFF_CATEGORIES: { value: TimeOffCategory; label: string; color: string }[] = [
+  { value: 'vacation', label: 'Vacation', color: 'text-blue-700 bg-blue-50' },
+  { value: 'sick', label: 'Sick Day', color: 'text-red-700 bg-red-50' },
+  { value: 'personal', label: 'Personal', color: 'text-purple-700 bg-purple-50' },
+  { value: 'family', label: 'Family / Emergency', color: 'text-amber-700 bg-amber-50' },
+  { value: 'religious', label: 'Religious Holiday', color: 'text-teal-700 bg-teal-50' },
+  { value: 'other', label: 'Other', color: 'text-gray-700 bg-gray-100' },
+];
+
 export interface TimeOff {
   id: string;
   userId: string;
   date: string; // ISO date string YYYY-MM-DD
   reason?: string;
+  category?: TimeOffCategory;
 }
 
 export interface Notification {

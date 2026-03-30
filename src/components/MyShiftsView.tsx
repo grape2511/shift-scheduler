@@ -2,15 +2,19 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { ShiftCard } from './ShiftCard';
-import { Calendar, AlertTriangle, X, ArrowRightLeft, Check, XCircle, Clock } from 'lucide-react';
-import { format, parseISO, isBefore, startOfDay } from 'date-fns';
+import { Calendar, AlertTriangle, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { format, parseISO, isBefore, startOfDay, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getHolidays, getCountryName } from '../utils/holidays';
+import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
+import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
 
 export function MyShiftsView() {
   const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours, getPtoBalance } = useApp();
   const [showTimeOff, setShowTimeOff] = useState(false);
   const [timeOffDate, setTimeOffDate] = useState('');
   const [timeOffReason, setTimeOffReason] = useState('');
+  const [timeOffCategory, setTimeOffCategory] = useState<TimeOffCategory>('vacation');
+  const [calendarDate, setCalendarDate] = useState(new Date());
 
   const myShifts = getShiftsForAgent(state.currentUser.id);
   const today = startOfDay(new Date());
@@ -27,8 +31,10 @@ export function MyShiftsView() {
   const handleAddTimeOff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!timeOffDate) return;
-    const { remaining } = getPtoBalance(state.currentUser.id);
-    if (remaining <= 0) {
+    const balance = getPtoBalance(state.currentUser.id);
+    if (timeOffCategory === 'sick' && balance.sickRemaining <= 0) {
+      if (!confirm('You have no remaining sick days this year. Continue anyway?')) return;
+    } else if (timeOffCategory !== 'sick' && balance.remaining <= 0) {
       if (!confirm('You have no remaining paid days off this year. Continue anyway?')) return;
     }
     dispatch({
@@ -38,11 +44,23 @@ export function MyShiftsView() {
         userId: state.currentUser.id,
         date: timeOffDate,
         reason: timeOffReason || undefined,
+        category: timeOffCategory,
       },
     });
     setTimeOffDate('');
     setTimeOffReason('');
+    setTimeOffCategory('vacation');
     setShowTimeOff(false);
+  };
+
+  const handleCalendarDayClick = (dateStr: string) => {
+    const existing = myTimeOffs.find(t => t.date === dateStr);
+    if (existing) {
+      handleRemoveTimeOff(existing.id);
+    } else {
+      setTimeOffDate(dateStr);
+      setShowTimeOff(true);
+    }
   };
 
   const handleRemoveTimeOff = (id: string) => {
@@ -67,20 +85,30 @@ export function MyShiftsView() {
               </span>
             </div>
           </div>
-          {/* PTO Balance */}
+          {/* PTO + Sick Balance */}
           {(() => {
-            const { remaining, total, used } = getPtoBalance(state.currentUser.id);
-            const isOver = used > total;
+            const b = getPtoBalance(state.currentUser.id);
             return (
-              <div className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <div className="text-sm">
-                  <span className="text-xs text-gray-400 block leading-tight">{now.getFullYear()}</span>
-                  <span className={`font-bold ${isOver ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-900'}`}>
-                    {remaining}/{total} days
-                  </span>
+              <>
+                <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg">
+                  <Calendar className="w-4 h-4 text-blue-400" />
+                  <div className="text-sm">
+                    <span className="text-[10px] text-gray-400 block leading-tight">PTO</span>
+                    <span className={`font-bold ${b.remaining <= 3 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {b.remaining}/{b.total}
+                    </span>
+                  </div>
                 </div>
-              </div>
+                <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg">
+                  <Plus className="w-4 h-4 text-red-400" />
+                  <div className="text-sm">
+                    <span className="text-[10px] text-gray-400 block leading-tight">Sick</span>
+                    <span className={`font-bold ${b.sickRemaining <= 1 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {b.sickRemaining}/{b.sickTotal}
+                    </span>
+                  </div>
+                </div>
+              </>
             );
           })()}
           <button
@@ -119,8 +147,8 @@ export function MyShiftsView() {
       {/* Time Off Form */}
       {showTimeOff && (
         <form onSubmit={handleAddTimeOff} className="bg-amber-50 rounded-xl border border-amber-200 p-4 mb-6">
-          <h3 className="text-sm font-medium text-amber-800 mb-3">Mark Unavailable Date</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <h3 className="text-sm font-medium text-amber-800 mb-3">Request Day Off</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-amber-700 mb-1">Date</label>
               <input
@@ -132,12 +160,24 @@ export function MyShiftsView() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-amber-700 mb-1">Reason (optional)</label>
+              <label className="block text-xs font-medium text-amber-700 mb-1">Reason</label>
+              <select
+                value={timeOffCategory}
+                onChange={e => setTimeOffCategory(e.target.value as TimeOffCategory)}
+                className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+              >
+                {TIME_OFF_CATEGORIES.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-amber-700 mb-1">Note (optional)</label>
               <input
                 type="text"
                 value={timeOffReason}
                 onChange={e => setTimeOffReason(e.target.value)}
-                placeholder="e.g. Vacation, Doctor"
+                placeholder="Additional details"
                 className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
               />
             </div>
@@ -145,7 +185,7 @@ export function MyShiftsView() {
           <div className="flex gap-2 mt-3">
             <button
               type="button"
-              onClick={() => setShowTimeOff(false)}
+              onClick={() => { setShowTimeOff(false); setTimeOffDate(''); }}
               className="px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-100 rounded-lg transition-colors"
             >
               Cancel
@@ -154,88 +194,136 @@ export function MyShiftsView() {
               type="submit"
               className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors"
             >
-              Save
+              Submit
             </button>
           </div>
         </form>
       )}
 
-      {/* Days Off Summary */}
+      {/* Days Off Dashboard */}
       {(() => {
-        const yearStr = `${now.getFullYear()}-`;
+        const balance = getPtoBalance(state.currentUser.id);
         const monthStr = format(now, 'yyyy-MM-');
-        const yearTimeOffs = myTimeOffs.filter(t => t.date.startsWith(yearStr)).sort((a, b) => a.date.localeCompare(b.date));
         const monthTimeOffs = myTimeOffs.filter(t => t.date.startsWith(monthStr));
-        const upcomingTimeOffs = myTimeOffs.filter(t => t.date >= format(now, 'yyyy-MM-dd')).sort((a, b) => a.date.localeCompare(b.date));
-        const pastTimeOffs = myTimeOffs.filter(t => t.date < format(now, 'yyyy-MM-dd')).sort((a, b) => b.date.localeCompare(a.date));
+        const calDays = getMonthCalendarDays(calendarDate);
+        const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+        const getCategoryInfo = (cat?: string) => TIME_OFF_CATEGORIES.find(c => c.value === cat) || TIME_OFF_CATEGORIES[0];
 
         return (
           <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">My Days Off</h3>
 
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-amber-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-amber-700">{monthTimeOffs.length}</p>
-                <p className="text-[10px] text-amber-500 font-medium uppercase mt-0.5">{format(now, 'MMMM')}</p>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              <div className="bg-amber-50 rounded-lg p-2.5 text-center">
+                <p className="text-xl font-bold text-amber-700">{monthTimeOffs.length}</p>
+                <p className="text-[9px] text-amber-500 font-medium uppercase">{format(now, 'MMM')}</p>
               </div>
-              <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-indigo-700">{yearTimeOffs.length}</p>
-                <p className="text-[10px] text-indigo-500 font-medium uppercase mt-0.5">{now.getFullYear()} total</p>
+              <div className="bg-blue-50 rounded-lg p-2.5 text-center">
+                <p className={`text-xl font-bold ${balance.remaining <= 3 ? 'text-red-600' : 'text-blue-700'}`}>{balance.remaining}</p>
+                <p className="text-[9px] text-blue-500 font-medium uppercase">PTO left</p>
               </div>
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                {(() => {
-                  const { remaining } = getPtoBalance(state.currentUser.id);
-                  return (
-                    <>
-                      <p className={`text-2xl font-bold ${remaining <= 3 ? 'text-red-600' : 'text-green-700'}`}>{remaining}</p>
-                      <p className="text-[10px] text-green-500 font-medium uppercase mt-0.5">Remaining</p>
-                    </>
-                  );
-                })()}
+              <div className="bg-red-50 rounded-lg p-2.5 text-center">
+                <p className={`text-xl font-bold ${balance.sickRemaining <= 1 ? 'text-red-600' : 'text-red-500'}`}>{balance.sickRemaining}</p>
+                <p className="text-[9px] text-red-400 font-medium uppercase">Sick left</p>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-2.5 text-center">
+                <p className="text-xl font-bold text-indigo-700">{balance.used + balance.sickUsed}</p>
+                <p className="text-[9px] text-indigo-500 font-medium uppercase">{now.getFullYear()} total</p>
               </div>
             </div>
 
-            {/* Upcoming time off */}
-            {upcomingTimeOffs.length > 0 && (
-              <div className="mb-3">
-                <h4 className="text-xs font-medium text-gray-400 mb-2">Upcoming</h4>
-                <div className="space-y-1.5">
-                  {upcomingTimeOffs.map(to => (
-                    <div key={to.id} className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                        <span className="text-amber-800 font-medium">{format(parseISO(to.date), 'EEE, MMM d')}</span>
-                        {to.reason && <span className="text-amber-500 text-xs">– {to.reason}</span>}
-                      </div>
-                      <button onClick={() => handleRemoveTimeOff(to.id)} className="p-0.5 text-amber-400 hover:text-red-500 rounded transition-colors">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            {/* Mini Calendar */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                <button onClick={() => setCalendarDate(addMonths(calendarDate, -1))} className="p-1 hover:bg-gray-200 rounded transition-colors">
+                  <ChevronLeft className="w-3.5 h-3.5 text-gray-500" />
+                </button>
+                <span className="text-xs font-semibold text-gray-700">{formatMonthYear(calendarDate)}</span>
+                <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="p-1 hover:bg-gray-200 rounded transition-colors">
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
+                </button>
               </div>
-            )}
-
-            {/* Past time off */}
-            {pastTimeOffs.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-gray-400 mb-2">Past ({pastTimeOffs.length})</h4>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {pastTimeOffs.map(to => (
-                    <div key={to.id} className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400">
-                      <Calendar className="w-3 h-3" />
-                      <span>{format(parseISO(to.date), 'MMM d, yyyy')}</span>
-                      {to.reason && <span className="text-xs">– {to.reason}</span>}
-                    </div>
-                  ))}
-                </div>
+              <div className="grid grid-cols-7 gap-px bg-gray-100">
+                {DAY_HEADERS.map((d, i) => (
+                  <div key={i} className="bg-gray-50 text-center py-1 text-[9px] font-medium text-gray-400 uppercase">{d}</div>
+                ))}
+                {calDays.map(day => {
+                  const dateStr = formatDate(day);
+                  const timeOff = myTimeOffs.find(t => t.date === dateStr);
+                  const inMonth = isSameMonth(day, calendarDate);
+                  const isCurrentDay = isToday(day);
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => inMonth && handleCalendarDayClick(dateStr)}
+                      className={`bg-white text-center py-1.5 text-xs transition-colors relative ${
+                        !inMonth ? 'opacity-30' : 'hover:bg-indigo-50 cursor-pointer'
+                      } ${isCurrentDay ? 'font-bold' : ''}`}
+                    >
+                      <span className={`${isCurrentDay ? 'w-5 h-5 bg-indigo-600 text-white rounded-full inline-flex items-center justify-center text-[10px]' : ''}`}>
+                        {formatDayNum(day)}
+                      </span>
+                      {timeOff && (
+                        <div className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${
+                          timeOff.category === 'sick' ? 'bg-red-500' :
+                          timeOff.category === 'vacation' ? 'bg-blue-500' :
+                          timeOff.category === 'personal' ? 'bg-purple-500' :
+                          timeOff.category === 'family' ? 'bg-amber-500' :
+                          timeOff.category === 'religious' ? 'bg-teal-500' : 'bg-gray-400'
+                        }`} />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
-            {myTimeOffs.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-2">No days off taken yet</p>
-            )}
+            {/* Legend */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {TIME_OFF_CATEGORIES.map(c => (
+                <div key={c.value} className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <div className={`w-2 h-2 rounded-full ${
+                    c.value === 'sick' ? 'bg-red-500' :
+                    c.value === 'vacation' ? 'bg-blue-500' :
+                    c.value === 'personal' ? 'bg-purple-500' :
+                    c.value === 'family' ? 'bg-amber-500' :
+                    c.value === 'religious' ? 'bg-teal-500' : 'bg-gray-400'
+                  }`} />
+                  {c.label}
+                </div>
+              ))}
+            </div>
+
+            {/* Upcoming days off list */}
+            {(() => {
+              const upcoming = myTimeOffs.filter(t => t.date >= format(now, 'yyyy-MM-dd')).sort((a, b) => a.date.localeCompare(b.date));
+              if (upcoming.length === 0) return null;
+              return (
+                <div>
+                  <h4 className="text-xs font-medium text-gray-400 mb-2">Upcoming</h4>
+                  <div className="space-y-1.5">
+                    {upcoming.slice(0, 5).map(to => {
+                      const catInfo = getCategoryInfo(to.category);
+                      return (
+                        <div key={to.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-gray-800 font-medium">{format(parseISO(to.date), 'EEE, MMM d')}</span>
+                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
+                            {to.reason && <span className="text-gray-400 text-xs">– {to.reason}</span>}
+                          </div>
+                          <button onClick={() => handleRemoveTimeOff(to.id)} className="p-0.5 text-gray-300 hover:text-red-500 rounded transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {upcoming.length > 5 && <p className="text-[10px] text-gray-400 pl-3">+{upcoming.length - 5} more</p>}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
