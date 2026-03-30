@@ -160,32 +160,85 @@ export function MyShiftsView() {
         </form>
       )}
 
-      {/* Time Off List */}
-      {myTimeOffs.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">My Time Off</h3>
-          <div className="flex flex-wrap gap-2">
-            {myTimeOffs.map(to => (
-              <div
-                key={to.id}
-                className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-sm"
-              >
-                <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-amber-800 font-medium">
-                  {format(parseISO(to.date), 'MMM d, yyyy')}
-                </span>
-                {to.reason && <span className="text-amber-600">– {to.reason}</span>}
-                <button
-                  onClick={() => handleRemoveTimeOff(to.id)}
-                  className="p-0.5 text-amber-400 hover:text-red-500 rounded transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+      {/* Days Off Summary */}
+      {(() => {
+        const yearStr = `${now.getFullYear()}-`;
+        const monthStr = format(now, 'yyyy-MM-');
+        const yearTimeOffs = myTimeOffs.filter(t => t.date.startsWith(yearStr)).sort((a, b) => a.date.localeCompare(b.date));
+        const monthTimeOffs = myTimeOffs.filter(t => t.date.startsWith(monthStr));
+        const upcomingTimeOffs = myTimeOffs.filter(t => t.date >= format(now, 'yyyy-MM-dd')).sort((a, b) => a.date.localeCompare(b.date));
+        const pastTimeOffs = myTimeOffs.filter(t => t.date < format(now, 'yyyy-MM-dd')).sort((a, b) => b.date.localeCompare(a.date));
+
+        return (
+          <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">My Days Off</h3>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-amber-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-amber-700">{monthTimeOffs.length}</p>
+                <p className="text-[10px] text-amber-500 font-medium uppercase mt-0.5">{format(now, 'MMMM')}</p>
               </div>
-            ))}
+              <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-indigo-700">{yearTimeOffs.length}</p>
+                <p className="text-[10px] text-indigo-500 font-medium uppercase mt-0.5">{now.getFullYear()} total</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                {(() => {
+                  const { remaining } = getPtoBalance(state.currentUser.id);
+                  return (
+                    <>
+                      <p className={`text-2xl font-bold ${remaining <= 3 ? 'text-red-600' : 'text-green-700'}`}>{remaining}</p>
+                      <p className="text-[10px] text-green-500 font-medium uppercase mt-0.5">Remaining</p>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Upcoming time off */}
+            {upcomingTimeOffs.length > 0 && (
+              <div className="mb-3">
+                <h4 className="text-xs font-medium text-gray-400 mb-2">Upcoming</h4>
+                <div className="space-y-1.5">
+                  {upcomingTimeOffs.map(to => (
+                    <div key={to.id} className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="text-amber-800 font-medium">{format(parseISO(to.date), 'EEE, MMM d')}</span>
+                        {to.reason && <span className="text-amber-500 text-xs">– {to.reason}</span>}
+                      </div>
+                      <button onClick={() => handleRemoveTimeOff(to.id)} className="p-0.5 text-amber-400 hover:text-red-500 rounded transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Past time off */}
+            {pastTimeOffs.length > 0 && (
+              <div>
+                <h4 className="text-xs font-medium text-gray-400 mb-2">Past ({pastTimeOffs.length})</h4>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {pastTimeOffs.map(to => (
+                    <div key={to.id} className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400">
+                      <Calendar className="w-3 h-3" />
+                      <span>{format(parseISO(to.date), 'MMM d, yyyy')}</span>
+                      {to.reason && <span className="text-xs">– {to.reason}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {myTimeOffs.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-2">No days off taken yet</p>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Swap Requests */}
       <SwapRequestsSection

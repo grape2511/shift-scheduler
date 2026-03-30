@@ -300,7 +300,13 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowAssign(false)} />
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 max-h-48 overflow-y-auto">
-                    {agents.map(agent => {
+                    {agents
+                      .filter(agent => {
+                        const isAssigned = shift.assignedAgentIds.includes(agent.id);
+                        // Always show already-assigned agents, hide unavailable ones
+                        return isAssigned || !hasConflict(agent.id, shift.date);
+                      })
+                      .map(agent => {
                       const isAssigned = shift.assignedAgentIds.includes(agent.id);
                       const conflict = hasConflict(agent.id, shift.date);
                       return (
