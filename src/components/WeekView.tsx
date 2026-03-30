@@ -134,9 +134,13 @@ export function WeekView() {
                 <div className="px-2 pt-2">
                   {timeOffs.map(to => {
                     const user = state.users.find(u => u.id === to.userId);
+                    const isSick = to.category === 'sick';
+                    const catLabel = to.category ? to.category.charAt(0).toUpperCase() + to.category.slice(1) : 'Off';
                     return (
-                      <div key={to.id} className="text-[10px] text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 mb-1 truncate">
-                        {user?.name} off{to.reason ? `: ${to.reason}` : ''}
+                      <div key={to.id} className={`text-[10px] rounded px-1.5 py-0.5 mb-1 truncate ${
+                        isSick ? 'text-red-600 bg-red-50' : 'text-amber-600 bg-amber-50'
+                      }`}>
+                        {user?.name} – {catLabel}{to.reason ? `: ${to.reason}` : ''}
                       </div>
                     );
                   })}
