@@ -8,6 +8,7 @@ import { MyShiftsView } from './components/MyShiftsView';
 import { AuthPage } from './components/AuthPage';
 import { SetNewPassword } from './components/SetNewPassword';
 import { UserManagement } from './components/UserManagement';
+import { InsightsView } from './components/InsightsView';
 import { ShiftPrompt } from './components/ShiftPrompt';
 
 function AppContent() {
@@ -19,6 +20,7 @@ function AppContent() {
       {activeTab === 'schedule' && <ScheduleView />}
       {activeTab === 'agents' && (state.currentUser.role === 'admin' || state.currentUser.role === 'team-lead') && <AgentsView />}
       {activeTab === 'my-shifts' && <MyShiftsView />}
+      {activeTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
       {activeTab === 'user-management' && state.currentUser.role === 'admin' && <UserManagement />}
     </Layout>
   );
