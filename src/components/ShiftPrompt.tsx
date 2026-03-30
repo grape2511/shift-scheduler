@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
-import { LogIn, LogOut, Clock, MessageSquare, X } from 'lucide-react';
+import { LogIn, LogOut, X } from 'lucide-react';
 
 export function ShiftPrompt() {
   const { state, dispatch, getShiftsForAgent, getClockRecord } = useApp();
@@ -125,43 +125,42 @@ export function ShiftPrompt() {
       {/* Clock In Prompt */}
       {needsClockIn && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Time to Clock In!</h3>
-                  <p className="text-xs text-gray-500">{needsClockIn.name} · {needsClockIn.startTime} – {needsClockIn.endTime}</p>
-                </div>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <img
+              src="https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif"
+              alt="Good morning"
+              className="w-full h-32 object-cover"
+            />
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-bold text-gray-900">Rise and shine! ☀️</h3>
+                <button onClick={() => setDismissed(prev => new Map(prev).set(`in-${needsClockIn.id}`, Date.now()))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={() => setDismissed(prev => new Map(prev).set(`in-${needsClockIn.id}`, Date.now()))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+              <p className="text-sm text-gray-500 mb-4">{needsClockIn.name} · {needsClockIn.startTime} – {needsClockIn.endTime}</p>
 
-            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mb-4">
-              <div className="flex items-center gap-2 text-sm text-blue-700">
-                <MessageSquare className="w-4 h-4 shrink-0" />
-                <p>Remember to greet your teammates <strong>good morning</strong> in <strong>#support_team_on_duty</strong> on Slack!</p>
+              <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-3 mb-4">
+                <p className="text-sm text-indigo-700">
+                  👋 Hop into <strong>#support_team_on_duty</strong> on Slack and let the team know you're here — a simple "good morning" goes a long way!
+                </p>
               </div>
-            </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDismissed(prev => new Map(prev).set(`in-${needsClockIn.id}`, Date.now()))}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Later
-              </button>
-              <button
-                onClick={() => handleClockIn(needsClockIn.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <LogIn className="w-4 h-4" />
-                Clock In
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDismissed(prev => new Map(prev).set(`in-${needsClockIn.id}`, Date.now()))}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Snooze 5 min
+                </button>
+                <button
+                  onClick={() => handleClockIn(needsClockIn.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Let's go!
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -170,50 +169,49 @@ export function ShiftPrompt() {
       {/* Clock Out Prompt */}
       {needsClockOut && !needsClockIn && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-amber-600" />
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <img
+              src="https://media.giphy.com/media/l3q2wJsC23ikJg9xe/giphy.gif"
+              alt="Great job"
+              className="w-full h-32 object-cover"
+            />
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-bold text-gray-900">You crushed it today! 🎉</h3>
+                <button onClick={() => setDismissed(prev => new Map(prev).set(`out-${needsClockOut.id}`, Date.now()))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mb-3">{needsClockOut.name} · ends at {needsClockOut.endTime}</p>
+
+              {activeRecord && (
+                <div className="bg-green-50 rounded-lg p-3 mb-3 text-center">
+                  <p className="text-[10px] text-green-600 uppercase font-medium">Shift duration</p>
+                  <p className="text-2xl font-mono font-bold text-green-800">{formatElapsed(elapsed)}</p>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Shift Ending Soon</h3>
-                  <p className="text-xs text-gray-500">{needsClockOut.name} · ends at {needsClockOut.endTime}</p>
-                </div>
-              </div>
-              <button onClick={() => setDismissed(prev => new Map(prev).set(`out-${needsClockOut.id}`, Date.now()))} className="p-1 text-gray-400 hover:text-gray-600 rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+              )}
 
-            {activeRecord && (
-              <div className="bg-gray-50 rounded-lg p-3 mb-4 text-center">
-                <p className="text-xs text-gray-500">Shift duration</p>
-                <p className="text-2xl font-mono font-bold text-gray-900">{formatElapsed(elapsed)}</p>
+              <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-3 mb-4">
+                <p className="text-sm text-indigo-700">
+                  🫡 Before you head out, drop a quick goodbye in <strong>#support_team_on_duty</strong> — your teammates appreciate it!
+                </p>
               </div>
-            )}
 
-            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mb-4">
-              <div className="flex items-center gap-2 text-sm text-blue-700">
-                <MessageSquare className="w-4 h-4 shrink-0" />
-                <p>Say <strong>goodbye</strong> in <strong>#support_team_on_duty</strong> before leaving!</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDismissed(prev => new Map(prev).set(`out-${needsClockOut.id}`, Date.now()))}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Not yet
+                </button>
+                <button
+                  onClick={() => handleClockOut(needsClockOut.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Clock Out & Relax
+                </button>
               </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDismissed(prev => new Map(prev).set(`out-${needsClockOut.id}`, Date.now()))}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Not Yet
-              </button>
-              <button
-                onClick={() => handleClockOut(needsClockOut.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                Clock Out
-              </button>
             </div>
           </div>
         </div>
