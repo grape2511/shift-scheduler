@@ -376,7 +376,7 @@ export function AgentsView() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1 flex-wrap">
                   <h3 className="font-medium text-gray-900 truncate">{agent.name}</h3>
-                  {(agent.labels || []).map(l => (
+                  {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
                     <span key={l} className="px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full shrink-0">
                       {l}
                     </span>
@@ -417,7 +417,7 @@ export function AgentsView() {
             {/* Labels */}
             <div className="mt-2 relative">
               <div className="flex items-center gap-1 flex-wrap">
-                {(agent.labels || []).map(l => (
+                {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
                   <span key={l} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full">
                     {l}
                     <button onClick={() => toggleLabel(agent.id, l)} className="text-indigo-400 hover:text-red-500">
@@ -437,7 +437,7 @@ export function AgentsView() {
                   <div className="fixed inset-0 z-10" onClick={() => setLabelDropdownFor(null)} />
                   <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 max-h-48 overflow-y-auto">
                     {allLabels.map(l => {
-                      const hasIt = (agent.labels || []).includes(l);
+                      const hasIt = (agent.labels || (agent.label ? [agent.label] : [])).includes(l);
                       return (
                         <button
                           key={l}

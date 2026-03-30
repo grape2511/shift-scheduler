@@ -361,7 +361,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                             {agent.name[0]}
                           </div>
                           <span className="flex-1 truncate">{agent.name.split(' ')[0]}</span>
-                          {(agent.labels || []).map(l => (
+                          {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
                             <span key={l} className="text-[8px] px-1 py-0.5 bg-blue-200/50 text-blue-700 rounded-full">{l}</span>
                           ))}
                           {inA && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
@@ -392,7 +392,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                             {agent.name[0]}
                           </div>
                           <span className="flex-1 truncate">{agent.name.split(' ')[0]}</span>
-                          {(agent.labels || []).map(l => (
+                          {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
                             <span key={l} className="text-[8px] px-1 py-0.5 bg-purple-200/50 text-purple-700 rounded-full">{l}</span>
                           ))}
                           {inB && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
@@ -477,7 +477,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                       {agent.name[0]}
                     </div>
                     <span className="text-sm text-gray-700 flex-1">{agent.name}</span>
-                    {(agent.labels || []).map(l => (
+                    {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
                       <span key={l} className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-500 rounded-full">{l}</span>
                     ))}
                     {isSelected && (
