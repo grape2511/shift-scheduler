@@ -173,14 +173,11 @@ export function MonthView() {
                 {/* Time Off Indicators */}
                 {timeOffs.length > 0 && (
                   <div className="px-1">
-                    {timeOffs.map(to => {
+                    {timeOffs.filter(t => (t.status || 'approved') === 'approved').map(to => {
                       const user = state.users.find(u => u.id === to.userId);
-                      const isSick = to.category === 'sick';
                       return (
-                        <div key={to.id} className={`text-[9px] rounded px-1 py-0.5 mb-0.5 truncate ${
-                          isSick ? 'text-red-600 bg-red-50' : 'text-amber-600 bg-amber-50'
-                        }`} title={to.reason || to.category || 'Day off'}>
-                          {user?.name?.split(' ')[0]} {isSick ? '🤒' : 'off'}
+                        <div key={to.id} className="text-[9px] rounded px-1 py-0.5 mb-0.5 truncate text-amber-600 bg-amber-50">
+                          {user?.name?.split(' ')[0]} {to.halfDay ? '(½ day)' : 'off'}
                         </div>
                       );
                     })}
