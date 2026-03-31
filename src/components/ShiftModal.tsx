@@ -3,6 +3,7 @@ import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft } from 'lucide-react';
 import { SHIFT_COLORS, getNextColor } from '../utils/colors';
+import { updateShift as dbUpdateShift } from '../lib/database';
 import type { Shift } from '../types';
 
 interface ShiftModalProps {
@@ -100,7 +101,9 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
         setShowSaveOptions(true);
         return;
       }
-      dispatch({ type: 'UPDATE_SHIFT', payload: getUpdatedShift() });
+      const updated = getUpdatedShift();
+      dispatch({ type: 'UPDATE_SHIFT', payload: updated });
+      dbUpdateShift(updated);
     } else if (recurring === 'weekend-rotation' && (groupA.length > 0 || groupB.length > 0)) {
       dispatch({
         type: 'ADD_WEEKEND_ROTATION',
@@ -142,17 +145,23 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   };
 
   const handleSaveThis = () => {
-    dispatch({ type: 'UPDATE_SHIFT', payload: getUpdatedShift() });
+    const updated = getUpdatedShift();
+    dispatch({ type: 'UPDATE_SHIFT', payload: updated });
+    dbUpdateShift(updated);
     onClose();
   };
 
   const handleSaveFuture = () => {
-    dispatch({ type: 'UPDATE_SHIFT_FUTURE', payload: getUpdatedShift() });
+    const updated = getUpdatedShift();
+    dispatch({ type: 'UPDATE_SHIFT_FUTURE', payload: updated });
+    // DB sync handles bulk updates via the sync effect
     onClose();
   };
 
   const handleSaveAll = () => {
-    dispatch({ type: 'UPDATE_SHIFT_ALL_RECURRING', payload: getUpdatedShift() });
+    const updated = getUpdatedShift();
+    dispatch({ type: 'UPDATE_SHIFT_ALL_RECURRING', payload: updated });
+    // DB sync handles bulk updates via the sync effect
     onClose();
   };
 
