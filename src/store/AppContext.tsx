@@ -747,7 +747,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     }));
   }, [state]);
 
-  const agents = state.users.filter(u => u.role === 'agent' || u.role === 'team-lead');
+  const agents = state.users;
 
   const getAgentById = (id: string) => state.users.find(u => u.id === id);
 

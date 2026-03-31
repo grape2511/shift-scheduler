@@ -494,7 +494,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
               </span>
             </label>
             <div className="space-y-1.5 max-h-36 overflow-y-auto">
-              {agents.map(agent => {
+              {agents.filter(a => a.role !== 'admin').map(agent => {
                 const isSelected = selectedAgentIds.includes(agent.id);
                 return (
                   <button

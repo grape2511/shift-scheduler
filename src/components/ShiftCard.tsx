@@ -140,7 +140,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
           <span className={`text-[10px] font-semibold ${filled > required ? 'text-green-200' : filled >= required ? 'text-white/90' : 'text-yellow-200'}`}>
             {filled}/{required} filled
           </span>
-          {isAssignedToMe ? (
+          {!isAdmin && (isAssignedToMe ? (
             <button
               onClick={(e) => { e.stopPropagation(); handleUnassign(state.currentUser.id); }}
               className="text-[10px] font-semibold bg-white/25 hover:bg-red-400/50 rounded px-1.5 py-0.5 transition-colors"
@@ -156,7 +156,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             >
               + Join
             </button>
-          )}
+          ))}
         </div>
       </div>
     );
@@ -298,6 +298,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 max-h-48 overflow-y-auto">
                     {agents
                       .filter(agent => {
+                        // Hide admins from shift assignment
+                        if (agent.role === 'admin') return false;
                         const isAssigned = shift.assignedAgentIds.includes(agent.id);
                         // Always show already-assigned agents, hide unavailable ones
                         return isAssigned || !hasConflict(agent.id, shift.date);
@@ -339,7 +341,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             </div>
           )}
 
-          {isAssignedToMe && (
+          {!isAdmin && isAssignedToMe && (
             <button
               onClick={() => handleUnassign(state.currentUser.id)}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
@@ -348,7 +350,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
               Leave Shift
             </button>
           )}
-          {!isAssignedToMe && (
+          {!isAdmin && !isAssignedToMe && (
             <button
               onClick={handleSelfJoin}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
