@@ -17,6 +17,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     enabledHolidayCountries: p.enabled_holiday_countries || undefined,
     ptoAllowance: p.pto_allowance ?? 21,
     sickDaysAllowance: p.sick_days_allowance ?? 7,
+    holidaysDeductPto: p.holidays_deduct_pto ?? true,
     label: p.label || undefined,
     labels: p.labels || undefined,
     slackWebhookUrl: p.slack_webhook_url || undefined,
@@ -36,6 +37,7 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (updates.enabled_holiday_countries !== undefined) dbUpdates.enabled_holiday_countries = updates.enabled_holiday_countries;
   if (updates.ptoAllowance !== undefined) dbUpdates.pto_allowance = updates.ptoAllowance;
   if (updates.sickDaysAllowance !== undefined) dbUpdates.sick_days_allowance = updates.sickDaysAllowance;
+  if (updates.holidaysDeductPto !== undefined) dbUpdates.holidays_deduct_pto = updates.holidaysDeductPto;
   if (updates.label !== undefined) dbUpdates.label = updates.label || null;
   if (updates.labels !== undefined) dbUpdates.labels = updates.labels || [];
   if (updates.slackWebhookUrl !== undefined) dbUpdates.slack_webhook_url = updates.slackWebhookUrl;

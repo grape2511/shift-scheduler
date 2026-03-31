@@ -910,9 +910,13 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const agentTimeOffs = state.timeOffs.filter(
       t => t.userId === agentId && t.date.startsWith(yearPrefix) && (t.status || 'approved') === 'approved'
     );
-    const sickUsed = agentTimeOffs.filter(t => t.category === 'sick').reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
-    const used = agentTimeOffs.filter(t => t.category !== 'sick').reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
     const agent = state.users.find(u => u.id === agentId);
+    const sickUsed = agentTimeOffs.filter(t => t.category === 'sick').reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
+    const holidaysDeduct = agent?.holidaysDeductPto ?? true;
+    const used = agentTimeOffs
+      .filter(t => t.category !== 'sick')
+      .filter(t => holidaysDeduct || t.category !== 'religious') // skip religious/public if not deducting
+      .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
     const total = agent?.ptoAllowance ?? 21;
     const sickTotal = agent?.sickDaysAllowance ?? 7;
     return { used, total, remaining: total - used, sickUsed, sickTotal, sickRemaining: sickTotal - sickUsed };

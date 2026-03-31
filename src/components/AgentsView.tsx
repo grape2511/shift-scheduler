@@ -569,6 +569,7 @@ export function AgentsView() {
                     agentId={agent.id}
                     ptoAllowance={agent.ptoAllowance ?? 21}
                     sickDaysAllowance={agent.sickDaysAllowance ?? 7}
+                    holidaysDeductPto={agent.holidaysDeductPto ?? true}
                     dispatch={dispatch}
                   />
 
@@ -705,19 +706,21 @@ export function AgentsView() {
   );
 }
 
-function PtoEditor({ agentId, ptoAllowance, sickDaysAllowance, dispatch }: {
+function PtoEditor({ agentId, ptoAllowance, sickDaysAllowance, holidaysDeductPto, dispatch }: {
   agentId: string;
   ptoAllowance: number;
   sickDaysAllowance: number;
+  holidaysDeductPto: boolean;
   dispatch: React.Dispatch<any>;
 }) {
   const [pto, setPto] = useState(ptoAllowance);
   const [sick, setSick] = useState(sickDaysAllowance);
-  const changed = pto !== ptoAllowance || sick !== sickDaysAllowance;
+  const [holidayDeduct, setHolidayDeduct] = useState(holidaysDeductPto);
+  const changed = pto !== ptoAllowance || sick !== sickDaysAllowance || holidayDeduct !== holidaysDeductPto;
 
   const handleSave = () => {
-    dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { ptoAllowance: pto, sickDaysAllowance: sick } } });
-    updateProfile(agentId, { ptoAllowance: pto, sickDaysAllowance: sick });
+    dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { ptoAllowance: pto, sickDaysAllowance: sick, holidaysDeductPto: holidayDeduct } } });
+    updateProfile(agentId, { ptoAllowance: pto, sickDaysAllowance: sick, holidaysDeductPto: holidayDeduct });
   };
 
   return (
@@ -748,6 +751,15 @@ function PtoEditor({ agentId, ptoAllowance, sickDaysAllowance, dispatch }: {
       ) : (
         <span className="text-[10px] text-gray-400">days/year</span>
       )}
+      <div className="w-full flex items-center justify-between mt-1.5">
+        <span className="text-[10px] text-gray-400">Holidays deduct PTO</span>
+        <button
+          onClick={() => { setHolidayDeduct(!holidayDeduct); }}
+          className={`w-8 h-4 rounded-full transition-colors relative ${holidayDeduct ? 'bg-indigo-600' : 'bg-gray-300'}`}
+        >
+          <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${holidayDeduct ? 'left-4' : 'left-0.5'}`} />
+        </button>
+      </div>
     </div>
   );
 }

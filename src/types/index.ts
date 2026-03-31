@@ -11,6 +11,7 @@ export interface User {
   enabledHolidayCountries?: string[]; // admin only: which countries' holidays to show on calendar
   ptoAllowance?: number; // annual paid days off
   sickDaysAllowance?: number; // annual sick days (default 7)
+  holidaysDeductPto?: boolean; // whether religious/public holidays count against PTO (default true)
   label?: string; // deprecated, kept for backwards compat
   labels?: string[]; // multiple labels from predefined list
   slackWebhookUrl?: string;
