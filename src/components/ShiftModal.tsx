@@ -386,8 +386,10 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                         <button
                           key={agent.id}
                           type="button"
-                          disabled={inB}
-                          onClick={() => !inB && setGroupA(prev => inA ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
+                          onClick={() => {
+                            if (inB) return;
+                            setGroupA(prev => inA ? prev.filter(id => id !== agent.id) : [...prev, agent.id]);
+                          }}
                           className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors ${
                             inA ? 'border-blue-400 bg-blue-100 text-blue-800' :
                             inB ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' :
@@ -425,8 +427,10 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                         <button
                           key={agent.id}
                           type="button"
-                          disabled={inA}
-                          onClick={() => !inA && setGroupB(prev => inB ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
+                          onClick={() => {
+                            if (inA) return;
+                            setGroupB(prev => inB ? prev.filter(id => id !== agent.id) : [...prev, agent.id]);
+                          }}
                           className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors ${
                             inB ? 'border-purple-400 bg-purple-100 text-purple-800' :
                             inA ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' :
