@@ -46,6 +46,12 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   const [groupA, setGroupA] = useState<string[]>([]); // Sat week 1, Sun week 2
   const [groupB, setGroupB] = useState<string[]>([]); // Sun week 1, Sat week 2
+
+  const shiftLabels = ['USA Shift', 'EU Shift', 'Mid Shift'];
+  const rotationAgents = agents.filter(a => {
+    const agentLabels = a.labels || (a.label ? [a.label] : []);
+    return agentLabels.some(l => shiftLabels.includes(l));
+  });
   const isRecurring = !!editShift?.recurringGroupId;
   const isAdmin = state.currentUser.role === 'admin';
   const isAssignedToMe = editShift?.assignedAgentIds.includes(state.currentUser.id) ?? false;
@@ -344,7 +350,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                 <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
                   <p className="text-xs font-semibold text-blue-700 mb-2">Group A — Sat week 1, Sun week 2</p>
                   <div className="space-y-1.5">
-                    {agents.map(agent => {
+                    {rotationAgents.map(agent => {
                       const inA = groupA.includes(agent.id);
                       const inB = groupB.includes(agent.id);
                       if (inB) return null;
@@ -375,7 +381,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                 <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/50">
                   <p className="text-xs font-semibold text-purple-700 mb-2">Group B — Sun week 1, Sat week 2</p>
                   <div className="space-y-1.5">
-                    {agents.map(agent => {
+                    {rotationAgents.map(agent => {
                       const inA = groupA.includes(agent.id);
                       const inB = groupB.includes(agent.id);
                       if (inA) return null;
