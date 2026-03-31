@@ -396,12 +396,9 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                             'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
                           }`}
                         >
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                          <div className={`w-4 h-4 rounded border shrink-0 ${
                             inA ? 'bg-blue-600 border-blue-600' : inB ? 'bg-gray-200 border-gray-200' : 'border-gray-300'
-                          }`}>
-                            {inA && <Check className="w-3 h-3 text-white" />}
-                            {inB && <Check className="w-3 h-3 text-gray-400" />}
-                          </div>
+                          }`} />
                           <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: inB ? '#d1d5db' : agent.color }}>
                             {agent.name[0]}
                           </div>
@@ -437,12 +434,9 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                             'border-gray-200 bg-white text-gray-700 hover:border-purple-300'
                           }`}
                         >
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                          <div className={`w-4 h-4 rounded border shrink-0 ${
                             inB ? 'bg-purple-600 border-purple-600' : inA ? 'bg-gray-200 border-gray-200' : 'border-gray-300'
-                          }`}>
-                            {inB && <Check className="w-3 h-3 text-white" />}
-                            {inA && <Check className="w-3 h-3 text-gray-400" />}
-                          </div>
+                          }`} />
                           <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: inA ? '#d1d5db' : agent.color }}>
                             {agent.name[0]}
                           </div>
