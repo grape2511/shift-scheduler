@@ -131,6 +131,7 @@ export async function fetchAllTimeOffs(): Promise<TimeOff[]> {
     reason: t.reason || undefined,
     category: t.category || undefined,
     status: t.status || 'approved',
+    halfDay: t.half_day || false,
   }));
 }
 
@@ -142,6 +143,7 @@ export async function insertTimeOff(timeOff: TimeOff) {
     reason: timeOff.reason || null,
     category: timeOff.category || null,
     status: timeOff.status || 'approved',
+    half_day: timeOff.halfDay || false,
   });
   if (error) console.error('insertTimeOff', error);
 }

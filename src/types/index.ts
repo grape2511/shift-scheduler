@@ -50,6 +50,7 @@ export interface TimeOff {
   reason?: string;
   category?: TimeOffCategory;
   status?: TimeOffStatus; // default 'approved' for backwards compat
+  halfDay?: boolean; // true = half day (counts as 0.5)
 }
 
 export interface Notification {

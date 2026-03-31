@@ -16,6 +16,7 @@ export function MyShiftsView() {
   const [timeOffDate, setTimeOffDate] = useState('');
   const [timeOffReason, setTimeOffReason] = useState('');
   const [timeOffCategory, setTimeOffCategory] = useState<TimeOffCategory>('vacation');
+  const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
 
   const myShifts = getShiftsForAgent(state.currentUser.id);
@@ -49,6 +50,7 @@ export function MyShiftsView() {
       reason: timeOffReason || undefined,
       category: timeOffCategory,
       status,
+      halfDay: timeOffHalfDay,
     };
     dispatch({ type: 'ADD_TIME_OFF', payload: timeOffRecord });
     // Write directly to DB (don't rely on sync)
@@ -60,7 +62,7 @@ export function MyShiftsView() {
         const notif = {
           id: uuid(),
           userId: approver.id,
-          message: `${state.currentUser.name} is requesting ${timeOffCategory || 'time'} off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`,
+          message: `${state.currentUser.name} is requesting ${timeOffHalfDay ? 'half day' : ''} ${timeOffCategory || 'time'} off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`,
           timestamp: new Date().toISOString(),
           read: false,
           type: 'info' as const,
@@ -72,13 +74,14 @@ export function MyShiftsView() {
       const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
       if (slackUrl) {
         sendSlackNotification(slackUrl,
-          `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffCategory}* off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`
+          `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory}) off on ${timeOffDate}${timeOffReason ? ` — ${timeOffReason}` : ''}`
         );
       }
     }
     setTimeOffDate('');
     setTimeOffReason('');
     setTimeOffCategory('vacation');
+    setTimeOffHalfDay(false);
     setShowTimeOff(false);
   };
 
@@ -193,7 +196,25 @@ export function MyShiftsView() {
       {/* Time Off Form */}
       {showTimeOff && (
         <form onSubmit={handleAddTimeOff} className="bg-amber-50 rounded-xl border border-amber-200 p-4 mb-6">
-          <h3 className="text-sm font-medium text-amber-800 mb-3">Request Day Off</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-amber-800">Request Day Off</h3>
+            <div className="flex items-center gap-1 bg-amber-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setTimeOffHalfDay(false)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${!timeOffHalfDay ? 'bg-white text-amber-800 shadow-sm' : 'text-amber-600'}`}
+              >
+                Full Day
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimeOffHalfDay(true)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${timeOffHalfDay ? 'bg-white text-amber-800 shadow-sm' : 'text-amber-600'}`}
+              >
+                Half Day
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-amber-700 mb-1">Date</label>
@@ -353,7 +374,7 @@ export function MyShiftsView() {
                             onClick={() => inMonth && handleCalendarDayClick(dateStr)}
                             title="Click to remove"
                           >
-                            {(timeOff.status || 'approved') === 'pending' ? '⏳ ' : ''}{catInfo.label}{timeOff.reason ? `: ${timeOff.reason}` : ''}{(timeOff.status || 'approved') === 'rejected' ? ' ❌' : ''}
+                            {(timeOff.status || 'approved') === 'pending' ? '⏳ ' : ''}{timeOff.halfDay ? '½ ' : ''}{catInfo.label}{timeOff.reason ? `: ${timeOff.reason}` : ''}{(timeOff.status || 'approved') === 'rejected' ? ' ❌' : ''}
                           </div>
                         </div>
                       )}
