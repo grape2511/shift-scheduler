@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
+import { TIME_OFF_CATEGORIES } from '../types';
 import { updateProfile } from '../lib/database';
 import * as db from '../lib/database';
 import { v4 as uuid } from 'uuid';
@@ -19,6 +20,8 @@ export function AgentsView() {
   const [addingTimeOffFor, setAddingTimeOffFor] = useState<string | null>(null);
   const [timeOffDate, setTimeOffDate] = useState('');
   const [timeOffReason, setTimeOffReason] = useState('');
+  const [timeOffCategory, setTimeOffCategory] = useState<import('../types').TimeOffCategory>('vacation');
+  const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
   const [expandedPto, setExpandedPto] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,12 +61,15 @@ export function AgentsView() {
       date: timeOffDate,
       reason: timeOffReason || undefined,
       status: 'approved' as const,
-      category: 'vacation' as const,
+      category: timeOffCategory,
+      halfDay: timeOffHalfDay,
     };
     dispatch({ type: 'ADD_TIME_OFF', payload: record });
     db.insertTimeOff(record);
     setTimeOffDate('');
     setTimeOffReason('');
+    setTimeOffCategory('vacation');
+    setTimeOffHalfDay(false);
     setAddingTimeOffFor(null);
   };
 
@@ -567,46 +573,13 @@ export function AgentsView() {
                   />
 
                   {/* Add day off */}
-                  {addingTimeOffFor === agent.id ? (
-                    <div className="bg-amber-50 rounded-lg border border-amber-200 p-2.5 space-y-2">
-                      <input
-                        type="date"
-                        value={timeOffDate}
-                        onChange={e => setTimeOffDate(e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      />
-                      <input
-                        type="text"
-                        value={timeOffReason}
-                        onChange={e => setTimeOffReason(e.target.value)}
-                        placeholder="Reason (optional)"
-                        className="w-full px-2 py-1.5 text-xs border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffReason(''); }}
-                          className="flex-1 px-2 py-1 text-xs text-gray-600 hover:bg-amber-100 rounded-lg"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleAddTimeOffForAgent(agent.id)}
-                          disabled={!timeOffDate}
-                          className="flex-1 px-2 py-1 text-xs font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setAddingTimeOffFor(agent.id)}
-                      className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Add Day Off
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setAddingTimeOffFor(agent.id)}
+                    className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Day Off
+                  </button>
 
                   {/* Existing time off entries */}
                   {(() => {
@@ -642,6 +615,87 @@ export function AgentsView() {
         )}
       </div>);
       })()}
+
+      {/* Add Day Off Modal */}
+      {addingTimeOffFor && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffReason(''); setTimeOffCategory('vacation'); setTimeOffHalfDay(false); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Add Day Off</h3>
+              <span className="text-sm text-gray-500">
+                {agents.find(a => a.id === addingTimeOffFor)?.name}
+              </span>
+            </div>
+
+            {/* Full / Half Day toggle */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 mb-4 w-fit">
+              <button
+                onClick={() => setTimeOffHalfDay(false)}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${!timeOffHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              >
+                Full Day
+              </button>
+              <button
+                onClick={() => setTimeOffHalfDay(true)}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${timeOffHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              >
+                Half Day
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={timeOffDate}
+                  onChange={e => setTimeOffDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
+                <select
+                  value={timeOffCategory}
+                  onChange={e => setTimeOffCategory(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  {TIME_OFF_CATEGORIES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Note (optional)</label>
+                <input
+                  type="text"
+                  value={timeOffReason}
+                  onChange={e => setTimeOffReason(e.target.value)}
+                  placeholder="Additional details"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffReason(''); setTimeOffCategory('vacation'); setTimeOffHalfDay(false); }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleAddTimeOffForAgent(addingTimeOffFor)}
+                disabled={!timeOffDate}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
