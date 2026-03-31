@@ -178,8 +178,12 @@ export function WeekView() {
         const weekDateStrs = weekDays.map(d => formatDate(d));
         const MIN_SHIFTS_PER_WEEK = 5;
 
+        const shiftLabels = ['USA Shift', 'EU Shift', 'Mid Shift'];
         const agentSummary = agents
-          .filter(a => a.role !== 'admin')
+          .filter(a => {
+            const agentLabels = a.labels || (a.label ? [a.label] : []);
+            return agentLabels.some(l => shiftLabels.includes(l));
+          })
           .map(agent => {
             const shiftCount = weekDateStrs.filter(dateStr => {
               const shifts = getShiftsForDate(dateStr);
