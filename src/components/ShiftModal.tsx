@@ -44,8 +44,29 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(editShift?.assignedAgentIds || []);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false);
-  const [groupA, setGroupA] = useState<string[]>([]); // Sat week 1, Sun week 2
-  const [groupB, setGroupB] = useState<string[]>([]); // Sun week 1, Sat week 2
+  // Initialize groups from existing rotation when editing
+  const [groupA, setGroupA] = useState<string[]>(() => {
+    if (!editShift?.recurringGroupId || editShift.recurring !== 'weekend-rotation') return [];
+    // Find the first Saturday in this rotation group
+    const groupShifts = state.shifts.filter(s => s.recurringGroupId === editShift.recurringGroupId);
+    const firstSat = groupShifts.find(s => new Date(s.date + 'T12:00:00').getDay() === 6);
+    return firstSat?.assignedAgentIds || [];
+  });
+  const [groupB, setGroupB] = useState<string[]>(() => {
+    if (!editShift?.recurringGroupId || editShift.recurring !== 'weekend-rotation') return [];
+    // Find the first Sunday in this rotation group
+    const groupShifts = state.shifts.filter(s => s.recurringGroupId === editShift.recurringGroupId);
+    const firstSat = groupShifts.find(s => new Date(s.date + 'T12:00:00').getDay() === 6);
+    const firstSun = groupShifts.find(s => {
+      if (new Date(s.date + 'T12:00:00').getDay() !== 0) return false;
+      // Find Sunday of the same week as first Saturday
+      if (!firstSat) return true;
+      const satDate = new Date(firstSat.date + 'T12:00:00');
+      const sunDate = new Date(s.date + 'T12:00:00');
+      return Math.abs(sunDate.getTime() - satDate.getTime()) < 2 * 86400000;
+    });
+    return firstSun?.assignedAgentIds || [];
+  });
 
   const shiftLabels = ['USA Shift', 'EU Shift', 'Mid Shift'];
   const rotationAgents = agents.filter(a => {
