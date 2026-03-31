@@ -28,6 +28,15 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   };
 
   const handleUnassign = (agentId: string) => {
+    // Block non-admins from leaving if it would drop below minimum required
+    const minRequired = shift.requiredAgents || 1;
+    if (agentId === state.currentUser.id && !isAdmin) {
+      const afterCount = shift.assignedAgentIds.length - 1;
+      if (afterCount < minRequired) {
+        alert(`Cannot leave — this shift needs at least ${minRequired} agents and would only have ${afterCount}.`);
+        return;
+      }
+    }
     dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: shift.id, agentId } });
   };
 

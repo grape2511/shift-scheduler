@@ -690,6 +690,25 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         }
         if (removedAgents.length > 0) {
           sendSlackNotification(slackUrl, `🚫 *${removedAgents.map(getAgentName).join(', ')}* removed from "${s.name}" on ${s.date}`);
+          // Check if any removed agent now has < 5 shifts this week
+          const MIN_SHIFTS = 5;
+          const shiftDate = new Date(s.date + 'T12:00:00');
+          const weekStart = new Date(shiftDate);
+          weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+          removedAgents.forEach(agentId => {
+            let weekShiftCount = 0;
+            for (let i = 0; i < 7; i++) {
+              const d = new Date(weekStart);
+              d.setDate(d.getDate() + i);
+              const ds = d.toISOString().split('T')[0];
+              if (state.shifts.some(sh => sh.date === ds && sh.assignedAgentIds.includes(agentId))) {
+                weekShiftCount++;
+              }
+            }
+            if (weekShiftCount < MIN_SHIFTS) {
+              sendSlackNotification(slackUrl, `⚠️ *Alert*: ${getAgentName(agentId)} now has only *${weekShiftCount} shifts* this week (minimum ${MIN_SHIFTS})`);
+            }
+          });
         }
         if (old.startTime !== s.startTime || old.endTime !== s.endTime || old.name !== s.name) {
           sendSlackNotification(slackUrl, `✏️ *Shift updated*: "${s.name}" on ${s.date} (${s.startTime}–${s.endTime})`);

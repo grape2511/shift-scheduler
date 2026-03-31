@@ -3,12 +3,12 @@ import { useApp } from '../store/AppContext';
 import { getWeekDays, formatDate, formatShortDay, formatDayNum, formatWeekRange, addWeeks } from '../utils/dates';
 import { ShiftCard } from './ShiftCard';
 import { ShiftModal } from './ShiftModal';
-import { ChevronLeft, ChevronRight, Plus, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle } from 'lucide-react';
 import { isToday, startOfWeek } from 'date-fns';
 import type { Shift } from '../types';
 
 export function WeekView() {
-  const { state, dispatch, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate } = useApp();
+  const { state, dispatch, agents, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
@@ -172,6 +172,63 @@ export function WeekView() {
           );
         })}
       </div>
+
+      {/* Weekly Agent Summary (admin only) */}
+      {isAdmin && (() => {
+        const weekDateStrs = weekDays.map(d => formatDate(d));
+        const MIN_SHIFTS_PER_WEEK = 5;
+
+        const agentSummary = agents
+          .filter(a => a.role !== 'admin')
+          .map(agent => {
+            const shiftCount = weekDateStrs.filter(dateStr => {
+              const shifts = getShiftsForDate(dateStr);
+              return shifts.some(s => s.assignedAgentIds.includes(agent.id));
+            }).length;
+            return { agent, shiftCount };
+          })
+          .sort((a, b) => a.shiftCount - b.shiftCount);
+
+        const underMin = agentSummary.filter(a => a.shiftCount < MIN_SHIFTS_PER_WEEK);
+
+        return (
+          <div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Weekly Agent Coverage</h3>
+              {underMin.length > 0 && (
+                <span className="flex items-center gap-1 text-xs font-medium text-red-600">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {underMin.length} under minimum
+                </span>
+              )}
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {agentSummary.map(({ agent, shiftCount }) => {
+                const isUnder = shiftCount < MIN_SHIFTS_PER_WEEK;
+                return (
+                  <div key={agent.id} className={`flex items-center justify-between px-4 py-2 border-b border-gray-50 last:border-0 ${isUnder ? 'bg-red-50' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: agent.color }}>
+                        {agent.name[0]}
+                      </div>
+                      <span className="text-sm text-gray-700">{agent.name}</span>
+                      {(agent.labels || []).slice(0, 1).map(l => (
+                        <span key={l} className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-500 rounded-full">{l}</span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isUnder ? 'text-red-600' : 'text-gray-700'}`}>
+                        {shiftCount}/{MIN_SHIFTS_PER_WEEK}
+                      </span>
+                      {isUnder && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {showModal && (
         <ShiftModal
