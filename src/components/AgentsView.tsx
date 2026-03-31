@@ -557,8 +557,8 @@ export function AgentsView() {
                     <input
                       type="number"
                       min={0}
-                      value={agent.ptoAllowance ?? 21}
-                      onChange={e => {
+                      defaultValue={agent.ptoAllowance ?? 21}
+                      onBlur={e => {
                         const val = parseInt(e.target.value) || 0;
                         dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { ptoAllowance: val } } });
                         updateProfile(agent.id, { ptoAllowance: val });
@@ -569,8 +569,8 @@ export function AgentsView() {
                     <input
                       type="number"
                       min={0}
-                      value={agent.sickDaysAllowance ?? 7}
-                      onChange={e => {
+                      defaultValue={agent.sickDaysAllowance ?? 7}
+                      onBlur={e => {
                         const val = parseInt(e.target.value) || 0;
                         dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { sickDaysAllowance: val } } });
                         updateProfile(agent.id, { sickDaysAllowance: val });
