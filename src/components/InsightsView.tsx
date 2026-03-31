@@ -154,7 +154,7 @@ export function InsightsView() {
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
             <Users className="w-3.5 h-3.5" />
-            Active Agents
+            Agents on Shift
           </div>
           <p className="text-2xl font-bold text-gray-900">{data.agentStats.filter(a => a.shifts > 0).length}</p>
           <p className="text-[10px] text-gray-400 mt-1">of {agents.length} total</p>
