@@ -3,6 +3,7 @@ import { useApp } from '../store/AppContext';
 import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
 import { updateProfile } from '../lib/database';
+import * as db from '../lib/database';
 import { v4 as uuid } from 'uuid';
 import { format, parseISO } from 'date-fns';
 
@@ -51,10 +52,16 @@ export function AgentsView() {
 
   const handleAddTimeOffForAgent = (agentId: string) => {
     if (!timeOffDate) return;
-    dispatch({
-      type: 'ADD_TIME_OFF',
-      payload: { id: uuid(), userId: agentId, date: timeOffDate, reason: timeOffReason || undefined },
-    });
+    const record = {
+      id: uuid(),
+      userId: agentId,
+      date: timeOffDate,
+      reason: timeOffReason || undefined,
+      status: 'approved' as const,
+      category: 'vacation' as const,
+    };
+    dispatch({ type: 'ADD_TIME_OFF', payload: record });
+    db.insertTimeOff(record);
     setTimeOffDate('');
     setTimeOffReason('');
     setAddingTimeOffFor(null);
@@ -552,33 +559,12 @@ export function AgentsView() {
               {expandedPto === agent.id && (
                 <div className="mt-3 space-y-3">
                   {/* Allowance setting */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-gray-400">PTO:</span>
-                    <input
-                      type="number"
-                      min={0}
-                      defaultValue={agent.ptoAllowance ?? 21}
-                      onBlur={e => {
-                        const val = parseInt(e.target.value) || 0;
-                        dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { ptoAllowance: val } } });
-                        updateProfile(agent.id, { ptoAllowance: val });
-                      }}
-                      className="w-12 px-1 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <span className="text-[10px] text-gray-400">Sick:</span>
-                    <input
-                      type="number"
-                      min={0}
-                      defaultValue={agent.sickDaysAllowance ?? 7}
-                      onBlur={e => {
-                        const val = parseInt(e.target.value) || 0;
-                        dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { sickDaysAllowance: val } } });
-                        updateProfile(agent.id, { sickDaysAllowance: val });
-                      }}
-                      className="w-12 px-1 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <span className="text-[10px] text-gray-400">days/year</span>
-                  </div>
+                  <PtoEditor
+                    agentId={agent.id}
+                    ptoAllowance={agent.ptoAllowance ?? 21}
+                    sickDaysAllowance={agent.sickDaysAllowance ?? 7}
+                    dispatch={dispatch}
+                  />
 
                   {/* Add day off */}
                   {addingTimeOffFor === agent.id ? (
@@ -656,6 +642,53 @@ export function AgentsView() {
         )}
       </div>);
       })()}
+    </div>
+  );
+}
+
+function PtoEditor({ agentId, ptoAllowance, sickDaysAllowance, dispatch }: {
+  agentId: string;
+  ptoAllowance: number;
+  sickDaysAllowance: number;
+  dispatch: React.Dispatch<any>;
+}) {
+  const [pto, setPto] = useState(ptoAllowance);
+  const [sick, setSick] = useState(sickDaysAllowance);
+  const changed = pto !== ptoAllowance || sick !== sickDaysAllowance;
+
+  const handleSave = () => {
+    dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { ptoAllowance: pto, sickDaysAllowance: sick } } });
+    updateProfile(agentId, { ptoAllowance: pto, sickDaysAllowance: sick });
+  };
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] text-gray-400">PTO:</span>
+      <input
+        type="number"
+        min={0}
+        value={pto}
+        onChange={e => setPto(parseInt(e.target.value) || 0)}
+        className="w-12 px-1 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      <span className="text-[10px] text-gray-400">Sick:</span>
+      <input
+        type="number"
+        min={0}
+        value={sick}
+        onChange={e => setSick(parseInt(e.target.value) || 0)}
+        className="w-12 px-1 py-0.5 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      {changed ? (
+        <button
+          onClick={handleSave}
+          className="px-2 py-0.5 text-[10px] font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 transition-colors"
+        >
+          Save
+        </button>
+      ) : (
+        <span className="text-[10px] text-gray-400">days/year</span>
+      )}
     </div>
   );
 }
