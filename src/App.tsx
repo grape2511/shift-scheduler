@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { AppProvider, useApp } from './store/AppContext';
 import { Layout } from './components/Layout';
@@ -12,12 +12,36 @@ import { InsightsView } from './components/InsightsView';
 import { TimeOffApproval } from './components/TimeOffApproval';
 import { ShiftPrompt } from './components/ShiftPrompt';
 
+const TAB_PATHS: Record<string, string> = {
+  schedule: '/',
+  agents: '/agents',
+  'my-shifts': '/my-shifts',
+  'time-off-approval': '/time-off',
+  insights: '/insights',
+  'user-management': '/users',
+};
+
+const PATH_TABS: Record<string, string> = Object.fromEntries(
+  Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab])
+);
+
+function getTabFromPath(): string {
+  const path = window.location.pathname;
+  return PATH_TABS[path] || 'schedule';
+}
+
 function AppContent() {
   const { state } = useApp();
-  const [activeTab, setActiveTab] = useState('schedule');
+  const [activeTab, setActiveTab] = useState(getTabFromPath);
+
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    const path = TAB_PATHS[tab] || '/';
+    window.history.pushState(null, '', path);
+  }, []);
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+    <Layout activeTab={activeTab} onTabChange={handleTabChange}>
       {activeTab === 'schedule' && <ScheduleView />}
       {activeTab === 'agents' && (state.currentUser.role === 'admin' || state.currentUser.role === 'team-lead') && <AgentsView />}
       {activeTab === 'my-shifts' && <MyShiftsView />}
