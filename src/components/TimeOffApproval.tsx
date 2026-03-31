@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { sendSlackNotification } from '../utils/slack';
 import { format, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { updateTimeOffStatus } from '../lib/database';
@@ -25,6 +26,7 @@ export function TimeOffApproval() {
     updateTimeOffStatus(id, 'approved');
     const to = state.timeOffs.find(t => t.id === id);
     if (to) {
+      const agent = getAgentById(to.userId);
       dispatch({
         type: 'ADD_NOTIFICATION',
         payload: {
@@ -36,6 +38,8 @@ export function TimeOffApproval() {
           type: 'info',
         },
       });
+      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+      if (slackUrl) sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}`);
     }
   };
 
@@ -44,6 +48,7 @@ export function TimeOffApproval() {
     updateTimeOffStatus(id, 'rejected');
     const to = state.timeOffs.find(t => t.id === id);
     if (to) {
+      const agent = getAgentById(to.userId);
       dispatch({
         type: 'ADD_NOTIFICATION',
         payload: {
@@ -55,6 +60,8 @@ export function TimeOffApproval() {
           type: 'info',
         },
       });
+      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+      if (slackUrl) sendSlackNotification(slackUrl, `❌ *Time off rejected*: ${agent?.name} on ${to.date}`);
     }
   };
 

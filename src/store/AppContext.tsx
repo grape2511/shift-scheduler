@@ -654,12 +654,19 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     if (deletedShiftIds.length > 0) db.deleteShifts(deletedShiftIds);
     updatedShifts.forEach(s => db.updateShift(s));
 
-    // Slack notifications
+    // Slack + admin notifications
+    const adminUser = state.users.find(u => u.email === 'einav@adrevival.io');
     const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-    if (slackUrl) {
-      const getAgentName = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
+    const getAgentName = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
+    const notifyAdmin = (message: string) => {
+      if (adminUser && adminUser.id !== state.currentUser.id) {
+        const notif = createNotification(adminUser.id, message, 'info');
+        db.insertNotification(notif);
+      }
+    };
+    if (slackUrl || adminUser) {
 
-      if (newShifts.length > 0) {
+      if (slackUrl && newShifts.length > 0) {
         if (newShifts.length > 5) {
           sendSlackNotification(slackUrl, `📅 *${newShifts.length} shifts created*: "${newShifts[0].name}" starting ${newShifts[0].date}`);
         } else {
@@ -669,7 +676,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         }
       }
 
-      if (deletedShiftIds.length > 0) {
+      if (slackUrl && deletedShiftIds.length > 0) {
         const deletedShifts = prev.shifts.filter(s => deletedShiftIds.includes(s.id));
         if (deletedShifts.length > 5) {
           sendSlackNotification(slackUrl, `❌ *${deletedShifts.length} shifts cancelled*: "${deletedShifts[0].name}"`);
@@ -686,10 +693,11 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         const newAgents = s.assignedAgentIds.filter(id => !old.assignedAgentIds.includes(id));
         const removedAgents = old.assignedAgentIds.filter(id => !s.assignedAgentIds.includes(id));
         if (newAgents.length > 0) {
-          sendSlackNotification(slackUrl, `👤 *${newAgents.map(getAgentName).join(', ')}* assigned to "${s.name}" on ${s.date}`);
+          if (slackUrl) sendSlackNotification(slackUrl, `👤 *${newAgents.map(getAgentName).join(', ')}* assigned to "${s.name}" on ${s.date}`);
+          notifyAdmin(`${newAgents.map(getAgentName).join(', ')} joined "${s.name}" on ${s.date}`);
         }
         if (removedAgents.length > 0) {
-          sendSlackNotification(slackUrl, `🚫 *${removedAgents.map(getAgentName).join(', ')}* removed from "${s.name}" on ${s.date}`);
+          if (slackUrl) sendSlackNotification(slackUrl, `🚫 *${removedAgents.map(getAgentName).join(', ')}* removed from "${s.name}" on ${s.date}`);
           // Check if any removed agent now has < 5 shifts this week
           const MIN_SHIFTS = 5;
           const shiftDate = new Date(s.date + 'T12:00:00');
@@ -706,11 +714,12 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
               }
             }
             if (weekShiftCount < MIN_SHIFTS) {
-              sendSlackNotification(slackUrl, `⚠️ *Alert*: ${getAgentName(agentId)} now has only *${weekShiftCount} shifts* this week (minimum ${MIN_SHIFTS})`);
+              if (slackUrl) sendSlackNotification(slackUrl, `⚠️ *Alert*: ${getAgentName(agentId)} now has only *${weekShiftCount} shifts* this week (minimum ${MIN_SHIFTS})`);
+              notifyAdmin(`⚠️ ${getAgentName(agentId)} has only ${weekShiftCount} shifts this week (minimum ${MIN_SHIFTS})`);
             }
           });
         }
-        if (old.startTime !== s.startTime || old.endTime !== s.endTime || old.name !== s.name) {
+        if (slackUrl && (old.startTime !== s.startTime || old.endTime !== s.endTime || old.name !== s.name)) {
           sendSlackNotification(slackUrl, `✏️ *Shift updated*: "${s.name}" on ${s.date} (${s.startTime}–${s.endTime})`);
         }
       });
@@ -737,8 +746,23 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       const pr = (prev.swapRequests || []).find(pr => pr.id === r.id);
       return pr && pr.status !== r.status;
     });
-    newSwaps.forEach(r => db.insertSwapRequest(r));
-    updatedSwaps.forEach(r => db.updateSwapRequestStatus(r.id, r.status as 'accepted' | 'declined'));
+    newSwaps.forEach(r => {
+      db.insertSwapRequest(r);
+      if (slackUrl) {
+        const fromShift = state.shifts.find(s => s.id === r.fromShiftId);
+        const toShift = state.shifts.find(s => s.id === r.toShiftId);
+        const getAgentName2 = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
+        sendSlackNotification(slackUrl, `🔄 *Swap request*: ${getAgentName2(r.fromAgentId)} wants to swap "${fromShift?.name}" (${fromShift?.date}) with ${getAgentName2(r.toAgentId)}'s "${toShift?.name}" (${toShift?.date})`);
+      }
+      notifyAdmin(`Swap request: ${state.users.find(u => u.id === r.fromAgentId)?.name} wants to swap shifts with ${state.users.find(u => u.id === r.toAgentId)?.name}`);
+    });
+    updatedSwaps.forEach(r => {
+      db.updateSwapRequestStatus(r.id, r.status as 'accepted' | 'declined');
+      if (slackUrl) {
+        const getAgentName2 = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
+        sendSlackNotification(slackUrl, `🔄 *Swap ${r.status}*: ${getAgentName2(r.fromAgentId)} ↔ ${getAgentName2(r.toAgentId)}`);
+      }
+    });
 
     // Sync clock records
     const newClockRecords = state.clockRecords.filter(r => !prev.clockRecords.some(pr => pr.id === r.id));
