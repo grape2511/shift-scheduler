@@ -588,11 +588,15 @@ export function AgentsView() {
                     return (
                       <div className="space-y-1">
                         <span className="text-[10px] text-gray-400 font-medium">Time off entries:</span>
-                        {timeOffs.map(to => (
-                          <div key={to.id} className="flex items-center justify-between px-2 py-1 bg-amber-50 rounded-lg text-xs">
-                            <div className="flex items-center gap-2">
+                        {timeOffs.map(to => {
+                          const catInfo = TIME_OFF_CATEGORIES.find(c => c.value === (to.category || 'vacation')) || TIME_OFF_CATEGORIES[0];
+                          return (
+                          <div key={to.id} className="flex items-center justify-between px-2 py-1.5 bg-amber-50 rounded-lg text-xs">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-medium text-amber-800">{format(parseISO(to.date), 'MMM d, yyyy')}</span>
-                              {to.reason && <span className="text-amber-600">– {to.reason}</span>}
+                              <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
+                              {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">Half Day</span>}
+                              {to.reason && <span className="text-amber-500">– {to.reason}</span>}
                             </div>
                             <button
                               onClick={() => dispatch({ type: 'REMOVE_TIME_OFF', payload: to.id })}
@@ -601,7 +605,8 @@ export function AgentsView() {
                               <X className="w-3 h-3" />
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     );
                   })()}
