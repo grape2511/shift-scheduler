@@ -221,7 +221,7 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -382,24 +382,32 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                     {rotationAgents.map(agent => {
                       const inA = groupA.includes(agent.id);
                       const inB = groupB.includes(agent.id);
-                      if (inB) return null;
                       return (
                         <button
                           key={agent.id}
                           type="button"
-                          onClick={() => setGroupA(prev => inA ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
+                          disabled={inB}
+                          onClick={() => !inB && setGroupA(prev => inA ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
                           className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors ${
-                            inA ? 'border-blue-400 bg-blue-100 text-blue-800' : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                            inA ? 'border-blue-400 bg-blue-100 text-blue-800' :
+                            inB ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' :
+                            'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
                           }`}
                         >
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: agent.color }}>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                            inA ? 'bg-blue-600 border-blue-600' : inB ? 'bg-gray-200 border-gray-200' : 'border-gray-300'
+                          }`}>
+                            {inA && <Check className="w-3 h-3 text-white" />}
+                            {inB && <Check className="w-3 h-3 text-gray-400" />}
+                          </div>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: inB ? '#d1d5db' : agent.color }}>
                             {agent.name[0]}
                           </div>
                           <span className="flex-1 truncate">{agent.name.split(' ')[0]}</span>
                           {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
-                            <span key={l} className="text-[8px] px-1 py-0.5 bg-blue-200/50 text-blue-700 rounded-full">{l}</span>
+                            <span key={l} className={`text-[8px] px-1 py-0.5 rounded-full ${inB ? 'bg-gray-100 text-gray-300' : 'bg-blue-200/50 text-blue-700'}`}>{l}</span>
                           ))}
-                          {inA && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                          {inB && <span className="text-[9px] text-gray-400 shrink-0">in B</span>}
                         </button>
                       );
                     })}
@@ -413,24 +421,32 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
                     {rotationAgents.map(agent => {
                       const inA = groupA.includes(agent.id);
                       const inB = groupB.includes(agent.id);
-                      if (inA) return null;
                       return (
                         <button
                           key={agent.id}
                           type="button"
-                          onClick={() => setGroupB(prev => inB ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
+                          disabled={inA}
+                          onClick={() => !inA && setGroupB(prev => inB ? prev.filter(id => id !== agent.id) : [...prev, agent.id])}
                           className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors ${
-                            inB ? 'border-purple-400 bg-purple-100 text-purple-800' : 'border-gray-200 bg-white text-gray-700 hover:border-purple-300'
+                            inB ? 'border-purple-400 bg-purple-100 text-purple-800' :
+                            inA ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' :
+                            'border-gray-200 bg-white text-gray-700 hover:border-purple-300'
                           }`}
                         >
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: agent.color }}>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                            inB ? 'bg-purple-600 border-purple-600' : inA ? 'bg-gray-200 border-gray-200' : 'border-gray-300'
+                          }`}>
+                            {inB && <Check className="w-3 h-3 text-white" />}
+                            {inA && <Check className="w-3 h-3 text-gray-400" />}
+                          </div>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: inA ? '#d1d5db' : agent.color }}>
                             {agent.name[0]}
                           </div>
                           <span className="flex-1 truncate">{agent.name.split(' ')[0]}</span>
                           {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
-                            <span key={l} className="text-[8px] px-1 py-0.5 bg-purple-200/50 text-purple-700 rounded-full">{l}</span>
+                            <span key={l} className={`text-[8px] px-1 py-0.5 rounded-full ${inA ? 'bg-gray-100 text-gray-300' : 'bg-purple-200/50 text-purple-700'}`}>{l}</span>
                           ))}
-                          {inB && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
+                          {inA && <span className="text-[9px] text-gray-400 shrink-0">in A</span>}
                         </button>
                       );
                     })}
@@ -731,7 +747,7 @@ function AgentShiftView({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
