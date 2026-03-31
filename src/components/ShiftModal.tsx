@@ -55,26 +55,20 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   // Initialize groups from existing rotation when editing
-  const [groupA, setGroupA] = useState<string[]>(() => {
-    if (!editShift?.recurringGroupId) return [];
+  const [initA, initB] = (() => {
+    if (!editShift?.recurringGroupId) return [[] as string[], [] as string[]];
     const groupShifts = state.shifts
       .filter(s => s.recurringGroupId === editShift.recurringGroupId)
       .sort((a, b) => a.date.localeCompare(b.date));
-    // Group A = agents on the first Saturday
     const firstSat = groupShifts.find(s => new Date(s.date + 'T12:00:00').getDay() === 6);
-    if (firstSat) return [...firstSat.assignedAgentIds];
-    return [];
-  });
-  const [groupB, setGroupB] = useState<string[]>(() => {
-    if (!editShift?.recurringGroupId) return [];
-    const groupShifts = state.shifts
-      .filter(s => s.recurringGroupId === editShift.recurringGroupId)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    // Group B = agents on the first Sunday
     const firstSun = groupShifts.find(s => new Date(s.date + 'T12:00:00').getDay() === 0);
-    if (firstSun) return [...firstSun.assignedAgentIds];
-    return [];
-  });
+    const a = firstSat ? [...firstSat.assignedAgentIds] : [];
+    // Group B = first Sunday agents, excluding anyone already in A
+    const b = firstSun ? firstSun.assignedAgentIds.filter(id => !a.includes(id)) : [];
+    return [a, b];
+  })();
+  const [groupA, setGroupA] = useState<string[]>(initA);
+  const [groupB, setGroupB] = useState<string[]>(initB);
 
   const shiftLabels = ['USA Shift', 'EU Shift', 'Mid Shift'];
   const rotationAgents = agents.filter(a => {
