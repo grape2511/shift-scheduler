@@ -87,12 +87,11 @@ export function MyShiftsView() {
 
   const handleCalendarDayClick = (dateStr: string) => {
     const existing = myTimeOffs.find(t => t.date === dateStr);
-    if (existing) {
-      handleRemoveTimeOff(existing.id);
-    } else {
+    if (!existing) {
       setTimeOffDate(dateStr);
       setShowTimeOff(true);
     }
+    // If day off exists, do nothing (use X button in the upcoming list to remove)
   };
 
   const handleRemoveTimeOff = (id: string) => {
@@ -369,12 +368,18 @@ export function MyShiftsView() {
                       {/* Time Off indicator */}
                       {timeOff && catInfo && (
                         <div className="px-1">
-                          <div
-                            className={`text-[9px] font-medium rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:opacity-80 ${catInfo.color}`}
-                            onClick={() => inMonth && handleCalendarDayClick(dateStr)}
-                            title="Click to remove"
-                          >
-                            {(timeOff.status || 'approved') === 'pending' ? '⏳ ' : ''}{timeOff.halfDay ? '½ ' : ''}{catInfo.label}{timeOff.reason ? `: ${timeOff.reason}` : ''}{(timeOff.status || 'approved') === 'rejected' ? ' ❌' : ''}
+                          <div className={`text-[9px] font-medium rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-0.5 ${catInfo.color}`}>
+                            <span className="truncate">
+                              {(timeOff.status || 'approved') === 'pending' ? '⏳ ' : ''}{timeOff.halfDay ? '½ ' : ''}{catInfo.label}{timeOff.reason ? `: ${timeOff.reason}` : ''}{(timeOff.status || 'approved') === 'rejected' ? ' ❌' : ''}
+                            </span>
+                            {inMonth && (
+                              <button
+                                onClick={() => handleRemoveTimeOff(timeOff.id)}
+                                className="shrink-0 hover:text-red-600"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
