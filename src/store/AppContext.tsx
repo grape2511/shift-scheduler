@@ -211,43 +211,59 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'ADD_WEEKEND_ROTATION': {
       const { shift, groupA, groupB } = action.payload;
+      // Deep copy arrays to prevent any reference issues
+      const aAgents = Array.from(groupA);
+      const bAgents = Array.from(groupB);
       const groupId = uuid();
       const baseDate = new Date(shift.date + 'T12:00:00');
       const newShifts: Shift[] = [];
       const notifications: Notification[] = [];
 
       // Find the next Saturday from the start date
-      let startSat = new Date(baseDate);
+      const startSat = new Date(baseDate);
       while (startSat.getDay() !== 6) {
         startSat.setDate(startSat.getDate() + 1);
       }
+      const startSatTime = startSat.getTime();
 
       // Generate 26 weeks of alternating Sat/Sun shifts
       for (let week = 0; week < 26; week++) {
-        const satDate = new Date(startSat);
-        satDate.setDate(satDate.getDate() + week * 7);
-        const sunDate = new Date(satDate);
-        sunDate.setDate(sunDate.getDate() + 1);
+        const satMs = startSatTime + week * 7 * 86400000;
+        const sunMs = satMs + 86400000;
+        const satDateStr = formatDate(new Date(satMs));
+        const sunDateStr = formatDate(new Date(sunMs));
 
         // Even weeks: Group A on Sat, Group B on Sun
         // Odd weeks: Group B on Sat, Group A on Sun
-        const satAgents = week % 2 === 0 ? groupA : groupB;
-        const sunAgents = week % 2 === 0 ? groupB : groupA;
+        const satAgentIds = week % 2 === 0 ? Array.from(aAgents) : Array.from(bAgents);
+        const sunAgentIds = week % 2 === 0 ? Array.from(bAgents) : Array.from(aAgents);
 
         newShifts.push({
-          ...shift,
           id: uuid(),
-          date: formatDate(satDate),
-          assignedAgentIds: [...satAgents],
+          name: shift.name,
+          date: satDateStr,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          timezone: shift.timezone,
+          assignedAgentIds: satAgentIds,
+          recurring: 'weekend-rotation' as const,
           recurringGroupId: groupId,
+          requiredAgents: shift.requiredAgents,
+          color: shift.color,
         });
 
         newShifts.push({
-          ...shift,
           id: uuid(),
-          date: formatDate(sunDate),
-          assignedAgentIds: [...sunAgents],
+          name: shift.name,
+          date: sunDateStr,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          timezone: shift.timezone,
+          assignedAgentIds: sunAgentIds,
+          recurring: 'weekend-rotation' as const,
           recurringGroupId: groupId,
+          requiredAgents: shift.requiredAgents,
+          color: shift.color,
         });
       }
 
