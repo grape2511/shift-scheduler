@@ -9,6 +9,19 @@ export function ShiftPrompt() {
   const [elapsed, setElapsed] = useState(0);
 
   const isAgent = state.currentUser.role === 'agent' || state.currentUser.role === 'team-lead';
+  const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
+    ? state.currentUser.timezone : undefined;
+
+  const formatShiftTime = (time: string, shiftTz: string) => {
+    if (!userTimezone || userTimezone === shiftTz) return time;
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const d = new Date(`${today}T${time}:00`);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: userTimezone });
+    } catch {
+      return time;
+    }
+  };
   const nowDate = new Date();
   const todayStr = nowDate.toISOString().split('T')[0];
   const nowMinutes = nowDate.getHours() * 60 + nowDate.getMinutes();
@@ -109,7 +122,7 @@ export function ShiftPrompt() {
         <div className="fixed bottom-4 right-4 z-40 bg-white rounded-xl shadow-lg border border-green-200 px-4 py-3 flex items-center gap-3">
           <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
           <div>
-            <p className="text-xs text-gray-500">{activeClockedShift.name}</p>
+            <p className="text-xs text-gray-500">{activeClockedShift.name} · {formatShiftTime(activeClockedShift.startTime, activeClockedShift.timezone)}–{formatShiftTime(activeClockedShift.endTime, activeClockedShift.timezone)}</p>
             <p className="text-lg font-mono font-bold text-gray-900">{formatElapsed(elapsed)}</p>
           </div>
           <button
@@ -138,7 +151,7 @@ export function ShiftPrompt() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-sm text-gray-500 mb-4">{needsClockIn.name} · {needsClockIn.startTime} – {needsClockIn.endTime}</p>
+              <p className="text-sm text-gray-500 mb-4">{needsClockIn.name} · {formatShiftTime(needsClockIn.startTime, needsClockIn.timezone)} – {formatShiftTime(needsClockIn.endTime, needsClockIn.timezone)}{userTimezone && userTimezone !== needsClockIn.timezone ? ' (your time)' : ''}</p>
 
               <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-3 mb-4">
                 <p className="text-sm text-indigo-700">
@@ -182,7 +195,7 @@ export function ShiftPrompt() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-sm text-gray-500 mb-3">{needsClockOut.name} · ends at {needsClockOut.endTime}</p>
+              <p className="text-sm text-gray-500 mb-3">{needsClockOut.name} · ends at {formatShiftTime(needsClockOut.endTime, needsClockOut.timezone)}{userTimezone && userTimezone !== needsClockOut.timezone ? ' (your time)' : ''}</p>
 
               {activeRecord && (
                 <div className="bg-green-50 rounded-lg p-3 mb-3 text-center">
