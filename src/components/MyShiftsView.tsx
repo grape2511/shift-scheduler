@@ -99,9 +99,9 @@ export function MyShiftsView() {
     dbDeleteTimeOff(id);
   };
 
-  // Check weekly shift count
+  // Check next week's shift count
   const weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7) + 7); // Next Monday
   const MIN_WEEKLY_SHIFTS = 5;
   let weeklyShiftCount = 0;
   for (let i = 0; i < 7; i++) {
@@ -119,7 +119,7 @@ export function MyShiftsView() {
         <div className="mb-4 bg-red-600 text-white rounded-xl px-4 py-3 flex items-center gap-3">
           <AlertTriangle className="w-5 h-5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold">You only have {weeklyShiftCount} shifts this week — minimum is {MIN_WEEKLY_SHIFTS}</p>
+            <p className="text-sm font-semibold">You only have {weeklyShiftCount} shifts next week — minimum is {MIN_WEEKLY_SHIFTS}</p>
             <p className="text-xs opacity-80">Please join additional shifts to meet the weekly requirement.</p>
           </div>
         </div>
