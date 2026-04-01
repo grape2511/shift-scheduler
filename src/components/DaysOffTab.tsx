@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
-import { Calendar, X, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Calendar, X, ChevronLeft, ChevronRight, Plus, Check } from 'lucide-react';
+import { updateTimeOffStatus } from '../lib/database';
 import { format, parseISO, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { getHolidays, getCountryName } from '../utils/holidays';
@@ -104,6 +105,44 @@ export function DaysOffTab() {
     .filter(t => (t.status || 'approved') === 'rejected')
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  // Pending PTO requests for approval (only for einav@adrevival.io)
+  const isApprover = state.currentUser.email === 'einav@adrevival.io';
+  const pendingApprovals = isApprover
+    ? state.timeOffs.filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id).sort((a, b) => a.date.localeCompare(b.date))
+    : [];
+
+  const handleApprove = (id: string) => {
+    dispatch({ type: 'UPDATE_TIME_OFF_STATUS', payload: { id, status: 'approved' } });
+    updateTimeOffStatus(id, 'approved');
+    const to = state.timeOffs.find(t => t.id === id);
+    if (to) {
+      const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been approved ✅`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
+      dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+      insertNotification(notif);
+      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+      if (slackUrl) {
+        const agent = state.users.find(u => u.id === to.userId);
+        sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}`);
+      }
+    }
+  };
+
+  const handleReject = (id: string) => {
+    dispatch({ type: 'UPDATE_TIME_OFF_STATUS', payload: { id, status: 'rejected' } });
+    updateTimeOffStatus(id, 'rejected');
+    const to = state.timeOffs.find(t => t.id === id);
+    if (to) {
+      const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been declined ❌`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
+      dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+      insertNotification(notif);
+      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+      if (slackUrl) {
+        const agent = state.users.find(u => u.id === to.userId);
+        sendSlackNotification(slackUrl, `❌ *Time off rejected*: ${agent?.name} on ${to.date}`);
+      }
+    }
+  };
+
   // Team days off (approved, upcoming)
   const teamDaysOff = state.timeOffs
     .filter(t => t.userId !== state.currentUser.id && (t.status || 'approved') === 'approved' && t.date >= format(now, 'yyyy-MM-dd'))
@@ -152,6 +191,49 @@ export function DaysOffTab() {
           <p className="text-[9px] text-indigo-500 font-medium uppercase">Sick used</p>
         </div>
       </div>
+
+      {/* Pending Approvals (only for einav@adrevival.io) */}
+      {isApprover && pendingApprovals.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl border border-amber-200 overflow-hidden">
+          <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-amber-800">Pending PTO Requests ({pendingApprovals.length})</h3>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {pendingApprovals.map(to => {
+              const agent = state.users.find(u => u.id === to.userId);
+              const catInfo = getCategoryInfo(to.category);
+              return (
+                <div key={to.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: agent?.color || '#6366f1' }}>
+                      {agent?.name?.[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{agent?.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-gray-500">{to.date}</span>
+                        <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
+                        {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">½ day</span>}
+                        {to.reason && <span className="text-xs text-gray-400">– {to.reason}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleReject(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">
+                      <X className="w-3 h-3" />
+                      Reject
+                    </button>
+                    <button onClick={() => handleApprove(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                      <Check className="w-3 h-3" />
+                      Approve
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Request Form */}
       {showForm && (
