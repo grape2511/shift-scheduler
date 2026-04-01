@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield, BarChart3, CalendarCheck, Timer } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield, BarChart3, CalendarCheck, Timer, Moon, Sun } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
 import { COUNTRIES } from '../utils/holidays';
 
@@ -43,6 +43,12 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', String(darkMode));
+  }, [darkMode]);
   const unreadCount = getUnreadNotificationCount();
 
   const isAdmin = state.currentUser.role === 'admin';
@@ -65,9 +71,9 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-14">
             {/* Logo + Nav */}
@@ -203,9 +209,24 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                           Sets your public holidays on the calendar
                         </p>
                       </div>
+                      {/* Dark Mode Toggle */}
+                      <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+                        <button
+                          onClick={() => setDarkMode(!darkMode)}
+                          className="w-full flex items-center justify-between text-sm text-gray-700 dark:text-gray-300"
+                        >
+                          <div className="flex items-center gap-2">
+                            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                            {darkMode ? 'Light Mode' : 'Dark Mode'}
+                          </div>
+                          <div className={`w-8 h-4 rounded-full transition-colors relative ${darkMode ? 'bg-indigo-600' : 'bg-gray-300'}`}>
+                            <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${darkMode ? 'left-4' : 'left-0.5'}`} />
+                          </div>
+                        </button>
+                      </div>
                       <button
                         onClick={handleSignOut}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors mt-1"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors mt-1"
                       >
                         <LogOut className="w-4 h-4" />
                         Sign Out
