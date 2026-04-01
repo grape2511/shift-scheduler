@@ -99,9 +99,10 @@ export function MyShiftsView() {
     dbDeleteTimeOff(id);
   };
 
-  // Check next week's shift count
+  // Check current week's shift count (only enforce from Apr 6, 2026 onwards)
   const weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7) + 7); // Next Monday
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+  const enforceFromDate = new Date('2026-04-06'); // Start enforcing from next week
   const MIN_WEEKLY_SHIFTS = 5;
   let weeklyShiftCount = 0;
   for (let i = 0; i < 7; i++) {
@@ -110,7 +111,7 @@ export function MyShiftsView() {
     const ds = d.toISOString().split('T')[0];
     if (myShifts.some(s => s.date === ds)) weeklyShiftCount++;
   }
-  const underMinShifts = state.currentUser.role !== 'admin' && weeklyShiftCount < MIN_WEEKLY_SHIFTS;
+  const underMinShifts = state.currentUser.role !== 'admin' && weeklyShiftCount < MIN_WEEKLY_SHIFTS && weekStart >= enforceFromDate;
 
   return (
     <div>
@@ -119,7 +120,7 @@ export function MyShiftsView() {
         <div className="mb-4 bg-red-600 text-white rounded-xl px-4 py-3 flex items-center gap-3">
           <AlertTriangle className="w-5 h-5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold">You only have {weeklyShiftCount} shifts next week — minimum is {MIN_WEEKLY_SHIFTS}</p>
+            <p className="text-sm font-semibold">You only have {weeklyShiftCount} shifts this week — minimum is {MIN_WEEKLY_SHIFTS}</p>
             <p className="text-xs opacity-80">Please join additional shifts to meet the weekly requirement.</p>
           </div>
         </div>
