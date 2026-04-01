@@ -750,9 +750,22 @@ function AgentShiftView({
       );
     }
 
+    // Notify the target agent directly
+    const targetNotif = {
+      id: uuid(),
+      userId: swapTargetId,
+      message: `${state.currentUser.name} wants to swap: give you "${shift.name}" (${shift.date}) for your "${toShift?.name}" (${toShift?.date})${swapReason ? ` — "${swapReason}"` : ''}`,
+      timestamp: new Date().toISOString(),
+      read: false,
+      type: 'swap-request' as const,
+      swapRequestId: swapRecord.id,
+    };
+    dispatch({ type: 'ADD_NOTIFICATION', payload: targetNotif });
+    insertNotification(targetNotif);
+
     // Admin notification
     const admin = state.users.find(u => u.email === 'einav@adrevival.io');
-    if (admin && admin.id !== state.currentUser.id) {
+    if (admin && admin.id !== state.currentUser.id && admin.id !== swapTargetId) {
       const notif = {
         id: uuid(),
         userId: admin.id,
