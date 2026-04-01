@@ -173,6 +173,39 @@ export function WeekView() {
         })}
       </div>
 
+      {/* Upcoming Team Days Off (visible to all) */}
+      {(() => {
+        const upcoming = state.timeOffs
+          .filter(t => (t.status || 'approved') === 'approved' && t.date >= formatDate(new Date()))
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(0, 15);
+        if (upcoming.length === 0) return null;
+        return (
+          <div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-900">Upcoming Team Days Off</h3>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {upcoming.map(to => {
+                const agent = state.users.find(u => u.id === to.userId);
+                return (
+                  <div key={to.id} className="flex items-center justify-between px-4 py-2 border-b border-gray-50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: agent?.color || '#6366f1' }}>
+                        {agent?.name?.[0] || '?'}
+                      </div>
+                      <span className="text-sm text-gray-700">{agent?.name}</span>
+                      {to.halfDay && <span className="text-[9px] px-1 py-0.5 text-indigo-700 bg-indigo-50 rounded font-medium">½ day</span>}
+                    </div>
+                    <span className="text-xs text-gray-500">{to.date}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Weekly Agent Summary (admin only) */}
       {isAdmin && (() => {
         const weekDateStrs = weekDays.map(d => formatDate(d));
