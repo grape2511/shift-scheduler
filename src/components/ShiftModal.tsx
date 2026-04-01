@@ -737,45 +737,48 @@ function AgentShiftView({
       timestamp: new Date().toISOString(),
     };
     dispatch({ type: 'CREATE_SWAP_REQUEST', payload: swapRecord });
-    // Write directly to DB
-    insertSwapRequest(swapRecord);
 
-    // Slack notification
-    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
     const toShift = state.shifts.find(s => s.id === swapTargetShiftId);
     const targetAgent = state.users.find(u => u.id === swapTargetId);
+    const swapMsg = `${state.currentUser.name} wants to swap: give you "${shift.name}" (${shift.date}) for your "${toShift?.name}" (${toShift?.date})${swapReason ? ` — "${swapReason}"` : ''}`;
+
+    // Write swap request to DB first, then notifications
+    insertSwapRequest(swapRecord).then(() => {
+      // Notify the target agent (with swap_request_id link)
+      const targetNotif = {
+        id: uuid(),
+        userId: swapTargetId,
+        message: swapMsg,
+        timestamp: new Date().toISOString(),
+        read: false,
+        type: 'swap-request' as const,
+        swapRequestId: swapRecord.id,
+      };
+      dispatch({ type: 'ADD_NOTIFICATION', payload: targetNotif });
+      insertNotification(targetNotif);
+
+      // Admin notification
+      const admin = state.users.find(u => u.email === 'einav@adrevival.io');
+      if (admin && admin.id !== state.currentUser.id && admin.id !== swapTargetId) {
+        const notif = {
+          id: uuid(),
+          userId: admin.id,
+          message: `${state.currentUser.name} wants to swap "${shift.name}" (${shift.date}) with ${targetAgent?.name}'s "${toShift?.name}" (${toShift?.date})`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          type: 'info' as const,
+        };
+        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+        insertNotification(notif);
+      }
+    });
+
+    // Slack notification (fire immediately)
+    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
     if (slackUrl) {
       sendSlackNotification(slackUrl,
         `🔄 *Swap request*: ${state.currentUser.name} wants to swap "${shift.name}" (${shift.date}) with ${targetAgent?.name}'s "${toShift?.name}" (${toShift?.date})${swapReason ? ` — ${swapReason}` : ''}`
       );
-    }
-
-    // Notify the target agent directly
-    const targetNotif = {
-      id: uuid(),
-      userId: swapTargetId,
-      message: `${state.currentUser.name} wants to swap: give you "${shift.name}" (${shift.date}) for your "${toShift?.name}" (${toShift?.date})${swapReason ? ` — "${swapReason}"` : ''}`,
-      timestamp: new Date().toISOString(),
-      read: false,
-      type: 'swap-request' as const,
-      swapRequestId: swapRecord.id,
-    };
-    dispatch({ type: 'ADD_NOTIFICATION', payload: targetNotif });
-    insertNotification(targetNotif);
-
-    // Admin notification
-    const admin = state.users.find(u => u.email === 'einav@adrevival.io');
-    if (admin && admin.id !== state.currentUser.id && admin.id !== swapTargetId) {
-      const notif = {
-        id: uuid(),
-        userId: admin.id,
-        message: `${state.currentUser.name} wants to swap "${shift.name}" (${shift.date}) with ${targetAgent?.name}'s "${toShift?.name}" (${toShift?.date})`,
-        timestamp: new Date().toISOString(),
-        read: false,
-        type: 'info' as const,
-      };
-      dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
-      insertNotification(notif);
     }
 
     setShowSwap(false);
