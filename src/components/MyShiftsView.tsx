@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { ShiftCard } from './ShiftCard';
-import { Calendar, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus, LogIn, LogOut } from 'lucide-react';
+import { Calendar, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus, LogIn, LogOut, AlertTriangle } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getHolidays, getCountryName } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
@@ -99,8 +99,32 @@ export function MyShiftsView() {
     dbDeleteTimeOff(id);
   };
 
+  // Check weekly shift count
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+  const MIN_WEEKLY_SHIFTS = 5;
+  let weeklyShiftCount = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    const ds = d.toISOString().split('T')[0];
+    if (myShifts.some(s => s.date === ds)) weeklyShiftCount++;
+  }
+  const underMinShifts = state.currentUser.role !== 'admin' && weeklyShiftCount < MIN_WEEKLY_SHIFTS;
+
   return (
     <div>
+      {/* Under minimum shifts warning */}
+      {underMinShifts && (
+        <div className="mb-4 bg-red-600 text-white rounded-xl px-4 py-3 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">You only have {weeklyShiftCount} shifts this week — minimum is {MIN_WEEKLY_SHIFTS}</p>
+            <p className="text-xs opacity-80">Please join additional shifts to meet the weekly requirement.</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">My Shifts</h2>
