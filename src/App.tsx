@@ -11,10 +11,12 @@ import { UserManagement } from './components/UserManagement';
 import { InsightsView } from './components/InsightsView';
 import { TimeOffApproval } from './components/TimeOffApproval';
 import { ShiftPrompt } from './components/ShiftPrompt';
+import { ClockTab } from './components/ClockTab';
 
 const TAB_PATHS: Record<string, string> = {
   schedule: '/',
   agents: '/agents',
+  clock: '/clock',
   'my-shifts': '/my-shifts',
   'time-off-approval': '/time-off',
   insights: '/insights',
@@ -44,6 +46,7 @@ function AppContent() {
     <Layout activeTab={activeTab} onTabChange={handleTabChange}>
       {activeTab === 'schedule' && <ScheduleView />}
       {activeTab === 'agents' && (state.currentUser.role === 'admin' || state.currentUser.role === 'team-lead') && <AgentsView />}
+      {activeTab === 'clock' && <ClockTab />}
       {activeTab === 'my-shifts' && <MyShiftsView />}
       {activeTab === 'time-off-approval' && state.currentUser.role === 'admin' && <TimeOffApproval />}
       {activeTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
