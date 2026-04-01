@@ -716,8 +716,8 @@ function AgentShiftView({
   const pendingSwaps = getSwapRequestsForShift(shift.id);
   const alreadyRequestedSwap = pendingSwaps.some(r => r.fromAgentId === state.currentUser.id);
 
-  // Other agents who have shifts (potential swap targets)
-  const swapCandidates = agents.filter(a => a.id !== state.currentUser.id);
+  // Other agents who have shifts (potential swap targets - exclude admins)
+  const swapCandidates = agents.filter(a => a.id !== state.currentUser.id && a.role !== 'admin');
 
   // Shifts belonging to the selected target agent
   const targetAgentShifts = swapTargetId
