@@ -10,7 +10,7 @@ export function ShiftPrompt() {
 
   const isAgent = state.currentUser.role === 'agent' || state.currentUser.role === 'team-lead';
   const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
-    ? state.currentUser.timezone : undefined;
+    ? state.currentUser.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const formatShiftTime = (time: string, shiftTz: string) => {
     if (!userTimezone || userTimezone === shiftTz) return time;

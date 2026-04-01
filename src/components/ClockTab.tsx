@@ -13,7 +13,7 @@ export function ClockTab() {
   const myShiftsToday = getShiftsForAgent(state.currentUser.id).filter(s => s.date === todayStr);
 
   const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
-    ? state.currentUser.timezone : undefined;
+    ? state.currentUser.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const formatShiftTime = (time: string, shiftTz: string) => {
     if (!userTimezone || userTimezone === shiftTz) return time;

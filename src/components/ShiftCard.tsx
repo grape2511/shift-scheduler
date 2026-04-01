@@ -93,7 +93,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
 
   const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
     ? state.currentUser.timezone
-    : undefined;
+    : Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const formatClockTime = (iso: string) => {
     const d = new Date(iso);
