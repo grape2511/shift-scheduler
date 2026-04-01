@@ -3,7 +3,8 @@ import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft } from 'lucide-react';
 import { SHIFT_COLORS, getNextColor } from '../utils/colors';
-import { updateShift as dbUpdateShift } from '../lib/database';
+import { updateShift as dbUpdateShift, insertSwapRequest, insertNotification } from '../lib/database';
+import { sendSlackNotification } from '../utils/slack';
 import type { Shift } from '../types';
 
 interface ShiftModalProps {
@@ -725,19 +726,45 @@ function AgentShiftView({
 
   const handleSwapRequest = () => {
     if (!swapTargetId || !swapTargetShiftId) return;
-    dispatch({
-      type: 'CREATE_SWAP_REQUEST',
-      payload: {
+    const swapRecord = {
+      id: uuid(),
+      fromShiftId: shift.id,
+      toShiftId: swapTargetShiftId,
+      fromAgentId: state.currentUser.id,
+      toAgentId: swapTargetId,
+      reason: swapReason || undefined,
+      status: 'pending' as const,
+      timestamp: new Date().toISOString(),
+    };
+    dispatch({ type: 'CREATE_SWAP_REQUEST', payload: swapRecord });
+    // Write directly to DB
+    insertSwapRequest(swapRecord);
+
+    // Slack notification
+    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+    const toShift = state.shifts.find(s => s.id === swapTargetShiftId);
+    const targetAgent = state.users.find(u => u.id === swapTargetId);
+    if (slackUrl) {
+      sendSlackNotification(slackUrl,
+        `🔄 *Swap request*: ${state.currentUser.name} wants to swap "${shift.name}" (${shift.date}) with ${targetAgent?.name}'s "${toShift?.name}" (${toShift?.date})${swapReason ? ` — ${swapReason}` : ''}`
+      );
+    }
+
+    // Admin notification
+    const admin = state.users.find(u => u.email === 'einav@adrevival.io');
+    if (admin && admin.id !== state.currentUser.id) {
+      const notif = {
         id: uuid(),
-        fromShiftId: shift.id,
-        toShiftId: swapTargetShiftId,
-        fromAgentId: state.currentUser.id,
-        toAgentId: swapTargetId,
-        reason: swapReason || undefined,
-        status: 'pending',
+        userId: admin.id,
+        message: `${state.currentUser.name} wants to swap "${shift.name}" (${shift.date}) with ${targetAgent?.name}'s "${toShift?.name}" (${toShift?.date})`,
         timestamp: new Date().toISOString(),
-      },
-    });
+        read: false,
+        type: 'info' as const,
+      };
+      dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+      insertNotification(notif);
+    }
+
     setShowSwap(false);
     setSwapTargetId('');
     setSwapTargetShiftId('');

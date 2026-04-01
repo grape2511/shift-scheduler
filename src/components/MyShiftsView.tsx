@@ -7,7 +7,7 @@ import { format, parseISO, isBefore, startOfDay, addMonths, isSameMonth, isToday
 import { getHolidays, getCountryName } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
-import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification } from '../lib/database';
+import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification, updateSwapRequestStatus } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 
 export function MyShiftsView() {
@@ -660,6 +660,7 @@ function SwapRequestsSection({
   getAgentById: (id: string) => import('../types').User | undefined;
   dispatch: React.Dispatch<any>;
 }) {
+  const { state } = useApp();
   if (swapRequests.length === 0) return null;
 
   return (
@@ -715,14 +716,30 @@ function SwapRequestsSection({
 
               <div className="flex gap-2 mt-3 ml-11">
                 <button
-                  onClick={() => dispatch({ type: 'ACCEPT_SWAP_REQUEST', payload: req.id })}
+                  onClick={() => {
+                    dispatch({ type: 'ACCEPT_SWAP_REQUEST', payload: req.id });
+                    updateSwapRequestStatus(req.id, 'accepted');
+                    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+                    if (slackUrl) {
+                      const fromAgent = getAgentById(req.fromAgentId);
+                      sendSlackNotification(slackUrl, `🔄 *Swap accepted*: ${state.currentUser.name} accepted swap with ${fromAgent?.name}`);
+                    }
+                  }}
                   className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 transition-colors"
                 >
                   <Check className="w-3.5 h-3.5" />
                   Accept
                 </button>
                 <button
-                  onClick={() => dispatch({ type: 'DECLINE_SWAP_REQUEST', payload: req.id })}
+                  onClick={() => {
+                    dispatch({ type: 'DECLINE_SWAP_REQUEST', payload: req.id });
+                    updateSwapRequestStatus(req.id, 'declined');
+                    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+                    if (slackUrl) {
+                      const fromAgent = getAgentById(req.fromAgentId);
+                      sendSlackNotification(slackUrl, `🔄 *Swap declined*: ${state.currentUser.name} declined swap with ${fromAgent?.name}`);
+                    }
+                  }}
                   className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                 >
                   <XCircle className="w-3.5 h-3.5" />
