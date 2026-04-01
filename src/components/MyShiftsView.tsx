@@ -126,6 +126,45 @@ export function MyShiftsView() {
         </div>
       )}
 
+      {/* Weekly shift count */}
+      {state.currentUser.role !== 'admin' && (
+        <div className={`mb-4 rounded-xl px-4 py-3 flex items-center justify-between ${
+          weeklyShiftCount > MIN_WEEKLY_SHIFTS ? 'bg-green-50 border border-green-200' :
+          weeklyShiftCount === MIN_WEEKLY_SHIFTS ? 'bg-blue-50 border border-blue-200' :
+          'bg-amber-50 border border-amber-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <span className={`text-sm font-medium ${
+              weeklyShiftCount > MIN_WEEKLY_SHIFTS ? 'text-green-800' :
+              weeklyShiftCount === MIN_WEEKLY_SHIFTS ? 'text-blue-800' :
+              'text-amber-800'
+            }`}>
+              You are assigned to <strong>{weeklyShiftCount} shifts</strong> this week
+            </span>
+            <div className="relative group">
+              <span className="w-4 h-4 rounded-full bg-gray-300 text-white text-[10px] font-bold flex items-center justify-center cursor-help">?</span>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 hidden group-hover:block z-10">
+                <p className="mb-1">Minimum required: {MIN_WEEKLY_SHIFTS} shifts per week.</p>
+                {weeklyShiftCount > MIN_WEEKLY_SHIFTS ? (
+                  <p>You have extra shifts. You can leave a shift where there are more than the minimum required agents assigned.</p>
+                ) : weeklyShiftCount === MIN_WEEKLY_SHIFTS ? (
+                  <p>You're at the minimum. You cannot leave any shifts this week.</p>
+                ) : (
+                  <p>You're below the minimum. Please join additional shifts.</p>
+                )}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45 -mt-1" />
+              </div>
+            </div>
+          </div>
+          <span className={`text-sm font-bold ${
+            weeklyShiftCount > MIN_WEEKLY_SHIFTS ? 'text-green-700' :
+            weeklyShiftCount === MIN_WEEKLY_SHIFTS ? 'text-blue-700' :
+            'text-amber-700'
+          }`}>{weeklyShiftCount}/{MIN_WEEKLY_SHIFTS}</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">My Shifts</h2>
