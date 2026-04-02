@@ -64,7 +64,7 @@ export async function fetchAllShifts(): Promise<Shift[]> {
     startTime: s.start_time,
     endTime: s.end_time,
     timezone: s.timezone,
-    assignedAgentIds: [...new Set(s.assigned_agent_ids || [])],
+    assignedAgentIds: [...new Set(s.assigned_agent_ids || [])] as string[],
     recurring: s.recurring as Shift['recurring'],
     recurringGroupId: s.recurring_group_id || undefined,
     requiredAgents: s.required_agents,
