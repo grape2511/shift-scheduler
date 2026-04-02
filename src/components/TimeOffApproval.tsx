@@ -74,14 +74,58 @@ export function TimeOffApproval() {
     }
   };
 
+  const pendingSwaps = (state.swapRequests || []).filter(r => r.status === 'pending');
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Time Off Requests</h2>
-          <p className="text-sm text-gray-500">{pendingRequests.length} pending</p>
+          <h2 className="text-lg font-semibold text-gray-900">Approvals</h2>
+          <p className="text-sm text-gray-500">{pendingRequests.length} time off · {pendingSwaps.length} swaps pending</p>
         </div>
       </div>
+
+      {/* Pending Swap Requests */}
+      {pendingSwaps.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">Pending Swap Requests ({pendingSwaps.length})</h3>
+          <div className="space-y-2">
+            {pendingSwaps.map(swap => {
+              const fromAgent = getAgentById(swap.fromAgentId);
+              const toAgent = getAgentById(swap.toAgentId);
+              const fromShift = state.shifts.find(s => s.id === swap.fromShiftId);
+              const toShift = state.shifts.find(s => s.id === swap.toShiftId);
+              return (
+                <div key={swap.id} className="bg-white rounded-xl border border-orange-200 p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: fromAgent?.color || '#6366f1' }}>
+                      {fromAgent?.name?.[0]}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{fromAgent?.name}</span>
+                    <span className="text-xs text-gray-400">↔</span>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: toAgent?.color || '#6366f1' }}>
+                      {toAgent?.name?.[0]}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{toAgent?.name}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-gray-50 rounded-lg p-2">
+                      <span className="text-gray-400">Gives up:</span>
+                      <p className="font-medium text-gray-700">{fromShift?.name} — {fromShift?.date}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-2">
+                      <span className="text-gray-400">Gets:</span>
+                      <p className="font-medium text-gray-700">{toShift?.name} — {toShift?.date}</p>
+                    </div>
+                  </div>
+                  {swap.reason && <p className="text-xs text-gray-400 mt-2">Reason: {swap.reason}</p>}
+                  <p className="text-[10px] text-orange-500 mt-2">Waiting for {toAgent?.name} to accept</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Pending Requests */}
       {pendingRequests.length > 0 && (
