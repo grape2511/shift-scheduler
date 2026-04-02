@@ -648,7 +648,8 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   useEffect(() => {
     refreshData();
     // Refresh every 30s for multi-user sync
-    const interval = setInterval(refreshData, 30000);
+    // Refresh every 2 minutes (reduced from 30s to avoid exhausting Supabase free tier)
+    const interval = setInterval(refreshData, 120000);
     return () => clearInterval(interval);
   }, [refreshData]);
 
