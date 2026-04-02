@@ -64,7 +64,7 @@ export async function fetchAllShifts(): Promise<Shift[]> {
     startTime: s.start_time,
     endTime: s.end_time,
     timezone: s.timezone,
-    assignedAgentIds: s.assigned_agent_ids || [],
+    assignedAgentIds: [...new Set(s.assigned_agent_ids || [])],
     recurring: s.recurring as Shift['recurring'],
     recurringGroupId: s.recurring_group_id || undefined,
     requiredAgents: s.required_agents,
@@ -80,14 +80,18 @@ export async function insertShifts(shifts: Shift[]) {
     start_time: s.startTime,
     end_time: s.endTime,
     timezone: s.timezone,
-    assigned_agent_ids: s.assignedAgentIds,
+    assigned_agent_ids: [...new Set(s.assignedAgentIds)],
     recurring: s.recurring,
     recurring_group_id: s.recurringGroupId || null,
     required_agents: s.requiredAgents,
     color: s.color,
   }));
-  const { error } = await supabase.from('shifts').insert(rows);
-  if (error) console.error('insertShifts', error);
+  // Batch in chunks of 20 to avoid Supabase payload limits
+  for (let i = 0; i < rows.length; i += 20) {
+    const batch = rows.slice(i, i + 20);
+    const { error } = await supabase.from('shifts').insert(batch);
+    if (error) console.error('insertShifts batch', i, error);
+  }
 }
 
 export async function updateShift(shift: Shift) {
@@ -117,7 +121,7 @@ export async function deleteShifts(ids: string[]) {
 }
 
 export async function updateShiftAssignment(shiftId: string, agentIds: string[]) {
-  const { error } = await supabase.from('shifts').update({ assigned_agent_ids: agentIds }).eq('id', shiftId);
+  const { error } = await supabase.from('shifts').update({ assigned_agent_ids: [...new Set(agentIds)] }).eq('id', shiftId);
   if (error) console.error('updateShiftAssignment', error);
 }
 

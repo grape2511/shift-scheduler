@@ -19,7 +19,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const isAgent = state.currentUser.role === 'agent';
   const isRecurring = !!shift.recurringGroupId;
 
-  const assignedAgents = shift.assignedAgentIds
+  const assignedAgents = [...new Set(shift.assignedAgentIds)]
     .map(id => getAgentById(id))
     .filter(Boolean);
 
@@ -116,7 +116,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
       >
         <div className="flex items-center justify-between">
           <span className="truncate">{shift.name}</span>
-          <span className="opacity-80 ml-1">{shift.startTime}</span>
+          <span className="opacity-80 ml-1">{formatShiftTime(shift.startTime)}</span>
         </div>
         {/* Agent names */}
         {assignedAgents.length > 0 && (

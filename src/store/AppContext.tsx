@@ -86,7 +86,13 @@ function createNotification(userId: string, message: string, type: Notification[
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'LOAD_STATE':
-      return action.payload;
+      return {
+        ...action.payload,
+        shifts: action.payload.shifts.map(s => ({
+          ...s,
+          assignedAgentIds: [...new Set(s.assignedAgentIds)],
+        })),
+      };
 
     case 'SET_CURRENT_USER':
       return { ...state, currentUser: action.payload };
@@ -533,20 +539,14 @@ function reducer(state: AppState, action: Action): AppState {
         ),
         shifts: state.shifts.map(s => {
           if (s.id === swap.fromShiftId) {
-            return {
-              ...s,
-              assignedAgentIds: s.assignedAgentIds
-                .filter(id => id !== swap.fromAgentId)
-                .concat(swap.toAgentId),
-            };
+            const ids = s.assignedAgentIds.filter(id => id !== swap.fromAgentId);
+            if (!ids.includes(swap.toAgentId)) ids.push(swap.toAgentId);
+            return { ...s, assignedAgentIds: ids };
           }
           if (s.id === swap.toShiftId) {
-            return {
-              ...s,
-              assignedAgentIds: s.assignedAgentIds
-                .filter(id => id !== swap.toAgentId)
-                .concat(swap.fromAgentId),
-            };
+            const ids = s.assignedAgentIds.filter(id => id !== swap.toAgentId);
+            if (!ids.includes(swap.fromAgentId)) ids.push(swap.fromAgentId);
+            return { ...s, assignedAgentIds: ids };
           }
           return s;
         }),

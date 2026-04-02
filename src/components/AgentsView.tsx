@@ -6,7 +6,7 @@ import { TIME_OFF_CATEGORIES } from '../types';
 import { updateProfile } from '../lib/database';
 import * as db from '../lib/database';
 import { v4 as uuid } from 'uuid';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays } from 'date-fns';
 
 const TARGET_HOURS = 208;
 
@@ -19,6 +19,8 @@ export function AgentsView() {
   const [country, setCountry] = useState('NL');
   const [addingTimeOffFor, setAddingTimeOffFor] = useState<string | null>(null);
   const [timeOffDate, setTimeOffDate] = useState('');
+  const [timeOffEndDate, setTimeOffEndDate] = useState('');
+  const [timeOffMode, setTimeOffMode] = useState<'single' | 'period'>('single');
   const [timeOffReason, setTimeOffReason] = useState('');
   const [timeOffCategory, setTimeOffCategory] = useState<import('../types').TimeOffCategory>('vacation');
   const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
@@ -53,20 +55,39 @@ export function AgentsView() {
     setNewLabelInput('');
   };
 
+  const getDatesInRange = (start: string, end: string): string[] => {
+    const dates: string[] = [];
+    let current = parseISO(start);
+    const endDate = parseISO(end);
+    while (current <= endDate) {
+      dates.push(format(current, 'yyyy-MM-dd'));
+      current = addDays(current, 1);
+    }
+    return dates;
+  };
+
   const handleAddTimeOffForAgent = (agentId: string) => {
     if (!timeOffDate) return;
-    const record = {
-      id: uuid(),
-      userId: agentId,
-      date: timeOffDate,
-      reason: timeOffReason || undefined,
-      status: 'approved' as const,
-      category: timeOffCategory,
-      halfDay: timeOffHalfDay,
-    };
-    dispatch({ type: 'ADD_TIME_OFF', payload: record });
-    db.insertTimeOff(record);
+    if (timeOffMode === 'period' && !timeOffEndDate) return;
+
+    const dates = timeOffMode === 'period' ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
+
+    for (const date of dates) {
+      const record = {
+        id: uuid(),
+        userId: agentId,
+        date,
+        reason: timeOffReason || undefined,
+        status: 'approved' as const,
+        category: timeOffCategory,
+        halfDay: timeOffHalfDay,
+      };
+      dispatch({ type: 'ADD_TIME_OFF', payload: record });
+      db.insertTimeOff(record);
+    }
     setTimeOffDate('');
+    setTimeOffEndDate('');
+    setTimeOffMode('single');
     setTimeOffReason('');
     setTimeOffCategory('vacation');
     setTimeOffHalfDay(false);
@@ -624,7 +645,7 @@ export function AgentsView() {
 
       {/* Add Day Off Modal */}
       {addingTimeOffFor && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffReason(''); setTimeOffCategory('vacation'); setTimeOffHalfDay(false); }}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffEndDate(''); setTimeOffMode('single'); setTimeOffReason(''); setTimeOffCategory('vacation'); setTimeOffHalfDay(false); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Add Day Off</h3>
@@ -633,67 +654,59 @@ export function AgentsView() {
               </span>
             </div>
 
-            {/* Full / Half Day toggle */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 mb-4 w-fit">
-              <button
-                onClick={() => setTimeOffHalfDay(false)}
-                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${!timeOffHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-              >
-                Full Day
-              </button>
-              <button
-                onClick={() => setTimeOffHalfDay(true)}
-                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${timeOffHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-              >
-                Half Day
-              </button>
+            {/* Mode + Full/Half Day toggles */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                <button onClick={() => { setTimeOffMode('single'); setTimeOffEndDate(''); }} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${timeOffMode === 'single' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Single Day</button>
+                <button onClick={() => { setTimeOffMode('period'); setTimeOffHalfDay(false); }} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${timeOffMode === 'period' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Period</button>
+              </div>
+              {timeOffMode === 'single' && (
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                  <button onClick={() => setTimeOffHalfDay(false)} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${!timeOffHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Full Day</button>
+                  <button onClick={() => setTimeOffHalfDay(true)} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${timeOffHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Half Day</button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={timeOffDate}
-                  onChange={e => setTimeOffDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  autoFocus
-                />
+                <label className="block text-xs font-medium text-gray-500 mb-1">{timeOffMode === 'period' ? 'Start Date' : 'Date'}</label>
+                <input type="date" value={timeOffDate} onChange={e => setTimeOffDate(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus />
               </div>
+              {timeOffMode === 'period' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+                  <input type="date" value={timeOffEndDate} onChange={e => setTimeOffEndDate(e.target.value)} min={timeOffDate} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
-                <select
-                  value={timeOffCategory}
-                  onChange={e => setTimeOffCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  {TIME_OFF_CATEGORIES.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
+                <select value={timeOffCategory} onChange={e => setTimeOffCategory(e.target.value as any)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                  {TIME_OFF_CATEGORIES.map(c => (<option key={c.value} value={c.value}>{c.label}</option>))}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Note (optional)</label>
-                <input
-                  type="text"
-                  value={timeOffReason}
-                  onChange={e => setTimeOffReason(e.target.value)}
-                  placeholder="Additional details"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <input type="text" value={timeOffReason} onChange={e => setTimeOffReason(e.target.value)} placeholder="Additional details" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             </div>
 
+            {timeOffMode === 'period' && timeOffDate && timeOffEndDate && timeOffEndDate >= timeOffDate && (
+              <p className="text-xs text-gray-500 mt-2">
+                {getDatesInRange(timeOffDate, timeOffEndDate).length} day(s) will be added
+              </p>
+            )}
+
             <div className="flex gap-3 mt-5">
               <button
-                onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffReason(''); setTimeOffCategory('vacation'); setTimeOffHalfDay(false); }}
+                onClick={() => { setAddingTimeOffFor(null); setTimeOffDate(''); setTimeOffEndDate(''); setTimeOffMode('single'); setTimeOffReason(''); setTimeOffCategory('vacation'); setTimeOffHalfDay(false); }}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleAddTimeOffForAgent(addingTimeOffFor)}
-                disabled={!timeOffDate}
+                disabled={!timeOffDate || (timeOffMode === 'period' && !timeOffEndDate)}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
               >
                 Save
