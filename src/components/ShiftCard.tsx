@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut } from 'lucide-react';
-import { convertTime } from '../utils/timezone';
+import { convertTime, getUserTimezone } from '../utils/timezone';
 import { v4 as uuid } from 'uuid';
 import type { Shift } from '../types';
 
@@ -92,9 +92,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
     });
   };
 
-  const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
-    ? state.currentUser.timezone
-    : Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const userTimezone = getUserTimezone(state.currentUser.timezone, state.currentUser.country);
 
   const formatClockTime = (iso: string) => {
     const d = new Date(iso);

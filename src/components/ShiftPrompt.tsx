@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { LogIn, LogOut, X } from 'lucide-react';
-import { convertTime } from '../utils/timezone';
+import { convertTime, getUserTimezone } from '../utils/timezone';
 
 export function ShiftPrompt() {
   const { state, dispatch, getShiftsForAgent, getClockRecord } = useApp();
@@ -10,8 +10,7 @@ export function ShiftPrompt() {
   const [elapsed, setElapsed] = useState(0);
 
   const isAgent = state.currentUser.role === 'agent' || state.currentUser.role === 'team-lead';
-  const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
-    ? state.currentUser.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const userTimezone = getUserTimezone(state.currentUser.timezone, state.currentUser.country);
 
   const formatShiftTime = (time: string, shiftTz: string) => {
     return convertTime(time, shiftTz, userTimezone);

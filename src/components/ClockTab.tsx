@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { LogIn, LogOut, Clock, Calendar } from 'lucide-react';
-import { convertTime } from '../utils/timezone';
+import { convertTime, getUserTimezone } from '../utils/timezone';
 import { format } from 'date-fns';
 
 export function ClockTab() {
@@ -13,8 +13,7 @@ export function ClockTab() {
   const todayStr = now.toISOString().split('T')[0];
   const myShiftsToday = getShiftsForAgent(state.currentUser.id).filter(s => s.date === todayStr);
 
-  const userTimezone = state.currentUser.timezone && state.currentUser.timezone !== 'auto'
-    ? state.currentUser.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const userTimezone = getUserTimezone(state.currentUser.timezone, state.currentUser.country);
 
   const formatShiftTime = (time: string, shiftTz: string) => {
     return convertTime(time, shiftTz, userTimezone);
