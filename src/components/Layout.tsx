@@ -58,7 +58,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     ...(isLeadOrAdmin ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
     ...(!isAdmin ? [{ id: 'clock', label: 'Clock', icon: Timer }] : []),
-    { id: 'my-shifts', label: 'My Shifts', icon: Clock },
+    ...(!isAdmin ? [{ id: 'my-shifts', label: 'My Shifts', icon: Clock }] : []),
     { id: 'days-off', label: 'Days Off', icon: CalendarCheck },
     ...(isAdmin ? [{ id: 'time-off-approval', label: 'Approvals', icon: CalendarCheck }] : []),
     ...(isAdmin ? [{ id: 'insights', label: 'Insights', icon: BarChart3 }] : []),
