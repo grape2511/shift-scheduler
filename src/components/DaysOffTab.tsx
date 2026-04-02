@@ -293,8 +293,8 @@ export function DaysOffTab() {
                 <div key={d} className="px-1 py-2 text-xs font-medium text-gray-500 text-center uppercase">{d}</div>
               ))}
             </div>
-            <div className="overflow-x-auto">
-              <div className="min-w-[640px] grid grid-cols-7 gap-px bg-gray-200">
+            <div>
+              <div className="grid grid-cols-7 gap-px bg-gray-200">
                 {calDays.map(day => {
                   const dateStr = formatDate(day);
                   const timeOff = myTimeOffs.find(t => t.date === dateStr);
