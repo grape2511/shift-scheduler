@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield, BarChart3, CalendarCheck, Timer, Moon, Sun } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield, BarChart3, CalendarCheck, Timer, Moon, Sun, Eye } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
 import { COUNTRIES } from '../utils/holidays';
 
@@ -43,6 +43,22 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showViewAs, setShowViewAs] = useState(false);
+  const realAdminRef = useRef(state.currentUser.role === 'admin' ? state.currentUser : null);
+  const isImpersonating = realAdminRef.current && state.currentUser.id !== realAdminRef.current.id;
+
+  const handleViewAs = (userId: string) => {
+    if (!realAdminRef.current) realAdminRef.current = state.currentUser;
+    const user = state.users.find(u => u.id === userId);
+    if (user) dispatch({ type: 'SET_CURRENT_USER', payload: user });
+    setShowViewAs(false);
+  };
+
+  const handleExitViewAs = () => {
+    if (realAdminRef.current) {
+      dispatch({ type: 'SET_CURRENT_USER', payload: realAdminRef.current });
+    }
+  };
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
 
   useEffect(() => {
@@ -72,6 +88,19 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-center gap-3 text-sm">
+          <Eye className="w-4 h-4" />
+          <span>Viewing as <strong>{state.currentUser.name}</strong> ({state.currentUser.role})</span>
+          <button
+            onClick={handleExitViewAs}
+            className="px-3 py-1 text-xs font-medium bg-white text-amber-700 rounded-lg hover:bg-amber-50"
+          >
+            Exit
+          </button>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -106,6 +135,39 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
+              {/* View As (admin only) */}
+              {(realAdminRef.current || isAdmin) && !isImpersonating && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowViewAs(!showViewAs)}
+                    className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">View as</span>
+                  </button>
+                  {showViewAs && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowViewAs(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
+                        {state.users.filter(u => u.id !== state.currentUser.id).map(u => (
+                          <button
+                            key={u.id}
+                            onClick={() => handleViewAs(u.id)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: u.color }}>
+                              {u.name[0]}
+                            </div>
+                            <span className="flex-1 text-left truncate">{u.name}</span>
+                            <span className="text-[10px] text-gray-400">{u.role}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Notifications */}
               <div className="relative">
                 <button
