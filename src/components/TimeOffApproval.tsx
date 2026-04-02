@@ -4,7 +4,7 @@ import { Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { sendSlackNotification } from '../utils/slack';
 import { format, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
-import { updateTimeOffStatus } from '../lib/database';
+import { updateTimeOffStatus, updateShiftAssignment } from '../lib/database';
 import { TIME_OFF_CATEGORIES } from '../types';
 import { v4 as uuid } from 'uuid';
 
@@ -27,6 +27,15 @@ export function TimeOffApproval() {
     const to = state.timeOffs.find(t => t.id === id);
     if (to) {
       const agent = getAgentById(to.userId);
+
+      // Remove agent from all shifts on that day
+      const shiftsOnDay = state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
+      shiftsOnDay.forEach(s => {
+        const newAgentIds = s.assignedAgentIds.filter(aid => aid !== to.userId);
+        dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId: to.userId } });
+        updateShiftAssignment(s.id, newAgentIds);
+      });
+
       dispatch({
         type: 'ADD_NOTIFICATION',
         payload: {
@@ -39,7 +48,7 @@ export function TimeOffApproval() {
         },
       });
       const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-      if (slackUrl) sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}`);
+      if (slackUrl) sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
     }
   };
 

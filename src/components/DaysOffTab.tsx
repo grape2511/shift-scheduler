@@ -7,7 +7,7 @@ import { format, parseISO, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { getHolidays, getCountryName } from '../utils/holidays';
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
-import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification } from '../lib/database';
+import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification, updateShiftAssignment } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 
 export function DaysOffTab() {
@@ -116,13 +116,21 @@ export function DaysOffTab() {
     updateTimeOffStatus(id, 'approved');
     const to = state.timeOffs.find(t => t.id === id);
     if (to) {
+      // Remove agent from all shifts on that day
+      const shiftsOnDay = state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
+      shiftsOnDay.forEach(s => {
+        const newAgentIds = s.assignedAgentIds.filter(aid => aid !== to.userId);
+        dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId: to.userId } });
+        updateShiftAssignment(s.id, newAgentIds);
+      });
+
       const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been approved ✅`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
       dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
       insertNotification(notif);
       const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
       if (slackUrl) {
         const agent = state.users.find(u => u.id === to.userId);
-        sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}`);
+        sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
       }
     }
   };
