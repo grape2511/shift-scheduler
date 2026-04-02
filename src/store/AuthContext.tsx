@@ -66,29 +66,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let mounted = true;
 
-    // Initialize session
-    const init = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
-        setSession(session);
-        if (session?.user) {
-          fetchProfile(session.user.id).then(p => {
-            if (mounted) setProfile(p);
-          });
-        }
-      } catch {
-        // Session expired or invalid - that's fine, show login
-      }
-      if (mounted) setLoading(false);
-    };
-
-    // Start init with a race against a timeout
+    // Absolute failsafe — always stop loading after 3 seconds
     const timeout = setTimeout(() => {
       if (mounted) setLoading(false);
-    }, 4000);
+    }, 3000);
 
-    init().then(() => clearTimeout(timeout));
+    // Initialize session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setSession(session);
+      setLoading(false);
+      if (session?.user) {
+        fetchProfile(session.user.id).then(p => {
+          if (mounted) setProfile(p);
+        });
+      }
+    }).catch(() => {
+      if (mounted) setLoading(false);
+    });
 
     // Listen for subsequent auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -97,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (!mounted) return;
       setSession(session);
+      setLoading(false);
       if (session?.user) {
         fetchProfile(session.user.id).then(p => {
           if (mounted) setProfile(p);
@@ -104,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
       }
-      setLoading(false);
     });
 
     return () => {
