@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { LogIn, LogOut, Clock, Calendar } from 'lucide-react';
+import { convertTime } from '../utils/timezone';
 import { format } from 'date-fns';
 
 export function ClockTab() {
@@ -16,13 +17,7 @@ export function ClockTab() {
     ? state.currentUser.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const formatShiftTime = (time: string, shiftTz: string) => {
-    if (!userTimezone || userTimezone === shiftTz) return time;
-    try {
-      const d = new Date(`${todayStr}T${time}:00`);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: userTimezone });
-    } catch {
-      return time;
-    }
+    return convertTime(time, shiftTz, userTimezone);
   };
 
   // Find active clocked-in shift

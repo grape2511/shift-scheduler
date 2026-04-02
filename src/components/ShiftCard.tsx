@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut } from 'lucide-react';
+import { convertTime } from '../utils/timezone';
 import { v4 as uuid } from 'uuid';
 import type { Shift } from '../types';
 
@@ -102,16 +103,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
 
   // Convert shift times to user's local timezone for display
   const formatShiftTime = (time: string) => {
-    if (!userTimezone || userTimezone === shift.timezone) return time;
-    // Create a date in the shift's timezone and convert to user's timezone
-    const dateStr = `${shift.date}T${time}:00`;
-    try {
-      const d = new Date(dateStr);
-      // Adjust for the shift timezone to user timezone
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: userTimezone });
-    } catch {
-      return time;
-    }
+    return convertTime(time, shift.timezone, userTimezone);
   };
 
   const required = shift.requiredAgents || 1;

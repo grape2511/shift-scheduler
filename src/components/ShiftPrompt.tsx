@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { LogIn, LogOut, X } from 'lucide-react';
+import { convertTime } from '../utils/timezone';
 
 export function ShiftPrompt() {
   const { state, dispatch, getShiftsForAgent, getClockRecord } = useApp();
@@ -13,14 +14,7 @@ export function ShiftPrompt() {
     ? state.currentUser.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const formatShiftTime = (time: string, shiftTz: string) => {
-    if (!userTimezone || userTimezone === shiftTz) return time;
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const d = new Date(`${today}T${time}:00`);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: userTimezone });
-    } catch {
-      return time;
-    }
+    return convertTime(time, shiftTz, userTimezone);
   };
   const nowDate = new Date();
   const todayStr = nowDate.toISOString().split('T')[0];
