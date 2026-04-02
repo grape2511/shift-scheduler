@@ -28,7 +28,22 @@ export const COUNTRIES = [
 
 export type CountryCode = typeof COUNTRIES[number]['code'];
 
-// Easter calculation (Anonymous Gregorian algorithm)
+// Orthodox Easter calculation (Julian calendar converted to Gregorian)
+function getOrthodoxEasterDate(year: number): Date {
+  const a = year % 4;
+  const b = year % 7;
+  const c = year % 19;
+  const d = (19 * c + 15) % 30;
+  const e = (2 * a + 4 * b - d + 34) % 7;
+  const month = Math.floor((d + e + 114) / 31);
+  const day = ((d + e + 114) % 31) + 1;
+  // Convert from Julian to Gregorian (add 13 days for 2026)
+  const julianDate = new Date(year, month - 1, day);
+  julianDate.setDate(julianDate.getDate() + 13);
+  return julianDate;
+}
+
+// Western Easter calculation (Anonymous Gregorian algorithm)
 function getEasterDate(year: number): Date {
   const a = year % 19;
   const b = Math.floor(year / 100);
@@ -259,20 +274,28 @@ function getHolidaysForCountry(code: string, year: number): PublicHoliday[] {
         { date: `${year}-12-25`, name: 'Christmas Day' },
         { date: `${year}-12-26`, name: "St. Stephen's Day" },
       ];
-    case 'GR':
+    case 'GR': {
+      const orthEaster = getOrthodoxEasterDate(year);
+      const orthGoodFriday = addDaysToDate(orthEaster, -2);
+      const orthEasterMonday = addDaysToDate(orthEaster, 1);
+      const orthWhitMonday = addDaysToDate(orthEaster, 50);
+      const cleanMonday = addDaysToDate(orthEaster, -48); // Start of Lent
       return [
         { date: `${year}-01-01`, name: "New Year's Day" },
         { date: `${year}-01-06`, name: 'Epiphany' },
-        { date: fmt(goodFriday), name: 'Good Friday' },
-        { date: fmt(easterMonday), name: 'Easter Monday' },
+        { date: fmt(cleanMonday), name: 'Clean Monday' },
         { date: `${year}-03-25`, name: 'Independence Day' },
+        { date: fmt(orthGoodFriday), name: 'Orthodox Good Friday' },
+        { date: fmt(orthEaster), name: 'Orthodox Easter Sunday' },
+        { date: fmt(orthEasterMonday), name: 'Orthodox Easter Monday' },
         { date: `${year}-05-01`, name: 'Labour Day' },
-        { date: fmt(whitMonday), name: 'Whit Monday' },
+        { date: fmt(orthWhitMonday), name: 'Orthodox Whit Monday' },
         { date: `${year}-08-15`, name: 'Assumption Day' },
         { date: `${year}-10-28`, name: 'Ohi Day' },
         { date: `${year}-12-25`, name: 'Christmas Day' },
         { date: `${year}-12-26`, name: 'Second Day of Christmas' },
       ];
+    }
     case 'HU':
       return [
         { date: `${year}-01-01`, name: "New Year's Day" },
