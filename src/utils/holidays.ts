@@ -310,21 +310,28 @@ function getHolidaysForCountry(code: string, year: number): PublicHoliday[] {
         { date: `${year}-12-25`, name: 'Christmas Day' },
         { date: `${year}-12-26`, name: 'Second Day of Christmas' },
       ];
-    case 'RO':
+    case 'RO': {
+      const roEaster = getOrthodoxEasterDate(year);
+      const roGoodFriday = addDaysToDate(roEaster, -2);
+      const roEasterMonday = addDaysToDate(roEaster, 1);
+      const roWhitMonday = addDaysToDate(roEaster, 50);
       return [
         { date: `${year}-01-01`, name: "New Year's Day" },
         { date: `${year}-01-02`, name: "Day After New Year" },
         { date: `${year}-01-24`, name: 'Union Day' },
-        { date: fmt(easterMonday), name: 'Easter Monday' },
+        { date: fmt(roGoodFriday), name: 'Orthodox Good Friday' },
+        { date: fmt(roEaster), name: 'Orthodox Easter Sunday' },
+        { date: fmt(roEasterMonday), name: 'Orthodox Easter Monday' },
         { date: `${year}-05-01`, name: 'Labour Day' },
         { date: `${year}-06-01`, name: "Children's Day" },
-        { date: fmt(whitMonday), name: 'Whit Monday' },
+        { date: fmt(roWhitMonday), name: 'Orthodox Whit Monday' },
         { date: `${year}-08-15`, name: 'Assumption Day' },
         { date: `${year}-11-30`, name: "St. Andrew's Day" },
         { date: `${year}-12-01`, name: 'National Day' },
         { date: `${year}-12-25`, name: 'Christmas Day' },
         { date: `${year}-12-26`, name: 'Second Day of Christmas' },
       ];
+    }
     case 'PH':
       return [
         { date: `${year}-01-01`, name: "New Year's Day" },
