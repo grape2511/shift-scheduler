@@ -647,11 +647,51 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
 
   useEffect(() => {
     refreshData();
-    // Refresh every 30s for multi-user sync
     // Refresh every 2 minutes (reduced from 30s to avoid exhausting Supabase free tier)
     const interval = setInterval(refreshData, 120000);
     return () => clearInterval(interval);
   }, [refreshData]);
+
+  // Proactive weekly check: alert if any agent has < 5 shifts this week
+  const weeklyCheckDone = useRef<string>('');
+  useEffect(() => {
+    if (state.shifts.length === 0 || state.users.length === 0) return;
+    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+    if (!slackUrl) return;
+    // Only run once per day per session
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    if (weeklyCheckDone.current === todayStr) return;
+    weeklyCheckDone.current = todayStr;
+
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+    const MIN_SHIFTS = 5;
+    const agents = state.users.filter(u => u.role === 'agent');
+    const underAssigned: string[] = [];
+
+    agents.forEach(agent => {
+      let weekShiftCount = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        const ds = d.toISOString().split('T')[0];
+        if (state.shifts.some(sh => sh.date === ds && sh.assignedAgentIds.includes(agent.id))) {
+          weekShiftCount++;
+        }
+      }
+      if (weekShiftCount < MIN_SHIFTS) {
+        underAssigned.push(`${agent.name} (${weekShiftCount})`);
+      }
+    });
+
+    if (underAssigned.length > 0) {
+      const weekLabel = `${weekStart.toISOString().split('T')[0]}`;
+      sendSlackNotification(slackUrl,
+        `⚠️ *Weekly coverage alert* (week of ${weekLabel}):\n${underAssigned.length} agent${underAssigned.length > 1 ? 's' : ''} with fewer than ${MIN_SHIFTS} shifts:\n${underAssigned.map(a => `• ${a}`).join('\n')}`
+      );
+    }
+  }, [state.shifts, state.users]);
 
   // Sync changes to Supabase
   useEffect(() => {
