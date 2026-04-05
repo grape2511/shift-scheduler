@@ -316,7 +316,7 @@ function reducer(state: AppState, action: Action): AppState {
         notifications.push(...s.assignedAgentIds.map(agentId =>
           createNotification(agentId, `Shift "${updated.name}" on ${s.date} has been updated`, 'change')
         ));
-        return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents, assignedAgentIds: updated.assignedAgentIds };
+        return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents };
       });
       return { ...state, shifts: newShifts, notifications: [...state.notifications, ...notifications] };
     }
@@ -333,7 +333,7 @@ function reducer(state: AppState, action: Action): AppState {
         notifications.push(...s.assignedAgentIds.map(agentId =>
           createNotification(agentId, `Shift "${updated.name}" on ${s.date} has been updated`, 'change')
         ));
-        return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents, assignedAgentIds: updated.assignedAgentIds };
+        return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents };
       });
       return { ...state, shifts: newShifts, notifications: [...state.notifications, ...notifications] };
     }
@@ -926,7 +926,11 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const yearPrefix = `${y}-`;
     const agentTimeOffs = state.timeOffs.filter(
       t => t.userId === agentId && t.date.startsWith(yearPrefix) && (t.status || 'approved') === 'approved'
-    );
+    ).filter(t => {
+      // PTO is always counted in business days (Mon-Fri) — skip weekends
+      const day = new Date(t.date + 'T12:00:00').getDay();
+      return day !== 0 && day !== 6;
+    });
     const agent = state.users.find(u => u.id === agentId);
     const sickUsed = agentTimeOffs.filter(t => t.category === 'sick').reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
     const holidaysDeduct = agent?.holidaysDeductPto ?? true;

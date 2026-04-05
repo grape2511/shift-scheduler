@@ -70,7 +70,12 @@ export function AgentsView() {
     if (!timeOffDate) return;
     if (timeOffMode === 'period' && !timeOffEndDate) return;
 
-    const dates = timeOffMode === 'period' ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
+    const allDates = timeOffMode === 'period' ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
+    // PTO is counted in business days — skip weekends
+    const dates = timeOffMode === 'period' ? allDates.filter(d => {
+      const day = new Date(d + 'T12:00:00').getDay();
+      return day !== 0 && day !== 6;
+    }) : allDates;
 
     for (const date of dates) {
       const record = {
@@ -691,11 +696,19 @@ export function AgentsView() {
               </div>
             </div>
 
-            {timeOffMode === 'period' && timeOffDate && timeOffEndDate && timeOffEndDate >= timeOffDate && (
-              <p className="text-xs text-gray-500 mt-2">
-                {getDatesInRange(timeOffDate, timeOffEndDate).length} day(s) will be added
-              </p>
-            )}
+            {timeOffMode === 'period' && timeOffDate && timeOffEndDate && timeOffEndDate >= timeOffDate && (() => {
+              const allDays = getDatesInRange(timeOffDate, timeOffEndDate);
+              const workDays = allDays.filter(d => {
+                const day = new Date(d + 'T12:00:00').getDay();
+                return day !== 0 && day !== 6;
+              });
+              const skipped = allDays.length - workDays.length;
+              return (
+                <p className="text-xs text-gray-500 mt-2">
+                  {workDays.length} working day(s) will be added{skipped > 0 ? ` (${skipped} weekend day${skipped > 1 ? 's' : ''} excluded)` : ''}
+                </p>
+              );
+            })()}
 
             <div className="flex gap-3 mt-5">
               <button

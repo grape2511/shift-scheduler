@@ -49,8 +49,13 @@ export function DaysOffTab() {
       return;
     }
 
-    const dates = timeOffMode === 'period' ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
-    const daysCount = dates.length;
+    const allDates = timeOffMode === 'period' ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
+    // PTO is counted in business days — skip weekends
+    const effectiveDates = timeOffMode === 'period' ? allDates.filter(d => {
+      const day = new Date(d + 'T12:00:00').getDay();
+      return day !== 0 && day !== 6;
+    }) : allDates;
+    const daysCount = effectiveDates.length;
 
     if (timeOffCategory === 'sick' && balance.sickRemaining <= 0) {
       if (!confirm('You have no remaining sick days this year. Continue anyway?')) return;
@@ -60,7 +65,7 @@ export function DaysOffTab() {
     const isAdmin = state.currentUser.role === 'admin';
     const status = (isAdmin ? 'approved' : 'pending') as 'approved' | 'pending';
 
-    for (const date of dates) {
+    for (const date of effectiveDates) {
       const record = {
         id: uuid(),
         userId: state.currentUser.id,
@@ -76,7 +81,7 @@ export function DaysOffTab() {
 
     if (!isAdmin) {
       const approver = state.users.find(u => u.email === 'einav@adrevival.io');
-      const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} days)` : timeOffDate;
+      const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} working days)` : timeOffDate;
       if (approver) {
         const notif = {
           id: uuid(),
@@ -311,11 +316,19 @@ export function DaysOffTab() {
               <input type="text" value={timeOffReason} onChange={e => setTimeOffReason(e.target.value)} placeholder="Additional details" className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
             </div>
           </div>
-          {timeOffMode === 'period' && timeOffDate && timeOffEndDate && timeOffEndDate >= timeOffDate && (
-            <p className="text-xs text-amber-600 mt-2">
-              {getDatesInRange(timeOffDate, timeOffEndDate).length} day(s) will be requested off
-            </p>
-          )}
+          {timeOffMode === 'period' && timeOffDate && timeOffEndDate && timeOffEndDate >= timeOffDate && (() => {
+            const allDays = getDatesInRange(timeOffDate, timeOffEndDate);
+            const workingDays = allDays.filter(d => {
+              const day = new Date(d + 'T12:00:00').getDay();
+              return day !== 0 && day !== 6;
+            });
+            const skipped = allDays.length - workingDays.length;
+            return (
+              <p className="text-xs text-amber-600 mt-2">
+                {workingDays.length} working day(s) will be deducted{skipped > 0 ? ` (${skipped} weekend day${skipped > 1 ? 's' : ''} excluded)` : ''}
+              </p>
+            );
+          })()}
           <div className="flex gap-2 mt-3">
             <button type="button" onClick={() => { setShowForm(false); setTimeOffDate(''); setTimeOffEndDate(''); setTimeOffMode('single'); }} className="px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-100 rounded-lg">Cancel</button>
             <button type="submit" className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700">Submit</button>

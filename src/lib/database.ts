@@ -101,7 +101,7 @@ export async function updateShift(shift: Shift) {
     start_time: shift.startTime,
     end_time: shift.endTime,
     timezone: shift.timezone,
-    assigned_agent_ids: shift.assignedAgentIds,
+    assigned_agent_ids: [...new Set(shift.assignedAgentIds)],
     recurring: shift.recurring,
     recurring_group_id: shift.recurringGroupId || null,
     required_agents: shift.requiredAgents,

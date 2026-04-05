@@ -1,6 +1,6 @@
 export async function sendSlackNotification(webhookUrl: string, text: string) {
   try {
-    await fetch('/api/slack-notify', {
+    const res = await fetch('/api/slack-notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -8,7 +8,11 @@ export async function sendSlackNotification(webhookUrl: string, text: string) {
         payload: { text },
       }),
     });
-  } catch {
-    // Fire-and-forget: never block the app
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error('Slack notification failed:', res.status, body);
+    }
+  } catch (err) {
+    console.error('Slack notification error:', err);
   }
 }

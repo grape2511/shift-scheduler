@@ -139,6 +139,16 @@ create policy "Users can update own clock_records" on clock_records for update u
 alter table profiles add column if not exists timezone text default 'auto';
 alter table profiles add column if not exists enabled_holiday_countries text[] default '{}';
 alter table profiles add column if not exists pto_allowance integer default 25;
+alter table profiles add column if not exists sick_days_allowance integer default 7;
+alter table profiles add column if not exists holidays_deduct_pto boolean default true;
+alter table profiles add column if not exists label text;
+alter table profiles add column if not exists labels text[] default '{}';
+alter table profiles add column if not exists slack_webhook_url text;
+
+-- Add missing columns to time_offs
+alter table time_offs add column if not exists category text;
+alter table time_offs add column if not exists status text default 'approved';
+alter table time_offs add column if not exists half_day boolean default false;
 
 -- ============================================
 -- Indexes for performance
