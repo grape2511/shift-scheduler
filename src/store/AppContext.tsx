@@ -275,8 +275,14 @@ function reducer(state: AppState, action: Action): AppState {
       }
 
       // Apply consecutive days off to existing weekday shifts with the same name
-      // Fri off = 1 agent from Sat group (Fri+Sat consecutive)
-      // Mon off = 1 agent from Sun group (Sun+Mon consecutive)
+      // Group A WORKS Sat (off Sun) → Group A agent off Friday (Fri+Sat off, works Sun)
+      //   Wait — Group A works Sat, so they're OFF Sun. Adjacent to Sun = Monday.
+      //   But Sat group is OFF on Sun, so their free day is Sun. Adjacent weekday = Mon.
+      //   Actually: Group A works Sat. Group B works Sun.
+      //   Group A is OFF Sun → Mon off gives Sun+Mon consecutive
+      //   Group B is OFF Sat → Fri off gives Fri+Sat consecutive
+      // Fri off = 1 agent from Sunday group (they're off Sat, so Fri+Sat consecutive)
+      // Mon off = 1 agent from Saturday group (they're off Sun, so Sun+Mon consecutive)
       // Tue/Wed/Thu = remaining agents rotate off
       const updatedShifts = state.shifts.map(s => {
         if (s.name !== shift.name) return s;
@@ -288,20 +294,20 @@ function reducer(state: AppState, action: Action): AppState {
         // Determine week parity relative to the first Saturday
         const weekNum = Math.floor((sDate.getTime() - startSatTime + 6 * 86400000) / (7 * 86400000));
         const isEvenWeek = weekNum % 2 === 0;
-        const satGroup = isEvenWeek ? aAgents : bAgents;
-        const sunGroup = isEvenWeek ? bAgents : aAgents;
+        const satGroup = isEvenWeek ? aAgents : bAgents; // works Saturday, off Sunday
+        const sunGroup = isEvenWeek ? bAgents : aAgents; // works Sunday, off Saturday
 
         // Determine who is off this day
         let offAgent: string;
         if (dow === 5) {
-          // Friday: 1st agent from Saturday group off (Fri+Sat consecutive)
-          offAgent = satGroup[0];
-        } else if (dow === 1) {
-          // Monday: 1st agent from Sunday group off (Sun+Mon consecutive)
+          // Friday: 1st agent from Sunday group off (off Sat, so Fri+Sat consecutive)
           offAgent = sunGroup[0];
+        } else if (dow === 1) {
+          // Monday: 1st agent from Saturday group off (off Sun, so Sun+Mon consecutive)
+          offAgent = satGroup[0];
         } else {
           // Tue(2)/Wed(3)/Thu(4): remaining agents take turns
-          const remaining = allAgents.filter(a => a !== satGroup[0] && a !== sunGroup[0]);
+          const remaining = allAgents.filter(a => a !== sunGroup[0] && a !== satGroup[0]);
           offAgent = remaining[(dow - 2) % remaining.length];
         }
 
@@ -746,7 +752,6 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
 
   // Track whether a bulk data load just happened (LOAD_STATE from DB refresh)
   const lastLoadRef = useRef(0);
-  const origDispatch = dispatch;
 
   // Sync changes to Supabase
   useEffect(() => {
