@@ -83,6 +83,10 @@ export function InsightsView() {
     const totalHours = agentStats.reduce((sum, a) => sum + a.hours, 0);
     const avgHours = agents.length > 0 ? Math.round((totalHours / agents.length) * 10) / 10 : 0;
     const unfilledShifts = shiftsInRange.filter(s => s.assignedAgentIds.length < s.requiredAgents).length;
+    const unfilledShiftDetails = shiftsInRange
+      .filter(s => s.assignedAgentIds.length < s.requiredAgents)
+      .map(s => ({ name: s.name, date: s.date, assigned: s.assignedAgentIds.length, required: s.requiredAgents, missing: s.requiredAgents - s.assignedAgentIds.length }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     // Time off by category
     const timeOffByCategory = TIME_OFF_CATEGORIES.map(cat => ({
@@ -94,7 +98,7 @@ export function InsightsView() {
     const topWorker = agentStats[0];
     const leastWorker = agentStats.length > 1 ? agentStats[agentStats.length - 1] : null;
 
-    return { agentStats, totalShifts, totalTimeOffs, totalHours, avgHours, unfilledShifts, timeOffByCategory, topWorker, leastWorker };
+    return { agentStats, totalShifts, totalTimeOffs, totalHours, avgHours, unfilledShifts, unfilledShiftDetails, timeOffByCategory, topWorker, leastWorker };
   }, [state.shifts, state.timeOffs, agents, range.start, range.end]);
 
   const periods: { value: Period; label: string }[] = [
@@ -174,6 +178,31 @@ export function InsightsView() {
           )}
         </div>
       </div>
+
+      {/* Unfilled Shifts Details */}
+      {data.unfilledShiftDetails.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl border border-amber-200 overflow-hidden">
+          <div className="px-4 py-3 bg-amber-50 border-b border-amber-200">
+            <h3 className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Unfilled Shifts ({data.unfilledShiftDetails.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {data.unfilledShiftDetails.map((s, i) => (
+              <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-900">{s.name}</span>
+                  <span className="text-xs text-gray-500">{s.date}</span>
+                </div>
+                <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                  {s.assigned}/{s.required} agents ({s.missing} missing)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Highlights */}
       {(data.topWorker || data.leastWorker) && (
