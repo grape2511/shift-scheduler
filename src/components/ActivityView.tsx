@@ -48,7 +48,7 @@ export function ActivityView() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Activity</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Recent shift changes and notifications
+            Recent shift changes and notifications — times shown in Amsterdam (CET/CEST)
           </p>
         </div>
         {allNotifications.length > 0 && (

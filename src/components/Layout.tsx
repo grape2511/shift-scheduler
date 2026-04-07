@@ -79,8 +79,8 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
     ...(isAdmin ? [{ id: 'time-off-approval', label: 'Approvals', icon: CalendarCheck }] : []),
     ...(isAdmin ? [{ id: 'insights', label: 'Insights', icon: BarChart3 }] : []),
     ...(isAdmin ? [{ id: 'activity', label: 'Activity', icon: Activity }] : []),
-    ...(isAdmin ? [{ id: 'user-management', label: 'Users', icon: Shield }] : []),
     ...(isAdmin ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
+    ...(isAdmin ? [{ id: 'user-management', label: 'Users', icon: Shield }] : []),
   ];
 
   const handleSignOut = async () => {
