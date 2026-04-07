@@ -636,6 +636,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       ]);
       // Use the freshly fetched profile for currentUser so admin settings persist
       const freshCurrentUser = users.find(u => u.id === currentUser.id) || currentUser;
+      lastLoadRef.current = Date.now();
       dispatch({
         type: 'LOAD_STATE',
         payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords },
@@ -708,11 +709,18 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     }
   }, [state.shifts, state.users]);
 
+  // Track whether a bulk data load just happened (LOAD_STATE from DB refresh)
+  const lastLoadRef = useRef(0);
+  const origDispatch = dispatch;
+
   // Sync changes to Supabase
   useEffect(() => {
     const prev = prevStateRef.current;
     prevStateRef.current = state;
     if (prev === state) return;
+
+    // If this state change came from a bulk DB load, skip notifications
+    const isBulkLoad = Date.now() - lastLoadRef.current < 500;
 
     // Sync shifts
     const newShifts = state.shifts.filter(s => !prev.shifts.some(ps => ps.id === s.id));
@@ -722,12 +730,14 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       return ps && JSON.stringify(ps) !== JSON.stringify(s);
     });
 
-    if (newShifts.length > 0) db.insertShifts(newShifts);
-    if (deletedShiftIds.length > 0) db.deleteShifts(deletedShiftIds);
-    updatedShifts.forEach(s => db.updateShift(s));
+    if (!isBulkLoad) {
+      if (newShifts.length > 0) db.insertShifts(newShifts);
+      if (deletedShiftIds.length > 0) db.deleteShifts(deletedShiftIds);
+      updatedShifts.forEach(s => db.updateShift(s));
+    }
 
-    // Slack + admin notifications
-    const adminUser = state.users.find(u => u.email === 'einav@adrevival.io');
+    // Slack + admin notifications (skip on bulk data load from DB)
+    const adminUser = !isBulkLoad ? state.users.find(u => u.email === 'einav@adrevival.io') : undefined;
     const slack = getSlackPrefs();
     const slackUrl = slack.url;
     const getAgentName = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
@@ -770,65 +780,67 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       });
     }
 
-    // Sync time offs
-    const newTimeOffs = state.timeOffs.filter(t => !prev.timeOffs.some(pt => pt.id === t.id));
-    const deletedTimeOffIds = prev.timeOffs.filter(t => !state.timeOffs.some(nt => nt.id === t.id)).map(t => t.id);
-    newTimeOffs.forEach(t => db.insertTimeOff(t));
-    deletedTimeOffIds.forEach(id => db.deleteTimeOff(id));
+    if (!isBulkLoad) {
+      // Sync time offs
+      const newTimeOffs = state.timeOffs.filter(t => !prev.timeOffs.some(pt => pt.id === t.id));
+      const deletedTimeOffIds = prev.timeOffs.filter(t => !state.timeOffs.some(nt => nt.id === t.id)).map(t => t.id);
+      newTimeOffs.forEach(t => db.insertTimeOff(t));
+      deletedTimeOffIds.forEach(id => db.deleteTimeOff(id));
 
-    // Sync notifications
-    const newNotifs = state.notifications.filter(n => !prev.notifications.some(pn => pn.id === n.id));
-    const updatedNotifs = state.notifications.filter(n => {
-      const pn = prev.notifications.find(pn => pn.id === n.id);
-      return pn && pn.read !== n.read;
-    });
-    newNotifs.forEach(n => db.insertNotification(n));
-    updatedNotifs.forEach(n => { if (n.read) db.markNotificationRead(n.id); });
+      // Sync notifications
+      const newNotifs = state.notifications.filter(n => !prev.notifications.some(pn => pn.id === n.id));
+      const updatedNotifs = state.notifications.filter(n => {
+        const pn = prev.notifications.find(pn => pn.id === n.id);
+        return pn && pn.read !== n.read;
+      });
+      newNotifs.forEach(n => db.insertNotification(n));
+      updatedNotifs.forEach(n => { if (n.read) db.markNotificationRead(n.id); });
 
-    // Sync swap requests
-    const newSwaps = (state.swapRequests || []).filter(r => !(prev.swapRequests || []).some(pr => pr.id === r.id));
-    const updatedSwaps = (state.swapRequests || []).filter(r => {
-      const pr = (prev.swapRequests || []).find(pr => pr.id === r.id);
-      return pr && pr.status !== r.status;
-    });
-    newSwaps.forEach(r => {
-      db.insertSwapRequest(r);
-      notifyAdmin(`Swap request: ${state.users.find(u => u.id === r.fromAgentId)?.name} wants to swap shifts with ${state.users.find(u => u.id === r.toAgentId)?.name}`);
-    });
-    updatedSwaps.forEach(r => {
-      db.updateSwapRequestStatus(r.id, r.status as 'accepted' | 'declined');
-      if (slackUrl && slack.swaps && r.status === 'accepted') {
-        const getAgentName2 = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
-        const fromShift = state.shifts.find(s => s.id === r.fromShiftId);
-        const toShift = state.shifts.find(s => s.id === r.toShiftId);
-        sendSlackNotification(slackUrl, `🔄 *Swap completed*: ${getAgentName2(r.fromAgentId)} ↔ ${getAgentName2(r.toAgentId)} — "${fromShift?.name}" (${fromShift?.date}) swapped with "${toShift?.name}" (${toShift?.date})`);
-      }
-    });
+      // Sync swap requests
+      const newSwaps = (state.swapRequests || []).filter(r => !(prev.swapRequests || []).some(pr => pr.id === r.id));
+      const updatedSwaps = (state.swapRequests || []).filter(r => {
+        const pr = (prev.swapRequests || []).find(pr => pr.id === r.id);
+        return pr && pr.status !== r.status;
+      });
+      newSwaps.forEach(r => {
+        db.insertSwapRequest(r);
+        if (adminUser) notifyAdmin(`Swap request: ${state.users.find(u => u.id === r.fromAgentId)?.name} wants to swap shifts with ${state.users.find(u => u.id === r.toAgentId)?.name}`);
+      });
+      updatedSwaps.forEach(r => {
+        db.updateSwapRequestStatus(r.id, r.status as 'accepted' | 'declined');
+        if (slackUrl && slack.swaps && r.status === 'accepted') {
+          const getAgentName2 = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
+          const fromShift = state.shifts.find(s => s.id === r.fromShiftId);
+          const toShift = state.shifts.find(s => s.id === r.toShiftId);
+          sendSlackNotification(slackUrl, `🔄 *Swap completed*: ${getAgentName2(r.fromAgentId)} ↔ ${getAgentName2(r.toAgentId)} — "${fromShift?.name}" (${fromShift?.date}) swapped with "${toShift?.name}" (${toShift?.date})`);
+        }
+      });
 
-    // Sync clock records
-    const newClockRecords = state.clockRecords.filter(r => !prev.clockRecords.some(pr => pr.id === r.id));
-    const updatedClockRecords = state.clockRecords.filter(r => {
-      const pr = prev.clockRecords.find(pr => pr.id === r.id);
-      return pr && JSON.stringify(pr) !== JSON.stringify(r);
-    });
-    newClockRecords.forEach(r => db.upsertClockRecord(r));
-    updatedClockRecords.forEach(r => db.upsertClockRecord(r));
+      // Sync clock records
+      const newClockRecords = state.clockRecords.filter(r => !prev.clockRecords.some(pr => pr.id === r.id));
+      const updatedClockRecords = state.clockRecords.filter(r => {
+        const pr = prev.clockRecords.find(pr => pr.id === r.id);
+        return pr && JSON.stringify(pr) !== JSON.stringify(r);
+      });
+      newClockRecords.forEach(r => db.upsertClockRecord(r));
+      updatedClockRecords.forEach(r => db.upsertClockRecord(r));
 
-    // Sync user updates
-    const updatedUsers = state.users.filter(u => {
-      const pu = prev.users.find(pu => pu.id === u.id);
-      return pu && JSON.stringify(pu) !== JSON.stringify(u);
-    });
-    updatedUsers.forEach(u => db.updateProfile(u.id, {
-      country: u.country,
-      color: u.color,
-      name: u.name,
-      role: u.role,
-      timezone: u.timezone,
-      enabledHolidayCountries: u.enabledHolidayCountries,
-      ptoAllowance: u.ptoAllowance,
-      sickDaysAllowance: u.sickDaysAllowance,
-    }));
+      // Sync user updates
+      const updatedUsers = state.users.filter(u => {
+        const pu = prev.users.find(pu => pu.id === u.id);
+        return pu && JSON.stringify(pu) !== JSON.stringify(u);
+      });
+      updatedUsers.forEach(u => db.updateProfile(u.id, {
+        country: u.country,
+        color: u.color,
+        name: u.name,
+        role: u.role,
+        timezone: u.timezone,
+        enabledHolidayCountries: u.enabledHolidayCountries,
+        ptoAllowance: u.ptoAllowance,
+        sickDaysAllowance: u.sickDaysAllowance,
+      }));
+    }
   }, [state]);
 
   const agents = state.users;
