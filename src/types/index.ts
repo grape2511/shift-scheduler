@@ -16,6 +16,7 @@ export interface User {
   labels?: string[]; // multiple labels from predefined list
   slackWebhookUrl?: string;
   slackNotifications?: Record<string, boolean>;
+  active?: boolean; // default true
 }
 
 export interface Shift {

@@ -164,7 +164,7 @@ export function SettingsView() {
           return (
             <div
               key={user.id}
-              className={`flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0 ${isCurrentUser ? 'bg-indigo-50/30' : ''}`}
+              className={`flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0 ${isCurrentUser ? 'bg-indigo-50/30' : ''} ${user.active === false ? 'opacity-50' : ''}`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div
@@ -187,7 +187,20 @@ export function SettingsView() {
                   </div>
                 </div>
               </div>
-              <div>
+              <div className="flex items-center gap-3">
+                {!isCurrentUser && (
+                  <div
+                    onClick={() => {
+                      const newActive = user.active === false ? true : false;
+                      dispatch({ type: 'UPDATE_USER', payload: { id: user.id, updates: { active: newActive } } });
+                      updateProfile(user.id, { active: newActive } as any);
+                    }}
+                    className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${user.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
+                    title={user.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${user.active !== false ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </div>
+                )}
                 {isCurrentUser ? (
                   <span className="text-[10px] text-gray-400">Can't change own role</span>
                 ) : (

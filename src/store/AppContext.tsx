@@ -724,7 +724,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const weekStart = new Date(today);
     weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
     const MIN_SHIFTS = 5;
-    const agents = state.users.filter(u => u.role === 'agent');
+    const agents = state.users.filter(u => u.role === 'agent' && u.active !== false);
     const underAssigned: string[] = [];
 
     agents.forEach(agent => {
