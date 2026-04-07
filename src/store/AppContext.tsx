@@ -639,6 +639,7 @@ interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<Action>;
   agents: User[];
+  activeAgents: User[];
   getAgentById: (id: string) => User | undefined;
   getShiftsForDate: (date: string) => Shift[];
   getShiftsForAgent: (agentId: string) => Shift[];
@@ -853,6 +854,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   }, [state]);
 
   const agents = state.users;
+  const activeAgents = state.users.filter(u => u.active !== false);
 
   const getAgentById = (id: string) => state.users.find(u => u.id === id);
 
@@ -1005,6 +1007,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       state,
       dispatch,
       agents,
+      activeAgents,
       getAgentById,
       getShiftsForDate,
       getShiftsForAgent,

@@ -34,7 +34,7 @@ const PRESET_SHIFTS = [
 ];
 
 export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps) {
-  const { state, dispatch, agents } = useApp();
+  const { state, dispatch, activeAgents: agents } = useApp();
   const [name, setName] = useState(editShift?.name || '');
   const [date, setDate] = useState(editShift?.date || defaultDate || new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState(editShift?.startTime || '09:00');
@@ -700,7 +700,7 @@ function AgentShiftView({
   onJoin: () => void;
   onLeave: () => void;
 }) {
-  const { state, dispatch, agents, getSwapRequestsForShift, getShiftsForAgent } = useApp();
+  const { state, dispatch, activeAgents: agents, getSwapRequestsForShift, getShiftsForAgent } = useApp();
   const [showSwap, setShowSwap] = useState(false);
   const [swapTargetId, setSwapTargetId] = useState('');
   const [swapTargetShiftId, setSwapTargetShiftId] = useState('');

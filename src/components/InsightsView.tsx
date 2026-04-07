@@ -29,7 +29,7 @@ function getDateRange(period: Period, refDate: Date) {
 }
 
 export function InsightsView() {
-  const { state, agents, getClockRecord } = useApp();
+  const { state, activeAgents: agents, getClockRecord } = useApp();
   const [period, setPeriod] = useState<Period>('monthly');
   const now = new Date();
   const range = getDateRange(period, now);

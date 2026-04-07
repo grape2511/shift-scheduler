@@ -8,7 +8,7 @@ import { isToday, startOfWeek } from 'date-fns';
 import type { Shift } from '../types';
 
 export function WeekView() {
-  const { state, dispatch, agents, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate } = useApp();
+  const { state, dispatch, activeAgents: agents, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);

@@ -12,7 +12,7 @@ interface ShiftCardProps {
 }
 
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
-  const { state, dispatch, agents, getAgentById, hasConflict, getClockRecord } = useApp();
+  const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord } = useApp();
   const [showAssign, setShowAssign] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const isAdmin = state.currentUser.role === 'admin';
