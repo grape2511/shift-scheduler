@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { updateProfile } from '../lib/database';
-import { sendSlackNotification } from '../utils/slack';
 
 const SLACK_NOTIFICATION_OPTIONS = [
   { key: 'slackNotifySwaps', label: 'Approved swaps', description: 'When both agents confirm a shift swap' },
