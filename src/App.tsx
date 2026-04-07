@@ -14,6 +14,7 @@ import { ShiftPrompt } from './components/ShiftPrompt';
 import { ClockTab } from './components/ClockTab';
 import { DaysOffTab } from './components/DaysOffTab';
 import { SettingsView } from './components/SettingsView';
+import { ActivityView } from './components/ActivityView';
 
 const TAB_PATHS: Record<string, string> = {
   schedule: '/',
@@ -23,6 +24,7 @@ const TAB_PATHS: Record<string, string> = {
   'days-off': '/days-off',
   'time-off-approval': '/time-off',
   insights: '/insights',
+  activity: '/activity',
   'user-management': '/users',
   settings: '/settings',
 };
@@ -55,6 +57,7 @@ function AppContent() {
       {activeTab === 'days-off' && <DaysOffTab />}
       {activeTab === 'time-off-approval' && state.currentUser.role === 'admin' && <TimeOffApproval />}
       {activeTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
+      {activeTab === 'activity' && state.currentUser.role === 'admin' && <ActivityView />}
       {activeTab === 'user-management' && state.currentUser.role === 'admin' && <UserManagement />}
       {activeTab === 'settings' && state.currentUser.role === 'admin' && <SettingsView />}
     </Layout>

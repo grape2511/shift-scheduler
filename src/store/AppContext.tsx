@@ -780,45 +780,14 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const adminUser = !isBulkLoad ? state.users.find(u => u.email === 'einav@adrevival.io') : undefined;
     const slack = getSlackPrefs();
     const slackUrl = slack.url;
-    const getAgentName = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
     const notifyAdmin = (message: string) => {
       if (adminUser && adminUser.id !== state.currentUser.id) {
         const notif = createNotification(adminUser.id, message, 'info');
         db.insertNotification(notif);
       }
     };
-    if (adminUser) {
-      updatedShifts.forEach(s => {
-        const old = prev.shifts.find(ps => ps.id === s.id);
-        if (!old) return;
-        const newAgents = s.assignedAgentIds.filter(id => !old.assignedAgentIds.includes(id));
-        const removedAgents = old.assignedAgentIds.filter(id => !s.assignedAgentIds.includes(id));
-        if (newAgents.length > 0) {
-          notifyAdmin(`${newAgents.map(getAgentName).join(', ')} joined "${s.name}" on ${s.date}`);
-        }
-        if (removedAgents.length > 0) {
-          // Check if any removed agent now has < 5 shifts this week
-          const MIN_SHIFTS = 5;
-          const shiftDate = new Date(s.date + 'T12:00:00');
-          const weekStart = new Date(shiftDate);
-          weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
-          removedAgents.forEach(agentId => {
-            let weekShiftCount = 0;
-            for (let i = 0; i < 7; i++) {
-              const d = new Date(weekStart);
-              d.setDate(d.getDate() + i);
-              const ds = d.toISOString().split('T')[0];
-              if (state.shifts.some(sh => sh.date === ds && sh.assignedAgentIds.includes(agentId))) {
-                weekShiftCount++;
-              }
-            }
-            if (weekShiftCount < MIN_SHIFTS) {
-              notifyAdmin(`⚠️ ${getAgentName(agentId)} has only ${weekShiftCount} shifts this week (minimum ${MIN_SHIFTS})`);
-            }
-          });
-        }
-      });
-    }
+    // Admin notifications for shift assignment changes removed (too spammy).
+    // notifyAdmin is still used for swap requests below.
 
     if (!isBulkLoad) {
       // Sync time offs
