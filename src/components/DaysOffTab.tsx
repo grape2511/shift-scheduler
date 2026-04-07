@@ -40,6 +40,29 @@ export function DaysOffTab() {
     return dates;
   };
 
+  // Check if requesting time off on selected date(s) would cause coverage issues
+  const coverageWarnings = (() => {
+    if (!timeOffDate || state.currentUser.role === 'admin') return [];
+    const dates = timeOffMode === 'period' && timeOffEndDate ? getDatesInRange(timeOffDate, timeOffEndDate).filter(d => {
+      const day = new Date(d + 'T12:00:00').getDay();
+      return day !== 0 && day !== 6;
+    }) : [timeOffDate];
+    const warnings: { date: string; shiftName: string; afterCount: number; required: number; teammates: string[] }[] = [];
+    dates.forEach(date => {
+      const shiftsOnDay = state.shifts.filter(s => s.date === date && s.assignedAgentIds.includes(state.currentUser.id));
+      shiftsOnDay.forEach(s => {
+        const afterCount = s.assignedAgentIds.filter(id => id !== state.currentUser.id).length;
+        if (afterCount < s.requiredAgents) {
+          const teammates = s.assignedAgentIds
+            .filter(id => id !== state.currentUser.id)
+            .map(id => state.users.find(u => u.id === id)?.name || 'Unknown');
+          warnings.push({ date, shiftName: s.name, afterCount, required: s.requiredAgents, teammates });
+        }
+      });
+    });
+    return warnings;
+  })();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!timeOffDate) return;
@@ -382,6 +405,20 @@ export function DaysOffTab() {
               </p>
             );
           })()}
+          {coverageWarnings.length > 0 && (
+            <div className="mt-3 px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs font-medium text-red-800 mb-1.5">⚠️ Your shift will be understaffed on these days:</p>
+              {coverageWarnings.map((w, i) => (
+                <div key={i} className="text-[11px] text-red-700 mb-1">
+                  <strong>{w.date}</strong> — {w.shiftName} will have {w.afterCount}/{w.required} agents.
+                  {w.teammates.length > 0 && (
+                    <span> Ask {w.teammates.join(' or ')} to cover for you.</span>
+                  )}
+                </div>
+              ))}
+              <p className="text-[11px] text-red-600 mt-1.5">Please arrange coverage with a teammate before submitting, or your request may be delayed.</p>
+            </div>
+          )}
           <div className="flex gap-2 mt-3">
             <button type="button" onClick={() => { setShowForm(false); setTimeOffDate(''); setTimeOffEndDate(''); setTimeOffMode('single'); }} className="px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-100 rounded-lg">Cancel</button>
             <button type="submit" className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700">Submit</button>
