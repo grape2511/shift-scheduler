@@ -653,16 +653,17 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   }, [refreshData]);
 
   // Proactive weekly check: alert if any agent has < 5 shifts this week
-  const weeklyCheckDone = useRef<string>('');
   useEffect(() => {
     if (state.shifts.length === 0 || state.users.length === 0) return;
+    if (state.currentUser.role !== 'admin') return;
     const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
     if (!slackUrl) return;
-    // Only run once per day per session
+    // Only run once per day across all sessions/reloads
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
-    if (weeklyCheckDone.current === todayStr) return;
-    weeklyCheckDone.current = todayStr;
+    const lastCheck = localStorage.getItem('slack_weekly_check_date');
+    if (lastCheck === todayStr) return;
+    localStorage.setItem('slack_weekly_check_date', todayStr);
 
     const weekStart = new Date(today);
     weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
