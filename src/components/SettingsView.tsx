@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { updateProfile } from '../lib/database';
+import { Mail } from 'lucide-react';
+import type { Role } from '../types';
 
 const SLACK_NOTIFICATION_OPTIONS = [
   { key: 'slackNotifySwaps', label: 'Approved swaps', description: 'When both agents confirm a shift swap' },
@@ -23,6 +25,12 @@ function getSlackPrefs(user: any): Record<SlackNotifKey, boolean> {
 
 export { getSlackPrefs };
 export type { SlackNotifKey };
+
+const ROLES: { value: Role; label: string; description: string; color: string }[] = [
+  { value: 'admin', label: 'Admin', description: 'Full access to all settings, users, and schedules', color: 'text-red-700 bg-red-50 border-red-200' },
+  { value: 'team-lead', label: 'Team Lead', description: 'Can manage schedules and view team data', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+  { value: 'agent', label: 'Agent', description: 'Can view schedules, clock in/out, and request swaps', color: 'text-gray-700 bg-gray-50 border-gray-200' },
+];
 
 export function SettingsView() {
   const { state, dispatch } = useApp();
@@ -58,11 +66,21 @@ export function SettingsView() {
     setTesting(false);
   };
 
+  const handleRoleChange = (userId: string, newRole: Role) => {
+    dispatch({ type: 'UPDATE_USER', payload: { id: userId, updates: { role: newRole } } });
+    updateProfile(userId, { role: newRole });
+  };
+
+  const sortedUsers = [...state.users].sort((a, b) => {
+    const roleOrder = { admin: 0, 'team-lead': 1, agent: 2 };
+    return (roleOrder[a.role] || 2) - (roleOrder[b.role] || 2);
+  });
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div>
         <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
-        <p className="text-sm text-gray-500">Configure notifications and integrations</p>
+        <p className="text-sm text-gray-500">Configure notifications, integrations, and user roles</p>
       </div>
 
       {/* Slack Integration */}
@@ -119,6 +137,74 @@ export function SettingsView() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* User Management */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">User Management</h3>
+          <p className="text-xs text-gray-500 mt-0.5">{state.users.length} users — manage roles and permissions</p>
+        </div>
+
+        {/* Role legend */}
+        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+          <div className="flex flex-wrap gap-3">
+            {ROLES.map(r => (
+              <div key={r.value} className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${r.color}`}>{r.label}</span>
+                <span className="text-[10px] text-gray-500">{r.description}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Users list */}
+        {sortedUsers.map(user => {
+          const isCurrentUser = user.id === state.currentUser.id;
+          return (
+            <div
+              key={user.id}
+              className={`flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0 ${isCurrentUser ? 'bg-indigo-50/30' : ''}`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0"
+                  style={{ backgroundColor: user.color }}
+                >
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                    {isCurrentUser && <span className="text-[10px] text-indigo-500 font-medium">(you)</span>}
+                    <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full border ${ROLES.find(r => r.value === user.role)?.color || ''}`}>
+                      {ROLES.find(r => r.value === user.role)?.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <Mail className="w-3 h-3" />
+                    <span className="truncate">{user.email}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                {isCurrentUser ? (
+                  <span className="text-[10px] text-gray-400">Can't change own role</span>
+                ) : (
+                  <select
+                    value={user.role}
+                    onChange={e => handleRoleChange(user.id, e.target.value as Role)}
+                    className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {ROLES.map(r => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

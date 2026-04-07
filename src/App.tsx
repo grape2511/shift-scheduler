@@ -7,7 +7,6 @@ import { AgentsView } from './components/AgentsView';
 import { MyShiftsView } from './components/MyShiftsView';
 import { AuthPage } from './components/AuthPage';
 import { SetNewPassword } from './components/SetNewPassword';
-import { UserManagement } from './components/UserManagement';
 import { InsightsView } from './components/InsightsView';
 import { TimeOffApproval } from './components/TimeOffApproval';
 import { ShiftPrompt } from './components/ShiftPrompt';
@@ -25,7 +24,6 @@ const TAB_PATHS: Record<string, string> = {
   'time-off-approval': '/time-off',
   insights: '/insights',
   activity: '/activity',
-  'user-management': '/users',
   settings: '/settings',
 };
 
@@ -58,7 +56,6 @@ function AppContent() {
       {activeTab === 'time-off-approval' && state.currentUser.role === 'admin' && <TimeOffApproval />}
       {activeTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
       {activeTab === 'activity' && state.currentUser.role === 'admin' && <ActivityView />}
-      {activeTab === 'user-management' && state.currentUser.role === 'admin' && <UserManagement />}
       {activeTab === 'settings' && state.currentUser.role === 'admin' && <SettingsView />}
     </Layout>
   );

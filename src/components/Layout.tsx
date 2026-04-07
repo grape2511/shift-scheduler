@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, Shield, BarChart3, CalendarCheck, Timer, Moon, Sun, Eye, Settings, Activity } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, BarChart3, CalendarCheck, Timer, Moon, Sun, Eye, Settings, Activity } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
 import { COUNTRIES } from '../utils/holidays';
 
@@ -80,7 +80,6 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
     ...(isAdmin ? [{ id: 'insights', label: 'Insights', icon: BarChart3 }] : []),
     ...(isAdmin ? [{ id: 'activity', label: 'Activity', icon: Activity }] : []),
     ...(isAdmin ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
-    ...(isAdmin ? [{ id: 'user-management', label: 'Users', icon: Shield }] : []),
   ];
 
   const handleSignOut = async () => {
