@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Trash2, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
+import { Plus, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
 import { TIME_OFF_CATEGORIES } from '../types';
 import { updateProfile } from '../lib/database';
@@ -124,9 +124,6 @@ export function AgentsView() {
     setShowAdd(false);
   };
 
-  const handleRemove = (id: string) => {
-    dispatch({ type: 'REMOVE_USER', payload: id });
-  };
 
   const handleCountryChange = (agentId: string, newCountry: string) => {
     const country = newCountry || undefined;
@@ -336,12 +333,17 @@ export function AgentsView() {
                     <span className={`text-sm font-bold w-16 text-right ${isOvertime ? 'text-red-600' : 'text-gray-700'}`}>{hours}/{TARGET_HOURS}h</span>
                     <span className={`hidden sm:block text-sm font-bold w-16 text-right ${isOverPto ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>{remaining}/{total}</span>
                     <span className={`hidden sm:block text-sm font-bold w-12 text-right ${sickRemaining <= 1 ? 'text-red-600' : 'text-gray-500'}`}>{sickRemaining}/{sickTotal}</span>
-                    <button
-                      onClick={() => dispatch({ type: 'REMOVE_USER', payload: agent.id })}
-                      className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg transition-colors"
+                    <div
+                      onClick={() => {
+                        const newActive = agent.active === false ? true : false;
+                        dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { active: newActive } } });
+                        updateProfile(agent.id, { active: newActive } as any);
+                      }}
+                      className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${agent.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
+                      title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${agent.active !== false ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
                   </div>
                 );
               })}
@@ -381,12 +383,17 @@ export function AgentsView() {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => handleRemove(agent.id)}
-                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+              <div
+                onClick={() => {
+                  const newActive = agent.active === false ? true : false;
+                  dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { active: newActive } } });
+                  updateProfile(agent.id, { active: newActive } as any);
+                }}
+                className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${agent.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
+                title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
               >
-                <Trash2 className="w-4 h-4" />
-              </button>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${agent.active !== false ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
             </div>
             <div className="mt-3 flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
