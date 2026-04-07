@@ -104,7 +104,7 @@ export function ActivityView() {
                           </span>
                           <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
                             <Clock className="w-3 h-3" />
-                            {format(parseISO(notif.timestamp), 'HH:mm')}
+                            {new Date(notif.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })}
                           </span>
                         </div>
                       </div>
