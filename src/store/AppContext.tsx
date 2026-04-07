@@ -220,6 +220,7 @@ function reducer(state: AppState, action: Action): AppState {
       // Deep copy arrays to prevent any reference issues
       const aAgents = Array.from(groupA);
       const bAgents = Array.from(groupB);
+      const allAgents = [...aAgents, ...bAgents];
       const groupId = uuid();
       const baseDate = new Date(shift.date + 'T12:00:00');
       const newShifts: Shift[] = [];
@@ -273,6 +274,40 @@ function reducer(state: AppState, action: Action): AppState {
         });
       }
 
+      // Apply consecutive days off to existing weekday shifts with the same name
+      // Fri off = 1 agent from Sat group (Fri+Sat consecutive)
+      // Mon off = 1 agent from Sun group (Sun+Mon consecutive)
+      // Tue/Wed/Thu = remaining agents rotate off
+      const updatedShifts = state.shifts.map(s => {
+        if (s.name !== shift.name) return s;
+        const sDate = new Date(s.date + 'T12:00:00');
+        if (sDate < baseDate) return s;
+        const dow = sDate.getDay();
+        if (dow === 0 || dow === 6) return s; // skip weekends
+
+        // Determine week parity relative to the first Saturday
+        const weekNum = Math.floor((sDate.getTime() - startSatTime + 6 * 86400000) / (7 * 86400000));
+        const isEvenWeek = weekNum % 2 === 0;
+        const satGroup = isEvenWeek ? aAgents : bAgents;
+        const sunGroup = isEvenWeek ? bAgents : aAgents;
+
+        // Determine who is off this day
+        let offAgent: string;
+        if (dow === 5) {
+          // Friday: 1st agent from Saturday group off (Fri+Sat consecutive)
+          offAgent = satGroup[0];
+        } else if (dow === 1) {
+          // Monday: 1st agent from Sunday group off (Sun+Mon consecutive)
+          offAgent = sunGroup[0];
+        } else {
+          // Tue(2)/Wed(3)/Thu(4): remaining agents take turns
+          const remaining = allAgents.filter(a => a !== satGroup[0] && a !== sunGroup[0]);
+          offAgent = remaining[(dow - 2) % remaining.length];
+        }
+
+        return { ...s, assignedAgentIds: allAgents.filter(a => a !== offAgent) };
+      });
+
       // Notify all rotation agents
       [...groupA, ...groupB].forEach(agentId => {
         const inA = groupA.includes(agentId);
@@ -285,7 +320,7 @@ function reducer(state: AppState, action: Action): AppState {
 
       return {
         ...state,
-        shifts: [...state.shifts, ...newShifts],
+        shifts: [...updatedShifts, ...newShifts],
         notifications: [...state.notifications, ...notifications],
       };
     }
