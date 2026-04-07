@@ -144,6 +144,7 @@ alter table profiles add column if not exists holidays_deduct_pto boolean defaul
 alter table profiles add column if not exists label text;
 alter table profiles add column if not exists labels text[] default '{}';
 alter table profiles add column if not exists slack_webhook_url text;
+alter table profiles add column if not exists slack_notifications jsonb default '{}';
 
 -- Add missing columns to time_offs
 alter table time_offs add column if not exists category text;

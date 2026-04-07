@@ -292,53 +292,6 @@ export function AgentsView() {
         )}
       </div>
 
-      {/* Slack Integration */}
-      <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <svg className="w-4 h-4 text-purple-500" viewBox="0 0 24 24" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.165 0a2.528 2.528 0 0 1 2.522 2.522v6.312zm-2.522 10.124a2.528 2.528 0 0 1 2.522 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.521-2.522v-2.52h2.521zm0-1.271a2.527 2.527 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.313A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.522h-6.313z"/></svg>
-          <h3 className="text-sm font-semibold text-gray-900">Slack Notifications</h3>
-        </div>
-        <p className="text-xs text-gray-500 mb-3">
-          Get notified in Slack when shifts are created, updated, or cancelled.
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="url"
-            value={state.currentUser.slackWebhookUrl || ''}
-            onChange={e => {
-              const url = e.target.value;
-              dispatch({ type: 'UPDATE_USER', payload: { id: state.currentUser.id, updates: { slackWebhookUrl: url || undefined } } });
-              updateProfile(state.currentUser.id, { slackWebhookUrl: url || undefined });
-            }}
-            placeholder="https://hooks.slack.com/services/..."
-            className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <button
-            onClick={async () => {
-              const url = state.currentUser.slackWebhookUrl;
-              if (!url) return alert('Enter a webhook URL first');
-              try {
-                const res = await fetch('/api/slack-notify', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ webhookUrl: url, payload: { text: '✅ Shift Scheduler connected! You will receive notifications for shift changes.' } }),
-                });
-                if (res.ok) alert('Test message sent to Slack!');
-                else alert('Failed to send. Check your webhook URL.');
-              } catch {
-                alert('Failed to send. Check your webhook URL.');
-              }
-            }}
-            className="px-4 py-2 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shrink-0"
-          >
-            Test
-          </button>
-        </div>
-        {state.currentUser.slackWebhookUrl && (
-          <p className="text-[10px] text-green-600 mt-2">Slack notifications are active</p>
-        )}
-      </div>
-
       {/* Agents */}
       {(() => {
         const q = searchQuery.toLowerCase();

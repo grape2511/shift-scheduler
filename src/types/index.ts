@@ -15,6 +15,7 @@ export interface User {
   label?: string; // deprecated, kept for backwards compat
   labels?: string[]; // multiple labels from predefined list
   slackWebhookUrl?: string;
+  slackNotifications?: Record<string, boolean>;
 }
 
 export interface Shift {

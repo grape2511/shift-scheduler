@@ -49,6 +49,7 @@ async function fetchProfile(userId: string): Promise<User | null> {
     label: data.label || undefined,
     labels: data.labels || undefined,
     slackWebhookUrl: data.slack_webhook_url || undefined,
+    slackNotifications: data.slack_notifications || undefined,
   };
 }
 

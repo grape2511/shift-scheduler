@@ -652,12 +652,26 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     return () => clearInterval(interval);
   }, [refreshData]);
 
+  // Helper to check Slack notification preferences
+  const getSlackPrefs = () => {
+    const admin = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+    const prefs = admin?.slackNotifications || {};
+    return {
+      url: admin?.slackWebhookUrl,
+      swaps: prefs.slackNotifySwaps ?? true,
+      timeOff: prefs.slackNotifyTimeOff ?? true,
+      timeOffApproval: prefs.slackNotifyTimeOffApproval ?? true,
+      weeklyCoverage: prefs.slackNotifyWeeklyCoverage ?? true,
+    };
+  };
+
   // Proactive weekly check: alert if any agent has < 5 shifts this week
   useEffect(() => {
     if (state.shifts.length === 0 || state.users.length === 0) return;
     if (state.currentUser.role !== 'admin') return;
-    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-    if (!slackUrl) return;
+    const slack = getSlackPrefs();
+    if (!slack.url || !slack.weeklyCoverage) return;
+    const slackUrl = slack.url;
     // Only run once per day across all sessions/reloads
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
@@ -714,7 +728,8 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
 
     // Slack + admin notifications
     const adminUser = state.users.find(u => u.email === 'einav@adrevival.io');
-    const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+    const slack = getSlackPrefs();
+    const slackUrl = slack.url;
     const getAgentName = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
     const notifyAdmin = (message: string) => {
       if (adminUser && adminUser.id !== state.currentUser.id) {
@@ -782,7 +797,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     });
     updatedSwaps.forEach(r => {
       db.updateSwapRequestStatus(r.id, r.status as 'accepted' | 'declined');
-      if (slackUrl && r.status === 'accepted') {
+      if (slackUrl && slack.swaps && r.status === 'accepted') {
         const getAgentName2 = (id: string) => state.users.find(u => u.id === id)?.name || 'Unknown';
         const fromShift = state.shifts.find(s => s.id === r.fromShiftId);
         const toShift = state.shifts.find(s => s.id === r.toShiftId);

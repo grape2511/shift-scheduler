@@ -21,6 +21,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     label: p.label || undefined,
     labels: p.labels || undefined,
     slackWebhookUrl: p.slack_webhook_url || undefined,
+    slackNotifications: p.slack_notifications || undefined,
   }));
 }
 
@@ -41,6 +42,7 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (updates.label !== undefined) dbUpdates.label = updates.label || null;
   if (updates.labels !== undefined) dbUpdates.labels = updates.labels || [];
   if (updates.slackWebhookUrl !== undefined) dbUpdates.slack_webhook_url = updates.slackWebhookUrl;
+  if ((updates as any).slackNotifications !== undefined) dbUpdates.slack_notifications = (updates as any).slackNotifications;
   const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
   if (error) console.error('updateProfile', error);
 }

@@ -94,9 +94,10 @@ export function DaysOffTab() {
         dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
         insertNotification(notif);
       }
-      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-      if (slackUrl) {
-        sendSlackNotification(slackUrl,
+      const slackAdmin = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+      const slackPrefs = slackAdmin?.slackNotifications || {};
+      if (slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
+        sendSlackNotification(slackAdmin.slackWebhookUrl,
           `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory}) off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`
         );
       }
@@ -160,10 +161,11 @@ export function DaysOffTab() {
       const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been approved ✅`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
       dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
       insertNotification(notif);
-      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-      if (slackUrl) {
+      const slackAdmin2 = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+      const slackPrefs2 = slackAdmin2?.slackNotifications || {};
+      if (slackAdmin2?.slackWebhookUrl && (slackPrefs2.slackNotifyTimeOffApproval ?? true)) {
         const agent = state.users.find(u => u.id === to.userId);
-        sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
+        sendSlackNotification(slackAdmin2.slackWebhookUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
       }
     }
   };
@@ -176,10 +178,11 @@ export function DaysOffTab() {
       const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been declined ❌`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
       dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
       insertNotification(notif);
-      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-      if (slackUrl) {
+      const slackAdmin3 = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+      const slackPrefs3 = slackAdmin3?.slackNotifications || {};
+      if (slackAdmin3?.slackWebhookUrl && (slackPrefs3.slackNotifyTimeOffApproval ?? true)) {
         const agent = state.users.find(u => u.id === to.userId);
-        sendSlackNotification(slackUrl, `❌ *Time off rejected*: ${agent?.name} on ${to.date}`);
+        sendSlackNotification(slackAdmin3.slackWebhookUrl, `❌ *Time off rejected*: ${agent?.name} on ${to.date}`);
       }
     }
   };
