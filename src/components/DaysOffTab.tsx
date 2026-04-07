@@ -145,28 +145,70 @@ export function DaysOffTab() {
     ? state.timeOffs.filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id).sort((a, b) => a.date.localeCompare(b.date))
     : [];
 
+  // Check if approving a time-off would drop any shift below minimum required
+  const getShortageInfo = (timeOff: typeof state.timeOffs[0]) => {
+    const shiftsOnDay = state.shifts.filter(s => s.date === timeOff.date && s.assignedAgentIds.includes(timeOff.userId));
+    const shortages: { shiftName: string; afterCount: number; required: number; teammates: string[] }[] = [];
+    shiftsOnDay.forEach(s => {
+      const afterCount = s.assignedAgentIds.filter(id => id !== timeOff.userId).length;
+      if (afterCount < s.requiredAgents) {
+        const teammates = s.assignedAgentIds
+          .filter(id => id !== timeOff.userId)
+          .map(id => state.users.find(u => u.id === id)?.name || 'Unknown');
+        shortages.push({ shiftName: s.name, afterCount, required: s.requiredAgents, teammates });
+      }
+    });
+    return shortages;
+  };
+
   const handleApprove = (id: string) => {
+    const to = state.timeOffs.find(t => t.id === id);
+    if (!to) return;
+
+    // Check for coverage shortage
+    const shortages = getShortageInfo(to);
+    if (shortages.length > 0) {
+      const agent = state.users.find(u => u.id === to.userId);
+      const details = shortages.map(s => `${s.shiftName}: would have ${s.afterCount}/${s.required} agents`).join('\n');
+      const proceed = confirm(
+        `⚠️ Approving this will leave shifts understaffed:\n\n${details}\n\nApprove anyway, or ask ${agent?.name} to find a replacement first?`
+      );
+      if (!proceed) {
+        // Notify the agent to find a replacement
+        const shiftNames = shortages.map(s => s.shiftName).join(', ');
+        const notif = {
+          id: uuid(),
+          userId: to.userId,
+          message: `Your day off request for ${to.date} needs a replacement — ${shiftNames} would be understaffed. Please ask a teammate to cover before it can be approved.`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          type: 'info' as const,
+        };
+        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+        insertNotification(notif);
+        return;
+      }
+    }
+
     dispatch({ type: 'UPDATE_TIME_OFF_STATUS', payload: { id, status: 'approved' } });
     updateTimeOffStatus(id, 'approved');
-    const to = state.timeOffs.find(t => t.id === id);
-    if (to) {
-      // Remove agent from all shifts on that day
-      const shiftsOnDay = state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
-      shiftsOnDay.forEach(s => {
-        const newAgentIds = s.assignedAgentIds.filter(aid => aid !== to.userId);
-        dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId: to.userId } });
-        updateShiftAssignment(s.id, newAgentIds);
-      });
 
-      const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been approved ✅`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
-      dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
-      insertNotification(notif);
-      const slackAdmin2 = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
-      const slackPrefs2 = slackAdmin2?.slackNotifications || {};
-      if (slackAdmin2?.slackWebhookUrl && (slackPrefs2.slackNotifyTimeOffApproval ?? true)) {
-        const agent = state.users.find(u => u.id === to.userId);
-        sendSlackNotification(slackAdmin2.slackWebhookUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
-      }
+    // Remove agent from all shifts on that day
+    const shiftsOnDay = state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
+    shiftsOnDay.forEach(s => {
+      const newAgentIds = s.assignedAgentIds.filter(aid => aid !== to.userId);
+      dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId: to.userId } });
+      updateShiftAssignment(s.id, newAgentIds);
+    });
+
+    const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been approved ✅`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
+    dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+    insertNotification(notif);
+    const slackAdmin2 = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+    const slackPrefs2 = slackAdmin2?.slackNotifications || {};
+    if (slackAdmin2?.slackWebhookUrl && (slackPrefs2.slackNotifyTimeOffApproval ?? true)) {
+      const agent = state.users.find(u => u.id === to.userId);
+      sendSlackNotification(slackAdmin2.slackWebhookUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
     }
   };
 
@@ -246,32 +288,40 @@ export function DaysOffTab() {
             {pendingApprovals.map(to => {
               const agent = state.users.find(u => u.id === to.userId);
               const catInfo = getCategoryInfo(to.category);
+              const shortages = getShortageInfo(to);
               return (
-                <div key={to.id} className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: agent?.color || '#6366f1' }}>
-                      {agent?.name?.[0]}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{agent?.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-gray-500">{to.date}</span>
-                        <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
-                        {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">½ day</span>}
-                        {to.reason && <span className="text-xs text-gray-400">– {to.reason}</span>}
+                <div key={to.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: agent?.color || '#6366f1' }}>
+                        {agent?.name?.[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{agent?.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-gray-500">{to.date}</span>
+                          <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
+                          {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">½ day</span>}
+                          {to.reason && <span className="text-xs text-gray-400">– {to.reason}</span>}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleReject(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">
+                        <X className="w-3 h-3" />
+                        Reject
+                      </button>
+                      <button onClick={() => handleApprove(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                        <Check className="w-3 h-3" />
+                        Approve
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => handleReject(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">
-                      <X className="w-3 h-3" />
-                      Reject
-                    </button>
-                    <button onClick={() => handleApprove(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
-                      <Check className="w-3 h-3" />
-                      Approve
-                    </button>
-                  </div>
+                  {shortages.length > 0 && (
+                    <div className="mt-2 ml-11 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-700">
+                      ⚠️ Approving will leave {shortages.map(s => `${s.shiftName} with ${s.afterCount}/${s.required} agents`).join(', ')} — replacement needed
+                    </div>
+                  )}
                 </div>
               );
             })}
