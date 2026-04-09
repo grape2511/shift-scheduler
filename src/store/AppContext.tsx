@@ -85,14 +85,20 @@ function createNotification(userId: string, message: string, type: Notification[
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'LOAD_STATE':
+    case 'LOAD_STATE': {
+      // Preserve active clock-ins (clockIn set, no clockOut) that haven't saved to DB yet
+      const activeClockIns = state.clockRecords.filter(r => r.clockIn && !r.clockOut);
+      const loadedClockIds = new Set(action.payload.clockRecords.map(r => r.id));
+      const missingActiveClockIns = activeClockIns.filter(r => !loadedClockIds.has(r.id));
       return {
         ...action.payload,
         shifts: action.payload.shifts.map(s => ({
           ...s,
           assignedAgentIds: [...new Set(s.assignedAgentIds)],
         })),
+        clockRecords: [...action.payload.clockRecords, ...missingActiveClockIns],
       };
+    }
 
     case 'SET_CURRENT_USER':
       return { ...state, currentUser: action.payload };
