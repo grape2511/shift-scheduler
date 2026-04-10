@@ -131,9 +131,12 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
         onClick={() => onEdit?.(shift)}
       >
         <div className="flex items-center justify-between">
-          <span className="truncate">{shift.name}</span>
+          <span className="truncate flex items-center gap-1">{shift.name}{shift.notes && <MessageSquare className="w-2.5 h-2.5 opacity-70" />}</span>
           <span className="opacity-80 ml-1">{formatShiftTime(shift.startTime)}</span>
         </div>
+        {shift.notes && (
+          <div className="mt-0.5 text-[9px] text-white/75 italic truncate">{shift.notes}</div>
+        )}
         {/* Agent names */}
         {assignedAgents.length > 0 && (
           <div className="mt-1 space-y-0.5">
