@@ -73,6 +73,7 @@ export async function fetchAllShifts(): Promise<Shift[]> {
     recurringGroupId: s.recurring_group_id || undefined,
     requiredAgents: s.required_agents,
     color: s.color,
+    notes: s.notes || undefined,
   }));
 }
 
@@ -89,6 +90,7 @@ export async function insertShifts(shifts: Shift[]) {
     recurring_group_id: s.recurringGroupId || null,
     required_agents: s.requiredAgents,
     color: s.color,
+    notes: s.notes || null,
   }));
   // Batch in chunks of 20 to avoid Supabase payload limits
   for (let i = 0; i < rows.length; i += 20) {
@@ -110,6 +112,7 @@ export async function updateShift(shift: Shift) {
     recurring_group_id: shift.recurringGroupId || null,
     required_agents: shift.requiredAgents,
     color: shift.color,
+    notes: shift.notes || null,
   }).eq('id', shift.id);
   if (error) console.error('updateShift', error);
 }

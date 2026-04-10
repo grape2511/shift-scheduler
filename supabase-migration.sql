@@ -163,3 +163,6 @@ create index idx_notifications_user on notifications(user_id, created_at desc);
 create index idx_swap_requests_status on swap_requests(status);
 create index idx_clock_records_shift on clock_records(shift_id);
 create index idx_clock_records_user on clock_records(user_id);
+
+-- Add notes column to shifts
+alter table shifts add column if not exists notes text;

@@ -31,6 +31,7 @@ export interface Shift {
   recurringGroupId?: string;
   requiredAgents: number;
   color: string;
+  notes?: string;
 }
 
 export type TimeOffCategory = 'personal' | 'sick' | 'vacation' | 'family' | 'religious' | 'other';

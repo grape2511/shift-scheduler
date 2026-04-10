@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut } from 'lucide-react';
+import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut, MessageSquare, Check, X } from 'lucide-react';
 import { convertTime, getUserTimezone } from '../utils/timezone';
 import { v4 as uuid } from 'uuid';
+import { updateShift as dbUpdateShift } from '../lib/database';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -15,6 +16,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord } = useApp();
   const [showAssign, setShowAssign] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteText, setNoteText] = useState(shift.notes || '');
   const isAdmin = state.currentUser.role === 'admin';
   const isAgent = state.currentUser.role === 'agent';
   const isRecurring = !!shift.recurringGroupId;
@@ -63,6 +66,19 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
 
   const handleSelfJoin = () => {
     dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: shift.id, agentId: state.currentUser.id } });
+  };
+
+  const handleSaveNote = () => {
+    const trimmed = noteText.trim();
+    const updated = { ...shift, notes: trimmed || undefined };
+    dispatch({ type: 'UPDATE_SHIFT', payload: updated });
+    dbUpdateShift(updated);
+    setEditingNote(false);
+  };
+
+  const handleCancelNote = () => {
+    setNoteText(shift.notes || '');
+    setEditingNote(false);
   };
 
   const isAssignedToMe = shift.assignedAgentIds.includes(state.currentUser.id);
@@ -278,6 +294,57 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             <p className="text-xs text-gray-400 italic">No agents assigned</p>
           )}
         </div>
+
+        {/* Notes */}
+        {(shift.notes || isAdmin || isAssignedToMe) && (
+          <div className="mt-3">
+            {editingNote ? (
+              <div className="space-y-1.5">
+                <textarea
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  placeholder="e.g. Momen 9-12, Olivia 12-4"
+                  className="w-full text-xs text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300 resize-none"
+                  rows={2}
+                  autoFocus
+                />
+                <div className="flex gap-1 justify-end">
+                  <button
+                    onClick={handleCancelNote}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleSaveNote}
+                    className="p-1 text-indigo-500 hover:text-indigo-700 rounded transition-colors"
+                    title="Save note"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-1.5">
+                {shift.notes ? (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-400 italic whitespace-pre-wrap">{shift.notes}</p>
+                  </div>
+                ) : null}
+                {(isAdmin || isAssignedToMe) && (
+                  <button
+                    onClick={() => { setNoteText(shift.notes || ''); setEditingNote(true); }}
+                    className="shrink-0 p-1 text-gray-300 hover:text-gray-500 rounded transition-colors"
+                    title={shift.notes ? 'Edit note' : 'Add note'}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="mt-3 flex gap-2">
