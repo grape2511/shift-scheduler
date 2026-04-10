@@ -72,6 +72,14 @@ export function DaysOffTab() {
       return;
     }
 
+    // Check for duplicate requests on the same date(s)
+    const checkDates = timeOffMode === 'period' && timeOffEndDate ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
+    const duplicates = checkDates.filter(d => myTimeOffs.some(t => t.date === d));
+    if (duplicates.length > 0) {
+      alert(`You already have a day off request for: ${duplicates.join(', ')}`);
+      return;
+    }
+
     const allDates = timeOffMode === 'period' ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
     // PTO is counted in business days — skip weekends
     const effectiveDates = timeOffMode === 'period' ? allDates.filter(d => {
