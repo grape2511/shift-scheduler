@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
-import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft } from 'lucide-react';
+import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft, MessageSquare } from 'lucide-react';
 import { SHIFT_COLORS, getNextColor } from '../utils/colors';
 import { updateShift as dbUpdateShift, insertSwapRequest, insertNotification } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
@@ -841,6 +841,17 @@ function AgentShiftView({
               <p className="text-sm text-gray-400 italic">No agents assigned yet</p>
             )}
           </div>
+
+          {/* Notes */}
+          {shift.notes && (
+            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-xs font-semibold text-amber-700">Note</span>
+              </div>
+              <p className="text-sm text-amber-800 whitespace-pre-wrap">{shift.notes}</p>
+            </div>
+          )}
 
           {/* Swap section */}
           {isAssignedToMe && !showSwap && !alreadyRequestedSwap && (
