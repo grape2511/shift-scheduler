@@ -299,9 +299,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                       .filter(agent => {
                         // Hide admins from shift assignment
                         if (agent.role === 'admin') return false;
-                        const isAssigned = shift.assignedAgentIds.includes(agent.id);
-                        // Always show already-assigned agents, hide unavailable ones
-                        return isAssigned || !hasConflict(agent.id, shift.date);
+                        return true;
                       })
                       .map(agent => {
                       const isAssigned = shift.assignedAgentIds.includes(agent.id);
