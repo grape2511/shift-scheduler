@@ -12,7 +12,6 @@ export const COUNTRIES = [
   { code: 'FI', name: 'Finland' },
   { code: 'GR', name: 'Greece' },
   { code: 'HU', name: 'Hungary' },
-  { code: 'IL', name: 'Israel' },
   { code: 'ES', name: 'Spain' },
   { code: 'IT', name: 'Italy' },
   { code: 'PH', name: 'Philippines' },
@@ -143,18 +142,6 @@ function getHolidaysForCountry(code: string, year: number): PublicHoliday[] {
         { date: `${year}-11-01`, name: "All Saints' Day" },
         { date: `${year}-11-11`, name: 'Armistice Day' },
         { date: `${year}-12-25`, name: 'Christmas Day' },
-      ];
-    case 'IL':
-      return [
-        { date: `${year}-04-13`, name: 'Passover (1st day)' },
-        { date: `${year}-04-19`, name: 'Passover (7th day)' },
-        { date: `${year}-05-01`, name: 'Independence Day' },
-        { date: `${year}-06-02`, name: 'Shavuot' },
-        { date: `${year}-09-23`, name: 'Rosh Hashana' },
-        { date: `${year}-09-24`, name: 'Rosh Hashana (2nd day)' },
-        { date: `${year}-10-02`, name: 'Yom Kippur' },
-        { date: `${year}-10-07`, name: 'Sukkot' },
-        { date: `${year}-10-14`, name: 'Simchat Torah' },
       ];
     case 'ES':
       return [
