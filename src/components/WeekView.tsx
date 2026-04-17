@@ -7,9 +7,10 @@ import { ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle } from 'lucide-rea
 import { isToday, startOfWeek } from 'date-fns';
 import type { Shift } from '../types';
 
-export function WeekView() {
+export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWeekDateChange: (d: Date) => void }) {
   const { state, dispatch, activeAgents: agents, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate } = useApp();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const currentDate = weekDate;
+  const setCurrentDate = onWeekDateChange;
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);

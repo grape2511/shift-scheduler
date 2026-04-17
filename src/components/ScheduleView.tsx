@@ -12,12 +12,13 @@ import type { ViewMode } from '../types';
 export function ScheduleView() {
   const { state, getShiftsForDate } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
+  const [weekDate, setWeekDate] = useState(new Date());
 
   const isAdmin = state.currentUser.role === 'admin';
   const userTimezone = getUserTimezone(state.currentUser.timezone, state.currentUser.country);
 
-  // Get this week's shifts for the current agent
-  const thisWeekDays = getWeekDays(new Date());
+  // Get the displayed week's shifts for the current agent
+  const thisWeekDays = getWeekDays(weekDate);
   const myWeekShifts = !isAdmin ? thisWeekDays.flatMap(day => {
     const dateStr = formatDate(day);
     return getShiftsForDate(dateStr)
@@ -103,7 +104,7 @@ export function ScheduleView() {
       </div>
 
       {viewMode === 'month' && <MonthView />}
-      {viewMode === 'week' && <WeekView />}
+      {viewMode === 'week' && <WeekView weekDate={weekDate} onWeekDateChange={setWeekDate} />}
       {viewMode === 'day' && <DayView />}
     </div>
   );
