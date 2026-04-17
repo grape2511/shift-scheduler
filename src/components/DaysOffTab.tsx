@@ -111,7 +111,7 @@ export function DaysOffTab() {
     }
 
     if (!isAdmin) {
-      const approver = state.users.find(u => u.email === 'einav@adrevival.io');
+      const approver = state.users.find(u => u.role === 'admin');
       const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} working days)` : timeOffDate;
       if (approver) {
         const notif = {
@@ -170,8 +170,8 @@ export function DaysOffTab() {
     .filter(t => (t.status || 'approved') === 'rejected')
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  // Pending PTO requests for approval (only for einav@adrevival.io)
-  const isApprover = state.currentUser.email === 'einav@adrevival.io';
+  // Pending PTO requests for approval (admin only)
+  const isApprover = state.currentUser.role === 'admin';
   const pendingApprovals = isApprover
     ? state.timeOffs.filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id).sort((a, b) => a.date.localeCompare(b.date))
     : [];
@@ -309,7 +309,7 @@ export function DaysOffTab() {
         </div>
       </div>
 
-      {/* Pending Approvals (only for einav@adrevival.io) */}
+      {/* Pending Approvals (admin only) */}
       {isApprover && pendingApprovals.length > 0 && (
         <div className="mb-6 bg-white rounded-xl border border-amber-200 overflow-hidden">
           <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">

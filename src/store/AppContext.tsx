@@ -784,7 +784,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     }
 
     // Slack + admin notifications (skip on bulk data load from DB)
-    const adminUser = !isBulkLoad ? state.users.find(u => u.email === 'einav@adrevival.io') : undefined;
+    const adminUser = !isBulkLoad ? state.users.find(u => u.role === 'admin') : undefined;
     const slack = getSlackPrefs();
     const slackUrl = slack.url;
     const notifyAdmin = (message: string) => {

@@ -80,7 +80,7 @@ export function MyShiftsView() {
     }
 
     if (!isAdmin) {
-      const approver = state.users.find(u => u.email === 'einav@adrevival.io');
+      const approver = state.users.find(u => u.role === 'admin');
       const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} days)` : timeOffDate;
       if (approver) {
         const notif = {

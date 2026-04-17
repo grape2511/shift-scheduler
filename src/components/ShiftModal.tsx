@@ -758,7 +758,7 @@ function AgentShiftView({
       insertNotification(targetNotif);
 
       // Admin notification
-      const admin = state.users.find(u => u.email === 'einav@adrevival.io');
+      const admin = state.users.find(u => u.role === 'admin');
       if (admin && admin.id !== state.currentUser.id && admin.id !== swapTargetId) {
         const notif = {
           id: uuid(),
