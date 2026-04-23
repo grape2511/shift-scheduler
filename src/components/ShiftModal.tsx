@@ -3,7 +3,7 @@ import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft, MessageSquare } from 'lucide-react';
 import { SHIFT_COLORS, getNextColor } from '../utils/colors';
-import { updateShift as dbUpdateShift, insertSwapRequest, insertNotification } from '../lib/database';
+import { updateShift as dbUpdateShift } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import type { Shift } from '../types';
 
@@ -740,38 +740,6 @@ function AgentShiftView({
 
     const toShift = state.shifts.find(s => s.id === swapTargetShiftId);
     const targetAgent = state.users.find(u => u.id === swapTargetId);
-    const swapMsg = `${state.currentUser.name} wants to swap: give you "${shift.name}" (${shift.date}) for your "${toShift?.name}" (${toShift?.date})${swapReason ? ` — "${swapReason}"` : ''}`;
-
-    // Write swap request to DB first, then notifications
-    insertSwapRequest(swapRecord).then(() => {
-      // Notify the target agent (with swap_request_id link)
-      const targetNotif = {
-        id: uuid(),
-        userId: swapTargetId,
-        message: swapMsg,
-        timestamp: new Date().toISOString(),
-        read: false,
-        type: 'swap-request' as const,
-        swapRequestId: swapRecord.id,
-      };
-      dispatch({ type: 'ADD_NOTIFICATION', payload: targetNotif });
-      insertNotification(targetNotif);
-
-      // Admin notification
-      const admin = state.users.find(u => u.role === 'admin');
-      if (admin && admin.id !== state.currentUser.id && admin.id !== swapTargetId) {
-        const notif = {
-          id: uuid(),
-          userId: admin.id,
-          message: `${state.currentUser.name} wants to swap "${shift.name}" (${shift.date}) with ${targetAgent?.name}'s "${toShift?.name}" (${toShift?.date})`,
-          timestamp: new Date().toISOString(),
-          read: false,
-          type: 'info' as const,
-        };
-        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
-        insertNotification(notif);
-      }
-    });
 
     // Slack notification (fire immediately)
     const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;

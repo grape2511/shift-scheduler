@@ -711,6 +711,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       timeOff: prefs.slackNotifyTimeOff ?? true,
       timeOffApproval: prefs.slackNotifyTimeOffApproval ?? true,
       weeklyCoverage: prefs.slackNotifyWeeklyCoverage ?? true,
+      missedClockIn: prefs.slackNotifyMissedClockIn ?? true,
     };
   };
 
@@ -723,7 +724,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const slackUrl = slack.url;
     // Only run once per day across all sessions/reloads
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = formatDate(today);
     const lastCheck = localStorage.getItem('slack_weekly_check_date');
     if (lastCheck === todayStr) return;
     localStorage.setItem('slack_weekly_check_date', todayStr);
@@ -731,15 +732,18 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const weekStart = new Date(today);
     weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
     const MIN_SHIFTS = 5;
-    const agents = state.users.filter(u => u.role === 'agent' && u.active !== false);
+    const SHIFT_LABELS = ['USA Shift', 'EU Shift', 'Mid Shift'];
+    const agents = state.users.filter(u => {
+      if (u.role !== 'agent' || u.active === false) return false;
+      const labels = u.labels || (u.label ? [u.label] : []);
+      return labels.some(l => SHIFT_LABELS.includes(l));
+    });
     const underAssigned: string[] = [];
 
     agents.forEach(agent => {
       let weekShiftCount = 0;
       for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart);
-        d.setDate(d.getDate() + i);
-        const ds = d.toISOString().split('T')[0];
+        const ds = formatDate(addDays(weekStart, i));
         if (state.shifts.some(sh => sh.date === ds && sh.assignedAgentIds.includes(agent.id))) {
           weekShiftCount++;
         }
@@ -750,12 +754,65 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     });
 
     if (underAssigned.length > 0) {
-      const weekLabel = `${weekStart.toISOString().split('T')[0]}`;
+      const weekLabel = formatDate(weekStart);
       sendSlackNotification(slackUrl,
         `⚠️ *Weekly coverage alert* (week of ${weekLabel}):\n${underAssigned.length} agent${underAssigned.length > 1 ? 's' : ''} with fewer than ${MIN_SHIFTS} shifts:\n${underAssigned.map(a => `• ${a}`).join('\n')}`
       );
     }
   }, [state.shifts, state.users]);
+
+  // Missed clock-in check: alert when an assigned agent hasn't clocked in 15min after shift start
+  useEffect(() => {
+    if (state.shifts.length === 0 || state.users.length === 0) return;
+    if (state.currentUser.role !== 'admin') return;
+    const slack = getSlackPrefs();
+    if (!slack.url || !slack.missedClockIn) return;
+    const slackUrl = slack.url;
+
+    const GRACE_MINUTES = 15;
+    const LOOKBACK_MS = 6 * 3600_000;
+    const now = Date.now();
+
+    const alertedRaw = localStorage.getItem('slack_missed_clockin_alerts');
+    const alerted = new Set<string>(alertedRaw ? JSON.parse(alertedRaw) : []);
+    const alertedBefore = alerted.size;
+
+    const alerts: string[] = [];
+
+    state.shifts.forEach(shift => {
+      if (!shift.assignedAgentIds.length) return;
+      // Compute shift start in UTC based on shift.timezone
+      const asUtc = new Date(`${shift.date}T${shift.startTime}:00Z`).getTime();
+      const tzFormatted = new Date(new Date(asUtc).toLocaleString('en-US', { timeZone: shift.timezone })).getTime();
+      const utcFormatted = new Date(new Date(asUtc).toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+      const startUtcMs = asUtc - (tzFormatted - utcFormatted);
+
+      const graceEnd = startUtcMs + GRACE_MINUTES * 60_000;
+      if (graceEnd > now) return; // grace not yet elapsed
+      if (startUtcMs < now - LOOKBACK_MS) return; // too old
+
+      shift.assignedAgentIds.forEach(agentId => {
+        const key = `${shift.id}:${agentId}`;
+        if (alerted.has(key)) return;
+        const clock = state.clockRecords.find(r => r.shiftId === shift.id && r.userId === agentId);
+        if (clock?.clockIn) return; // they clocked in
+        const agent = state.users.find(u => u.id === agentId);
+        if (!agent || agent.active === false) return;
+        alerts.push(`• ${agent.name} — "${shift.name}" (${shift.date} ${shift.startTime} ${shift.timezone})`);
+        alerted.add(key);
+      });
+    });
+
+    if (alerts.length > 0) {
+      sendSlackNotification(slackUrl,
+        `⏰ *Missed clock-in* (${GRACE_MINUTES}min+ past start):\n${alerts.join('\n')}`
+      );
+    }
+    if (alerted.size !== alertedBefore) {
+      const trimmed = Array.from(alerted).slice(-1000);
+      localStorage.setItem('slack_missed_clockin_alerts', JSON.stringify(trimmed));
+    }
+  }, [state.shifts, state.clockRecords, state.users]);
 
   // Track whether a bulk data load just happened (LOAD_STATE from DB refresh)
   const lastLoadRef = useRef(0);
@@ -820,7 +877,13 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       });
       newSwaps.forEach(r => {
         db.insertSwapRequest(r);
-        if (adminUser) notifyAdmin(`Swap request: ${state.users.find(u => u.id === r.fromAgentId)?.name} wants to swap shifts with ${state.users.find(u => u.id === r.toAgentId)?.name}`);
+        if (adminUser) {
+          const fromName = state.users.find(u => u.id === r.fromAgentId)?.name;
+          const toName = state.users.find(u => u.id === r.toAgentId)?.name;
+          const fromShift = state.shifts.find(s => s.id === r.fromShiftId);
+          const toShift = state.shifts.find(s => s.id === r.toShiftId);
+          notifyAdmin(`Swap request: ${fromName} wants to swap "${fromShift?.name}" (${fromShift?.date}) with ${toName}'s "${toShift?.name}" (${toShift?.date})`);
+        }
       });
       updatedSwaps.forEach(r => {
         db.updateSwapRequestStatus(r.id, r.status as 'accepted' | 'declined');

@@ -9,6 +9,7 @@ const SLACK_NOTIFICATION_OPTIONS = [
   { key: 'slackNotifyTimeOff', label: 'Day-off requests', description: 'When an agent requests time off' },
   { key: 'slackNotifyTimeOffApproval', label: 'Day-off approvals / rejections', description: 'When time off is approved or rejected' },
   { key: 'slackNotifyWeeklyCoverage', label: 'Weekly coverage alert', description: 'Once per day, if any agent has fewer than 5 shifts this week' },
+  { key: 'slackNotifyMissedClockIn', label: 'Missed clock-in', description: 'When an assigned agent has not clocked in 15 minutes after shift start' },
 ] as const;
 
 type SlackNotifKey = typeof SLACK_NOTIFICATION_OPTIONS[number]['key'];
@@ -20,6 +21,7 @@ function getSlackPrefs(user: any): Record<SlackNotifKey, boolean> {
     slackNotifyTimeOff: prefs.slackNotifyTimeOff ?? true,
     slackNotifyTimeOffApproval: prefs.slackNotifyTimeOffApproval ?? true,
     slackNotifyWeeklyCoverage: prefs.slackNotifyWeeklyCoverage ?? true,
+    slackNotifyMissedClockIn: prefs.slackNotifyMissedClockIn ?? true,
   };
 }
 
