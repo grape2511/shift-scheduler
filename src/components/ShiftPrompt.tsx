@@ -21,12 +21,17 @@ export function ShiftPrompt() {
 
   const myShiftsToday = getShiftsForAgent(state.currentUser.id).filter(s => s.date === todayStr);
 
+  // Convert shift's start/end (stored in shift.timezone) into the viewer's local timezone
+  // so they can be compared against `nowMinutes` (browser-local).
+  const shiftMinutesInUserTz = (s: { startTime: string; endTime: string; timezone: string }) => {
+    const [sh, sm] = convertTime(s.startTime, s.timezone, userTimezone).split(':').map(Number);
+    const [eh, em] = convertTime(s.endTime, s.timezone, userTimezone).split(':').map(Number);
+    return { startMin: sh * 60 + sm, endMin: eh * 60 + em };
+  };
+
   // Find shift that needs clock-in (starts within 15 min or already started, not clocked in)
   const needsClockIn = myShiftsToday.find(s => {
-    const [h, m] = s.startTime.split(':').map(Number);
-    const startMin = h * 60 + m;
-    const [eh, em] = s.endTime.split(':').map(Number);
-    const endMin = eh * 60 + em;
+    const { startMin, endMin } = shiftMinutesInUserTz(s);
     const adjustedEnd = endMin < startMin ? endMin + 1440 : endMin;
     const adjustedNow = nowMinutes < startMin && endMin < startMin ? nowMinutes + 1440 : nowMinutes;
     const record = getClockRecord(s.id, state.currentUser.id);
@@ -39,10 +44,7 @@ export function ShiftPrompt() {
   const needsClockOut = myShiftsToday.find(s => {
     const record = getClockRecord(s.id, state.currentUser.id);
     if (!record || !record.clockIn || record.clockOut) return false;
-    const [eh, em] = s.endTime.split(':').map(Number);
-    const endMin = eh * 60 + em;
-    const [sh, sm] = s.startTime.split(':').map(Number);
-    const startMin = sh * 60 + sm;
+    const { startMin, endMin } = shiftMinutesInUserTz(s);
     const adjustedEnd = endMin < startMin ? endMin + 1440 : endMin;
     const adjustedNow = nowMinutes < startMin ? nowMinutes + 1440 : nowMinutes;
     const dismissedAt = dismissed.get(`out-${s.id}`);
