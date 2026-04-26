@@ -40,16 +40,18 @@ export function ShiftPrompt() {
     return !record && adjustedNow >= startMin - 15 && adjustedNow < adjustedEnd && !isDismissed;
   });
 
-  // Find shift that needs clock-out (ends within 15 min or past end, clocked in but not out)
+  // Find shift that needs clock-out (clocked in, not yet out, and shift duration nearly elapsed
+  // since clock-in). Using elapsed-since-clock-in avoids timezone/early-clock-in edge cases that
+  // previously fired the clock-out prompt immediately after an early clock-in.
   const needsClockOut = myShiftsToday.find(s => {
     const record = getClockRecord(s.id, state.currentUser.id);
     if (!record || !record.clockIn || record.clockOut) return false;
     const { startMin, endMin } = shiftMinutesInUserTz(s);
-    const adjustedEnd = endMin < startMin ? endMin + 1440 : endMin;
-    const adjustedNow = nowMinutes < startMin ? nowMinutes + 1440 : nowMinutes;
+    const shiftDurationMin = ((endMin - startMin) + 1440) % 1440 || 1440;
+    const elapsedMin = (Date.now() - new Date(record.clockIn).getTime()) / 60000;
     const dismissedAt = dismissed.get(`out-${s.id}`);
     const isDismissed = dismissedAt && (Date.now() - dismissedAt) < 300000; // re-show after 5 min
-    return adjustedNow >= adjustedEnd - 15 && !isDismissed;
+    return elapsedMin >= shiftDurationMin - 15 && !isDismissed;
   });
 
   // Find active clocked-in shift for timer
