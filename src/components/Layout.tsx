@@ -52,6 +52,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
     const user = state.users.find(u => u.id === userId);
     if (user) dispatch({ type: 'SET_CURRENT_USER', payload: user });
     setShowViewAs(false);
+    setShowUserMenu(false);
   };
 
   const handleExitViewAs = () => {
@@ -137,39 +138,6 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* View As (admin only) */}
-              {(realAdminRef.current || isAdmin) && !isImpersonating && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowViewAs(!showViewAs)}
-                    className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">View as</span>
-                  </button>
-                  {showViewAs && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowViewAs(false)} />
-                      <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
-                        {state.users.filter(u => u.id !== state.currentUser.id).map(u => (
-                          <button
-                            key={u.id}
-                            onClick={() => handleViewAs(u.id)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: u.color }}>
-                              {u.name[0]}
-                            </div>
-                            <span className="flex-1 text-left truncate">{u.name}</span>
-                            <span className="text-[10px] text-gray-400">{u.role}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
               {/* Notifications */}
               <div className="relative">
                 <button
@@ -222,6 +190,38 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                         <p className="text-sm font-medium text-gray-900">{state.currentUser.name}</p>
                         <p className="text-xs text-gray-400">{state.currentUser.email}</p>
                       </div>
+                      {/* View as (admin only) */}
+                      {(realAdminRef.current || isAdmin) && !isImpersonating && (
+                        <div className="px-3 py-2 border-b border-gray-100">
+                          <button
+                            onClick={() => setShowViewAs(!showViewAs)}
+                            className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-700"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Eye className="w-3.5 h-3.5" />
+                              View as
+                            </div>
+                            <ChevronDown className={`w-3 h-3 transition-transform ${showViewAs ? 'rotate-180' : ''}`} />
+                          </button>
+                          {showViewAs && (
+                            <div className="mt-2 -mx-3 max-h-48 overflow-y-auto border-t border-gray-100">
+                              {state.users.filter(u => u.id !== state.currentUser.id).map(u => (
+                                <button
+                                  key={u.id}
+                                  onClick={() => handleViewAs(u.id)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: u.color }}>
+                                    {u.name[0]}
+                                  </div>
+                                  <span className="flex-1 text-left truncate">{u.name}</span>
+                                  <span className="text-[10px] text-gray-400">{u.role}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {/* Timezone selector */}
                       <div className="px-3 py-2 border-b border-gray-100">
                         <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1.5">
