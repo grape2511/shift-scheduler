@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { updateProfile } from '../lib/database';
-import { Mail } from 'lucide-react';
+import { Mail, Settings as SettingsIcon, Users } from 'lucide-react';
 import type { Role } from '../types';
+import { AgentsView } from './AgentsView';
 
 const SLACK_NOTIFICATION_OPTIONS = [
   { key: 'slackNotifySwaps', label: 'Approved swaps', description: 'When both agents confirm a shift swap' },
@@ -34,9 +35,12 @@ const ROLES: { value: Role; label: string; description: string; color: string }[
   { value: 'agent', label: 'Agent', description: 'Can view schedules, clock in/out, and request swaps', color: 'text-gray-700 bg-gray-50 border-gray-200' },
 ];
 
+type SettingsSubTab = 'general' | 'agents';
+
 export function SettingsView() {
   const { state, dispatch } = useApp();
   const [testing, setTesting] = useState(false);
+  const [subTab, setSubTab] = useState<SettingsSubTab>('general');
   const prefs = getSlackPrefs(state.currentUser);
 
   const updateWebhookUrl = (url: string) => {
@@ -78,13 +82,40 @@ export function SettingsView() {
     return (roleOrder[a.role] || 2) - (roleOrder[b.role] || 2);
   });
 
+  const SUB_TABS: { id: SettingsSubTab; label: string; Icon: typeof SettingsIcon }[] = [
+    { id: 'general', label: 'General', Icon: SettingsIcon },
+    { id: 'agents', label: 'Agents', Icon: Users },
+  ];
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
-        <p className="text-sm text-gray-500">Configure notifications, integrations, and user roles</p>
+    <div className={subTab === 'agents' ? '' : 'max-w-3xl mx-auto'}>
+      <div className={subTab === 'agents' ? 'max-w-3xl mx-auto' : ''}>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
+          <p className="text-sm text-gray-500">Configure notifications, integrations, and manage agents</p>
+        </div>
+        <div className="flex items-center gap-1 border-b border-gray-200 mb-6">
+          {SUB_TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setSubTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                subTab === t.id
+                  ? 'border-indigo-600 text-indigo-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <t.Icon className="w-4 h-4" />
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {subTab === 'agents' ? (
+        <AgentsView />
+      ) : (
+        <div className="space-y-6">
       {/* Slack Integration */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
@@ -221,6 +252,8 @@ export function SettingsView() {
           );
         })}
       </div>
+        </div>
+      )}
     </div>
   );
 }

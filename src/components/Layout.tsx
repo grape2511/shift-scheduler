@@ -69,11 +69,10 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const unreadCount = getUnreadNotificationCount();
 
   const isAdmin = state.currentUser.role === 'admin';
-  const isLeadOrAdmin = isAdmin || state.currentUser.role === 'team-lead';
 
   const tabs = [
     { id: 'schedule', label: 'Schedule', icon: Calendar },
-    ...(isLeadOrAdmin ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
+    ...(state.currentUser.role === 'team-lead' ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
     ...(!isAdmin ? [{ id: 'clock', label: 'Clock', icon: Timer }] : []),
     ...(!isAdmin ? [{ id: 'my-shifts', label: 'My Shifts', icon: Clock }] : []),
     { id: 'days-off', label: 'Days Off', icon: CalendarCheck },

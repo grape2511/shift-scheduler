@@ -460,6 +460,13 @@ export function DaysOffTab() {
                   const inMonth = isSameMonth(day, calendarDate);
                   const isCurrentDay = isToday(day);
                   const catInfo = timeOff ? getCategoryInfo(timeOff.category) : null;
+                  const teamTimeOffs = state.timeOffs
+                    .filter(t => t.date === dateStr && t.userId !== state.currentUser.id && (t.status || 'approved') !== 'rejected')
+                    .map(t => ({ to: t, user: state.users.find(u => u.id === t.userId), cat: getCategoryInfo(t.category) }))
+                    .filter(x => !!x.user)
+                    .sort((a, b) => a.user!.name.localeCompare(b.user!.name));
+                  const visibleTeam = teamTimeOffs.slice(0, 3);
+                  const moreTeam = teamTimeOffs.length - visibleTeam.length;
                   return (
                     <div key={dateStr} className={`bg-white min-h-[60px] sm:min-h-[80px] ${isCurrentDay ? 'bg-indigo-50/30' : ''} ${!inMonth ? 'opacity-40' : ''} ${timeOff ? 'bg-amber-50/50' : ''}`}>
                       <div className="px-2 py-1 flex items-center justify-between">
@@ -483,6 +490,52 @@ export function DaysOffTab() {
                           <div key={s.id} className="rounded px-1 py-0.5 text-[9px] font-medium text-white truncate" style={{ backgroundColor: s.color }}>{s.name}</div>
                         ))}
                       </div>
+                      {teamTimeOffs.length > 0 && (
+                        <div className="relative group px-1 pb-1">
+                          <div className="flex items-center gap-0.5">
+                            <div className="flex -space-x-1">
+                              {visibleTeam.map(({ to, user }) => {
+                                const isPending = (to.status || 'approved') === 'pending';
+                                return (
+                                  <div
+                                    key={to.id}
+                                    className={`w-4 h-4 rounded-full border ${isPending ? 'border-amber-400 ring-1 ring-amber-200' : 'border-white'} flex items-center justify-center text-white text-[8px] font-medium`}
+                                    style={{ backgroundColor: user!.color }}
+                                  >
+                                    {user!.name[0]}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {moreTeam > 0 && (
+                              <span className="text-[9px] font-medium text-gray-500 ml-0.5">+{moreTeam}</span>
+                            )}
+                          </div>
+                          <div className="hidden group-hover:block absolute z-50 left-0 bottom-full mb-1 min-w-[180px] max-w-[260px] bg-gray-900 text-white rounded-lg shadow-lg p-2 space-y-1 pointer-events-none">
+                            <div className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider mb-1">{format(parseISO(dateStr), 'EEE, MMM d')}</div>
+                            {teamTimeOffs.map(({ to, user, cat }) => {
+                              const isPending = (to.status || 'approved') === 'pending';
+                              return (
+                                <div key={to.id} className="flex items-start gap-1.5 text-[11px]">
+                                  <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-white text-[8px] font-medium shrink-0 mt-0.5" style={{ backgroundColor: user!.color }}>
+                                    {user!.name[0]}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      <span className="font-medium">{user!.name}</span>
+                                      <span className="text-[10px] text-gray-300">{to.halfDay ? '½ day' : ''} {cat.label}</span>
+                                      <span className={`text-[9px] px-1 py-0 rounded-full ${isPending ? 'bg-amber-500/30 text-amber-200' : 'bg-emerald-500/30 text-emerald-200'}`}>
+                                        {isPending ? 'Pending' : 'Approved'}
+                                      </span>
+                                    </div>
+                                    {to.reason && <div className="text-[10px] text-gray-300 italic truncate">{to.reason}</div>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
