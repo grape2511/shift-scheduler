@@ -110,9 +110,12 @@ export function DaysOffTab() {
       insertTimeOff(record);
     }
 
+    const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} working days)` : timeOffDate;
+    const slackAdmin = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+    const slackPrefs = slackAdmin?.slackNotifications || {};
+
     if (!isAdmin) {
       const approver = state.users.find(u => u.role === 'admin');
-      const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} working days)` : timeOffDate;
       if (approver) {
         const notif = {
           id: uuid(),
@@ -125,11 +128,15 @@ export function DaysOffTab() {
         dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
         insertNotification(notif);
       }
-      const slackAdmin = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
-      const slackPrefs = slackAdmin?.slackNotifications || {};
       if (slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
         sendSlackNotification(slackAdmin.slackWebhookUrl,
           `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory}) off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`
+        );
+      }
+    } else {
+      if (slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
+        sendSlackNotification(slackAdmin.slackWebhookUrl,
+          `📅 *Admin day off scheduled*: ${state.currentUser.name} will be off on ${dateLabel} — *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory})${timeOffReason ? ` — ${timeOffReason}` : ''}`
         );
       }
     }
