@@ -130,17 +130,28 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
                 )}
               </div>
 
-              {/* Time Off Indicators */}
+              {/* Time Off Indicators (approved + pending) */}
               {timeOffs.length > 0 && (
                 <div className="px-2 pt-2">
-                  {timeOffs.filter(t => (t.status || 'approved') === 'approved').map(to => {
-                    const user = state.users.find(u => u.id === to.userId);
-                    return (
-                      <div key={to.id} className="text-[10px] rounded px-1.5 py-0.5 mb-1 truncate text-amber-600 bg-amber-50">
-                        {user?.name} {to.halfDay ? '(½ day)' : 'off'}
-                      </div>
-                    );
-                  })}
+                  {timeOffs
+                    .filter(t => (t.status || 'approved') !== 'rejected')
+                    .map(to => {
+                      const user = state.users.find(u => u.id === to.userId);
+                      const isPending = (to.status || 'approved') === 'pending';
+                      return (
+                        <div
+                          key={to.id}
+                          className={`text-[10px] rounded px-1.5 py-0.5 mb-1 truncate ${
+                            isPending
+                              ? 'text-amber-700 bg-amber-50 border border-dashed border-amber-400'
+                              : 'text-amber-700 bg-amber-100 border border-amber-300'
+                          }`}
+                          title={`${user?.name || 'Unknown'} — ${isPending ? 'Pending' : 'Approved'}${to.halfDay ? ' (½ day)' : ''}${to.reason ? ` — ${to.reason}` : ''}`}
+                        >
+                          {isPending && '⏳ '}{user?.name} {to.halfDay ? '(½ day)' : 'off'}
+                        </div>
+                      );
+                    })}
                 </div>
               )}
 

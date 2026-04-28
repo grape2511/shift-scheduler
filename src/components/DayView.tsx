@@ -8,7 +8,7 @@ import { isToday } from 'date-fns';
 import type { Shift } from '../types';
 
 export function DayView() {
-  const { state, getShiftsForDate, getPublicHolidaysForDate } = useApp();
+  const { state, getShiftsForDate, getPublicHolidaysForDate, getTimeOffsForDate } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
@@ -16,6 +16,7 @@ export function DayView() {
   const isAdmin = state.currentUser.role === 'admin';
   const dateStr = formatDate(currentDate);
   const shifts = getShiftsForDate(dateStr);
+  const timeOffs = getTimeOffsForDate(dateStr).filter(t => (t.status || 'approved') !== 'rejected');
 
   const handleEditShift = (shift: Shift) => {
     setEditingShift(shift);
@@ -92,6 +93,43 @@ export function DayView() {
           </div>
         );
       })()}
+
+      {/* Team Days Off (approved + pending) */}
+      {timeOffs.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {timeOffs.map(to => {
+            const agent = state.users.find(u => u.id === to.userId);
+            const isPending = (to.status || 'approved') === 'pending';
+            return (
+              <div
+                key={to.id}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
+                  isPending
+                    ? 'bg-amber-50 border border-dashed border-amber-400 text-amber-800'
+                    : 'bg-amber-100 border border-amber-300 text-amber-800'
+                }`}
+                title={to.reason || undefined}
+              >
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium"
+                  style={{ backgroundColor: agent?.color || '#6366f1' }}
+                >
+                  {agent?.name?.[0]}
+                </div>
+                <span className="font-medium">{agent?.name}</span>
+                <span className="text-xs">
+                  {isPending && '⏳ '}{to.halfDay ? '½ day' : 'off'}
+                </span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                  isPending ? 'bg-amber-200/70 text-amber-900' : 'bg-emerald-200/70 text-emerald-900'
+                }`}>
+                  {isPending ? 'Pending' : 'Approved'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Shifts List */}
       {shifts.length === 0 ? (
