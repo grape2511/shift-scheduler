@@ -895,15 +895,6 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         }
       });
 
-      // Sync clock records
-      const newClockRecords = state.clockRecords.filter(r => !prev.clockRecords.some(pr => pr.id === r.id));
-      const updatedClockRecords = state.clockRecords.filter(r => {
-        const pr = prev.clockRecords.find(pr => pr.id === r.id);
-        return pr && JSON.stringify(pr) !== JSON.stringify(r);
-      });
-      newClockRecords.forEach(r => db.upsertClockRecord(r));
-      updatedClockRecords.forEach(r => db.upsertClockRecord(r));
-
       // Sync user updates
       const updatedUsers = state.users.filter(u => {
         const pu = prev.users.find(pu => pu.id === u.id);
@@ -920,6 +911,22 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         sickDaysAllowance: u.sickDaysAllowance,
       }));
     }
+
+    // Sync clock records — runs unconditionally (no isBulkLoad gate). Restricted to the
+    // current user's own records so a refresh that pulls in other users' clock-ins
+    // doesn't trigger spurious upserts. The 500ms bulk-load guard above was eating
+    // legitimate user clicks that landed within the window after a refresh.
+    const myId = state.currentUser.id;
+    const newClockRecords = state.clockRecords.filter(r =>
+      r.userId === myId && !prev.clockRecords.some(pr => pr.id === r.id)
+    );
+    const updatedClockRecords = state.clockRecords.filter(r => {
+      if (r.userId !== myId) return false;
+      const pr = prev.clockRecords.find(pr => pr.id === r.id);
+      return pr && JSON.stringify(pr) !== JSON.stringify(r);
+    });
+    newClockRecords.forEach(r => db.upsertClockRecord(r));
+    updatedClockRecords.forEach(r => db.upsertClockRecord(r));
   }, [state]);
 
   const agents = state.users;
