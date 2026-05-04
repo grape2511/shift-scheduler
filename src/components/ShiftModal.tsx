@@ -3,7 +3,7 @@ import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft, MessageSquare } from 'lucide-react';
 import { SHIFT_COLORS, getNextColor } from '../utils/colors';
-import { updateShift as dbUpdateShift } from '../lib/database';
+import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import type { Shift } from '../types';
 
@@ -175,24 +175,45 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
 
   const handleDeleteThis = () => {
     if (!editShift) return;
+    dbDeleteShift(editShift.id);
     dispatch({ type: 'DELETE_SHIFT', payload: editShift.id });
     onClose();
   };
 
   const handleDeleteAllRecurring = () => {
     if (!editShift) return;
+    if (editShift.recurringGroupId) {
+      const ids = state.shifts
+        .filter(s => s.recurringGroupId === editShift.recurringGroupId)
+        .map(s => s.id);
+      if (ids.length) dbDeleteShifts(ids);
+    } else {
+      dbDeleteShift(editShift.id);
+    }
     dispatch({ type: 'DELETE_SHIFT_ALL_RECURRING', payload: editShift.id });
     onClose();
   };
 
   const handleDeleteFuture = () => {
     if (!editShift) return;
+    if (editShift.recurringGroupId) {
+      const ids = state.shifts
+        .filter(s => s.recurringGroupId === editShift.recurringGroupId && s.date >= editShift.date)
+        .map(s => s.id);
+      if (ids.length) dbDeleteShifts(ids);
+    }
     dispatch({ type: 'DELETE_SHIFT_FUTURE', payload: { shiftId: editShift.id, fromDate: editShift.date } });
     onClose();
   };
 
   const handleDeletePast = () => {
     if (!editShift) return;
+    if (editShift.recurringGroupId) {
+      const ids = state.shifts
+        .filter(s => s.recurringGroupId === editShift.recurringGroupId && s.date <= editShift.date)
+        .map(s => s.id);
+      if (ids.length) dbDeleteShifts(ids);
+    }
     dispatch({ type: 'DELETE_SHIFT_PAST', payload: { shiftId: editShift.id, toDate: editShift.date } });
     onClose();
   };

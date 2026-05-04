@@ -826,9 +826,10 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     // If this state change came from a bulk DB load, skip notifications
     const isBulkLoad = Date.now() - lastLoadRef.current < 500;
 
-    // Sync shifts
+    // Sync shifts — only insert new and update existing. Deletes flow through explicit
+    // handlers in ShiftCard / ShiftModal calling db.deleteShift(s) directly. A diff-based
+    // delete here would mass-wipe whenever a refresh returned a smaller shift set.
     const newShifts = state.shifts.filter(s => !prev.shifts.some(ps => ps.id === s.id));
-    const deletedShiftIds = prev.shifts.filter(s => !state.shifts.some(ns => ns.id === s.id)).map(s => s.id);
     const updatedShifts = state.shifts.filter(s => {
       const ps = prev.shifts.find(ps => ps.id === s.id);
       return ps && JSON.stringify(ps) !== JSON.stringify(s);
@@ -836,7 +837,6 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
 
     if (!isBulkLoad) {
       if (newShifts.length > 0) db.insertShifts(newShifts);
-      if (deletedShiftIds.length > 0) db.deleteShifts(deletedShiftIds);
       updatedShifts.forEach(s => db.updateShift(s));
     }
 

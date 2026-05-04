@@ -3,7 +3,7 @@ import { useApp } from '../store/AppContext';
 import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut, MessageSquare, Check, X } from 'lucide-react';
 import { convertTime, getUserTimezone } from '../utils/timezone';
 import { v4 as uuid } from 'uuid';
-import { updateShift as dbUpdateShift } from '../lib/database';
+import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -45,21 +45,42 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   };
 
   const handleDeleteThis = () => {
+    dbDeleteShift(shift.id);
     dispatch({ type: 'DELETE_SHIFT', payload: shift.id });
     setShowDeleteMenu(false);
   };
 
   const handleDeleteAllRecurring = () => {
+    if (shift.recurringGroupId) {
+      const ids = state.shifts
+        .filter(s => s.recurringGroupId === shift.recurringGroupId)
+        .map(s => s.id);
+      if (ids.length) dbDeleteShifts(ids);
+    } else {
+      dbDeleteShift(shift.id);
+    }
     dispatch({ type: 'DELETE_SHIFT_ALL_RECURRING', payload: shift.id });
     setShowDeleteMenu(false);
   };
 
   const handleDeleteFuture = () => {
+    if (shift.recurringGroupId) {
+      const ids = state.shifts
+        .filter(s => s.recurringGroupId === shift.recurringGroupId && s.date >= shift.date)
+        .map(s => s.id);
+      if (ids.length) dbDeleteShifts(ids);
+    }
     dispatch({ type: 'DELETE_SHIFT_FUTURE', payload: { shiftId: shift.id, fromDate: shift.date } });
     setShowDeleteMenu(false);
   };
 
   const handleDeletePast = () => {
+    if (shift.recurringGroupId) {
+      const ids = state.shifts
+        .filter(s => s.recurringGroupId === shift.recurringGroupId && s.date <= shift.date)
+        .map(s => s.id);
+      if (ids.length) dbDeleteShifts(ids);
+    }
     dispatch({ type: 'DELETE_SHIFT_PAST', payload: { shiftId: shift.id, toDate: shift.date } });
     setShowDeleteMenu(false);
   };
