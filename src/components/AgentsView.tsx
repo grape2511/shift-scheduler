@@ -586,7 +586,10 @@ export function AgentsView() {
                               {to.reason && <span className="text-amber-500">– {to.reason}</span>}
                             </div>
                             <button
-                              onClick={() => dispatch({ type: 'REMOVE_TIME_OFF', payload: to.id })}
+                              onClick={() => {
+                                dispatch({ type: 'REMOVE_TIME_OFF', payload: to.id });
+                                db.deleteTimeOff(to.id);
+                              }}
                               className="p-0.5 text-amber-400 hover:text-red-500 rounded transition-colors"
                             >
                               <X className="w-3 h-3" />

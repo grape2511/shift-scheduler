@@ -854,11 +854,12 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     // notifyAdmin is still used for swap requests below.
 
     if (!isBulkLoad) {
-      // Sync time offs
+      // Sync time offs — only insert new ones. Deletes must come from explicit user
+      // handlers calling db.deleteTimeOff directly. Computing deletes from a set-diff
+      // is dangerous: if a refresh returns a smaller set (network blip / backgrounded
+      // tab past the 500ms guard), the diff would mass-delete legitimate records.
       const newTimeOffs = state.timeOffs.filter(t => !prev.timeOffs.some(pt => pt.id === t.id));
-      const deletedTimeOffIds = prev.timeOffs.filter(t => !state.timeOffs.some(nt => nt.id === t.id)).map(t => t.id);
       newTimeOffs.forEach(t => db.insertTimeOff(t));
-      deletedTimeOffIds.forEach(id => db.deleteTimeOff(id));
 
       // Sync notifications
       const newNotifs = state.notifications.filter(n => !prev.notifications.some(pn => pn.id === n.id));
