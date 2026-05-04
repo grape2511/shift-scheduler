@@ -221,6 +221,7 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
       {/* Weekly Agent Summary (admin only) */}
       {isAdmin && (() => {
         const weekDateStrs = weekDays.map(d => formatDate(d));
+        const weekDateSet = new Set(weekDateStrs);
         const MIN_SHIFTS_PER_WEEK = 5;
 
         const shiftLabels = ['USA Shift', 'EU Shift', 'Mid Shift'];
@@ -234,11 +235,15 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
               const shifts = getShiftsForDate(dateStr);
               return shifts.some(s => s.assignedAgentIds.includes(agent.id));
             }).length;
-            return { agent, shiftCount };
+            const approvedDaysOff = state.timeOffs
+              .filter(t => t.userId === agent.id && (t.status || 'approved') === 'approved' && weekDateSet.has(t.date))
+              .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
+            const adjustedMin = Math.max(0, MIN_SHIFTS_PER_WEEK - approvedDaysOff);
+            return { agent, shiftCount, approvedDaysOff, adjustedMin };
           })
-          .sort((a, b) => a.shiftCount - b.shiftCount);
+          .sort((a, b) => (a.shiftCount - a.adjustedMin) - (b.shiftCount - b.adjustedMin));
 
-        const underMin = agentSummary.filter(a => a.shiftCount < MIN_SHIFTS_PER_WEEK);
+        const underMin = agentSummary.filter(a => a.shiftCount < a.adjustedMin);
 
         return (
           <div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -252,8 +257,9 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
               )}
             </div>
             <div className="max-h-64 overflow-y-auto">
-              {agentSummary.map(({ agent, shiftCount }) => {
-                const isUnder = shiftCount < MIN_SHIFTS_PER_WEEK;
+              {agentSummary.map(({ agent, shiftCount, approvedDaysOff, adjustedMin }) => {
+                const isUnder = shiftCount < adjustedMin;
+                const hasDaysOff = approvedDaysOff > 0;
                 return (
                   <div key={agent.id} className={`flex items-center justify-between px-4 py-2 border-b border-gray-50 last:border-0 ${isUnder ? 'bg-red-50' : ''}`}>
                     <div className="flex items-center gap-2">
@@ -264,10 +270,18 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
                       {(agent.labels || []).slice(0, 1).map(l => (
                         <span key={l} className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-500 rounded-full">{l}</span>
                       ))}
+                      {hasDaysOff && (
+                        <span
+                          className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium"
+                          title={`${approvedDaysOff} approved day${approvedDaysOff === 1 ? '' : 's'} off — coverage minimum reduced from ${MIN_SHIFTS_PER_WEEK} to ${adjustedMin}`}
+                        >
+                          {approvedDaysOff === 1 ? '1 day off' : `${approvedDaysOff} days off`}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-bold ${isUnder ? 'text-red-600' : 'text-gray-700'}`}>
-                        {shiftCount}/{MIN_SHIFTS_PER_WEEK}
+                        {shiftCount}/{hasDaysOff ? adjustedMin : MIN_SHIFTS_PER_WEEK}
                       </span>
                       {isUnder && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
                     </div>

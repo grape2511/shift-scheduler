@@ -738,6 +738,9 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       const labels = u.labels || (u.label ? [u.label] : []);
       return labels.some(l => SHIFT_LABELS.includes(l));
     });
+    const weekDateSet = new Set(
+      Array.from({ length: 7 }, (_, i) => formatDate(addDays(weekStart, i)))
+    );
     const underAssigned: string[] = [];
 
     agents.forEach(agent => {
@@ -748,18 +751,23 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
           weekShiftCount++;
         }
       }
-      if (weekShiftCount < MIN_SHIFTS) {
-        underAssigned.push(`${agent.name} (${weekShiftCount})`);
+      const approvedDaysOff = state.timeOffs
+        .filter(t => t.userId === agent.id && (t.status || 'approved') === 'approved' && weekDateSet.has(t.date))
+        .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
+      const adjustedMin = Math.max(0, MIN_SHIFTS - approvedDaysOff);
+      if (weekShiftCount < adjustedMin) {
+        const offSuffix = approvedDaysOff > 0 ? `, ${approvedDaysOff} approved off` : '';
+        underAssigned.push(`${agent.name} (${weekShiftCount}${offSuffix})`);
       }
     });
 
     if (underAssigned.length > 0) {
       const weekLabel = formatDate(weekStart);
       sendSlackNotification(slackUrl,
-        `⚠️ *Weekly coverage alert* (week of ${weekLabel}):\n${underAssigned.length} agent${underAssigned.length > 1 ? 's' : ''} with fewer than ${MIN_SHIFTS} shifts:\n${underAssigned.map(a => `• ${a}`).join('\n')}`
+        `⚠️ *Weekly coverage alert* (week of ${weekLabel}):\n${underAssigned.length} agent${underAssigned.length > 1 ? 's' : ''} below adjusted minimum (approved days off subtracted from ${MIN_SHIFTS}):\n${underAssigned.map(a => `• ${a}`).join('\n')}`
       );
     }
-  }, [state.shifts, state.users]);
+  }, [state.shifts, state.users, state.timeOffs]);
 
   // Missed clock-in check: alert when an assigned agent hasn't clocked in 15min after shift start
   useEffect(() => {
