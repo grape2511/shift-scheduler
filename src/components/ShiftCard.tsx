@@ -4,6 +4,7 @@ import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut
 import { convertTime, getUserTimezone } from '../utils/timezone';
 import { v4 as uuid } from 'uuid';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
+import { getTaskAssignments, TASK_STYLES } from '../utils/tasks';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -25,6 +26,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const assignedAgents = [...new Set(shift.assignedAgentIds)]
     .map(id => getAgentById(id))
     .filter(Boolean);
+
+  const taskAssignments = getTaskAssignments(shift.date, shift.assignedAgentIds);
 
   const handleAssign = (agentId: string) => {
     dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: shift.id, agentId } });
@@ -161,17 +164,29 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
         {/* Agent names */}
         {assignedAgents.length > 0 && (
           <div className="mt-1 space-y-0.5">
-            {assignedAgents.map(agent => (
-              <div key={agent!.id} className="flex items-center gap-1 text-[10px] text-white/90">
-                <div
-                  className="w-3.5 h-3.5 rounded-full border border-white/40 flex items-center justify-center text-[7px] shrink-0"
-                  style={{ backgroundColor: agent!.color }}
-                >
-                  {agent!.name[0]}
+            {assignedAgents.map(agent => {
+              const task = taskAssignments.get(agent!.id);
+              const style = task ? TASK_STYLES[task] : null;
+              return (
+                <div key={agent!.id} className="flex items-center gap-1 text-[10px] text-white/90">
+                  <div
+                    className="w-3.5 h-3.5 rounded-full border border-white/40 flex items-center justify-center text-[7px] shrink-0"
+                    style={{ backgroundColor: agent!.color }}
+                  >
+                    {agent!.name[0]}
+                  </div>
+                  <span className="truncate">{agent!.name.split(' ')[0]}</span>
+                  {style && (
+                    <span
+                      className={`ml-auto text-[8px] px-1 py-px rounded ${style.bg} ${style.text} font-medium shrink-0`}
+                      title={task!}
+                    >
+                      {style.abbr}
+                    </span>
+                  )}
                 </div>
-                <span className="truncate">{agent!.name.split(' ')[0]}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {/* Vacancy indicator + Join */}
@@ -282,6 +297,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             <div className="space-y-1.5">
               {assignedAgents.map(agent => {
                 const conflict = hasConflict(agent!.id, shift.date);
+                const task = taskAssignments.get(agent!.id);
+                const style = task ? TASK_STYLES[task] : null;
                 return (
                   <div
                     key={agent!.id}
@@ -297,6 +314,11 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                         {agent!.name[0]}
                       </div>
                       <span className="text-sm text-gray-700">{agent!.name}</span>
+                      {style && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.bg} ${style.text}`}>
+                          {task}
+                        </span>
+                      )}
                       {conflict && (
                         <span title="Has time off this day"><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /></span>
                       )}
