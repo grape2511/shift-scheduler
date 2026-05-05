@@ -178,11 +178,21 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   <span className="truncate">{agent!.name.split(' ')[0]}</span>
                   {style && (
                     <span
-                      className={`ml-auto p-0.5 rounded ${style.bg} ${style.text} shrink-0 inline-flex items-center justify-center`}
-                      title={style.tooltip}
+                      className={`relative group/task ml-auto p-0.5 rounded ${style.bg} shrink-0 inline-flex items-center justify-center`}
                       aria-label={style.tooltip}
                     >
-                      <style.Icon className="w-2.5 h-2.5" />
+                      <img
+                        src={style.iconUrl}
+                        alt={task!}
+                        className="w-3 h-3 object-contain"
+                        draggable={false}
+                      />
+                      <span
+                        className="pointer-events-none invisible opacity-0 group-hover/task:visible group-hover/task:opacity-100 transition-opacity absolute z-50 bottom-full right-0 mb-1 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded shadow-lg whitespace-nowrap"
+                        role="tooltip"
+                      >
+                        {style.tooltip}
+                      </span>
                     </span>
                   )}
                 </div>
@@ -317,12 +327,22 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                       <span className="text-sm text-gray-700">{agent!.name}</span>
                       {style && (
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.bg} ${style.text} cursor-help`}
-                          title={style.tooltip}
+                          className={`relative group/task inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.bg} text-gray-700 cursor-help`}
                           aria-label={style.tooltip}
                         >
-                          <style.Icon className="w-3 h-3" />
+                          <img
+                            src={style.iconUrl}
+                            alt={task!}
+                            className="w-3.5 h-3.5 object-contain"
+                            draggable={false}
+                          />
                           {task}
+                          <span
+                            className="pointer-events-none invisible opacity-0 group-hover/task:visible group-hover/task:opacity-100 transition-opacity absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-[11px] font-medium text-white bg-gray-900 rounded shadow-lg whitespace-nowrap"
+                            role="tooltip"
+                          >
+                            {style.tooltip}
+                          </span>
                         </span>
                       )}
                       {conflict && (
