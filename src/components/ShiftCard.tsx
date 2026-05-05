@@ -178,10 +178,11 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   <span className="truncate">{agent!.name.split(' ')[0]}</span>
                   {style && (
                     <span
-                      className={`ml-auto text-[8px] px-1 py-px rounded ${style.bg} ${style.text} font-medium shrink-0`}
-                      title={task!}
+                      className={`ml-auto p-0.5 rounded ${style.bg} ${style.text} shrink-0 inline-flex items-center justify-center`}
+                      title={style.tooltip}
+                      aria-label={style.tooltip}
                     >
-                      {style.abbr}
+                      <style.Icon className="w-2.5 h-2.5" />
                     </span>
                   )}
                 </div>
@@ -315,7 +316,12 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                       </div>
                       <span className="text-sm text-gray-700">{agent!.name}</span>
                       {style && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.bg} ${style.text}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.bg} ${style.text} cursor-help`}
+                          title={style.tooltip}
+                          aria-label={style.tooltip}
+                        >
+                          <style.Icon className="w-3 h-3" />
                           {task}
                         </span>
                       )}

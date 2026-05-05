@@ -55,8 +55,28 @@ export function getTaskAssignments(
   return result;
 }
 
-export const TASK_STYLES: Record<Task, { bg: string; text: string; abbr: string }> = {
-  Dashboard: { bg: 'bg-blue-100', text: 'text-blue-700', abbr: 'Dash' },
-  Intercom: { bg: 'bg-purple-100', text: 'text-purple-700', abbr: 'IC' },
-  'Notion Tasks': { bg: 'bg-gray-200', text: 'text-gray-700', abbr: 'Notion' },
+import { LayoutDashboard, MessagesSquare, ListTodo, type LucideIcon } from 'lucide-react';
+
+export const TASK_STYLES: Record<
+  Task,
+  { bg: string; text: string; Icon: LucideIcon; tooltip: string }
+> = {
+  Dashboard: {
+    bg: 'bg-blue-100',
+    text: 'text-blue-700',
+    Icon: LayoutDashboard,
+    tooltip: 'This shift you will mainly work on Dashboard Tickets',
+  },
+  Intercom: {
+    bg: 'bg-purple-100',
+    text: 'text-purple-700',
+    Icon: MessagesSquare,
+    tooltip: 'This shift you will mainly work on Intercom tickets',
+  },
+  'Notion Tasks': {
+    bg: 'bg-gray-200',
+    text: 'text-gray-700',
+    Icon: ListTodo,
+    tooltip: 'This shift you will mainly work on pending Notion Tasks',
+  },
 };
