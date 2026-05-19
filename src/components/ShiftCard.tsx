@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut, MessageSquare, Check, X } from 'lucide-react';
-import { convertTime, getUserTimezone } from '../utils/timezone';
+import { convertTime, getUserTimezone, isShiftActiveNow } from '../utils/timezone';
+import { useNow } from '../hooks/useNow';
 import { v4 as uuid } from 'uuid';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
 import { getTaskAssignments, TASK_STYLES } from '../utils/tasks';
@@ -147,15 +148,29 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const required = shift.requiredAgents || 1;
   const filled = assignedAgents.length;
 
+  const now = useNow();
+  const isActiveNow = isShiftActiveNow(shift.date, shift.startTime, shift.endTime, shift.timezone, now);
+
   if (compact) {
     return (
       <div
-        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-white cursor-pointer hover:opacity-90 transition-opacity"
-        style={{ backgroundColor: shift.color }}
+        className={`rounded-lg px-2.5 py-1.5 text-xs font-medium text-white cursor-pointer hover:opacity-90 transition-opacity ${
+          isActiveNow ? 'ring-2 ring-offset-2 ring-offset-white shadow-lg animate-pulse-glow' : ''
+        }`}
+        style={{ backgroundColor: shift.color, ...(isActiveNow ? { '--tw-ring-color': shift.color } as React.CSSProperties : {}) }}
         onClick={() => onEdit?.(shift)}
+        title={isActiveNow ? 'Currently active shift' : undefined}
       >
         <div className="flex items-center justify-between">
-          <span className="truncate flex items-center gap-1">{shift.name}{shift.notes && <MessageSquare className="w-2.5 h-2.5 opacity-70" />}</span>
+          <span className="truncate flex items-center gap-1">
+            {isActiveNow && (
+              <span className="inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide bg-white/30 rounded-full px-1.5 py-[1px] mr-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                Live
+              </span>
+            )}
+            {shift.name}{shift.notes && <MessageSquare className="w-2.5 h-2.5 opacity-70" />}
+          </span>
           <span className="opacity-80 ml-1">{formatShiftTime(shift.startTime)}</span>
         </div>
         {shift.notes && (
@@ -228,7 +243,12 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div
+      className={`bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow ${
+        isActiveNow ? 'ring-2 ring-offset-2 ring-offset-white shadow-lg animate-pulse-glow' : ''
+      }`}
+      style={isActiveNow ? ({ '--tw-ring-color': shift.color } as React.CSSProperties) : undefined}
+    >
       {/* Color bar */}
       <div className="h-1" style={{ backgroundColor: shift.color }} />
 
@@ -236,7 +256,19 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-semibold text-gray-900">{shift.name}</h3>
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              {shift.name}
+              {isActiveNow && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-white rounded-full px-2 py-0.5"
+                  style={{ backgroundColor: shift.color }}
+                  title="Currently active shift"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  Live
+                </span>
+              )}
+            </h3>
             <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
               <Clock className="w-3.5 h-3.5" />
               {formatShiftTime(shift.startTime)} – {formatShiftTime(shift.endTime)}

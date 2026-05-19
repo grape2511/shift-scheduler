@@ -84,3 +84,12 @@ body {
 .dark .shadow-xl {
   --tw-shadow-color: rgba(0, 0, 0, 0.5);
 }
+
+/* Active-shift "live" highlight: subtle ring pulse that doesn't fade content */
+@keyframes shift-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--tw-ring-color, rgba(99, 102, 241, 0.5)); }
+  50%      { box-shadow: 0 0 0 6px transparent; }
+}
+.animate-pulse-glow {
+  animation: shift-live-pulse 2s ease-in-out infinite;
+}

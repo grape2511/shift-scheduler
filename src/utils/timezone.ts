@@ -67,3 +67,48 @@ function getOffset(date: Date, tz: string): number {
   const tzStr = date.toLocaleString('en-US', { timeZone: tz });
   return (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000;
 }
+
+/**
+ * Build an absolute Date for the given YYYY-MM-DD + HH:mm interpreted in `tz`.
+ */
+function makeZonedDate(date: string, time: string, tz: string): Date {
+  const [h, m] = time.split(':').map(Number);
+  const utcGuess = new Date(`${date}T${time}:00Z`);
+  const offset = getOffset(utcGuess, tz);
+  return new Date(Date.UTC(
+    Number(date.slice(0, 4)),
+    Number(date.slice(5, 7)) - 1,
+    Number(date.slice(8, 10)),
+    h,
+    m,
+  ) - offset * 60000);
+}
+
+/**
+ * Whether the given shift's time window currently contains `now`,
+ * interpreted in the shift's own timezone. Handles overnight shifts
+ * (endTime <= startTime) by treating end as the next day.
+ */
+export function isShiftActiveNow(
+  date: string,
+  startTime: string,
+  endTime: string,
+  timezone: string,
+  now: Date = new Date(),
+): boolean {
+  try {
+    const start = makeZonedDate(date, startTime, timezone);
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    const overnight = eh * 60 + em <= sh * 60 + sm;
+    const endDateStr = overnight
+      ? new Date(new Date(`${date}T00:00:00Z`).getTime() + 86400000)
+          .toISOString()
+          .slice(0, 10)
+      : date;
+    const end = makeZonedDate(endDateStr, endTime, timezone);
+    return now >= start && now < end;
+  } catch {
+    return false;
+  }
+}
