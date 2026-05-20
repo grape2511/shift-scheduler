@@ -6,6 +6,7 @@ import { format, addMonths, isSameMonth, isToday } from 'date-fns';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { updateTimeOffStatus, updateShiftAssignment } from '../lib/database';
 import { TIME_OFF_CATEGORIES } from '../types';
+import { isSwapExpired } from '../utils/swaps';
 import { v4 as uuid } from 'uuid';
 
 export function TimeOffApproval() {
@@ -74,7 +75,9 @@ export function TimeOffApproval() {
     }
   };
 
-  const pendingSwaps = (state.swapRequests || []).filter(r => r.status === 'pending');
+  const pendingSwaps = (state.swapRequests || []).filter(
+    r => r.status === 'pending' && !isSwapExpired(r, state.shifts),
+  );
 
   return (
     <div>

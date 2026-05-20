@@ -6,6 +6,7 @@ import { addDays, addWeeks, formatDate } from '../utils/dates';
 import { getHolidaysForDate as getPublicHolidays, type PublicHoliday } from '../utils/holidays';
 import * as db from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
+import { isSwapExpired } from '../utils/swaps';
 
 interface AppState {
   currentUser: User;
@@ -40,6 +41,7 @@ type Action =
   | { type: 'CREATE_SWAP_REQUEST'; payload: SwapRequest }
   | { type: 'ACCEPT_SWAP_REQUEST'; payload: string }
   | { type: 'DECLINE_SWAP_REQUEST'; payload: string }
+  | { type: 'EXPIRE_SWAP_REQUESTS'; payload: { swapIds: string[]; notifIds: string[] } }
   | { type: 'ADD_WEEKEND_ROTATION'; payload: { shift: Shift; groupA: string[]; groupB: string[] } }
   | { type: 'UPDATE_SHIFT_ALL_RECURRING'; payload: Shift }
   | { type: 'UPDATE_SHIFT_FUTURE'; payload: Shift }
@@ -623,6 +625,20 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case 'EXPIRE_SWAP_REQUESTS': {
+      const swapSet = new Set(action.payload.swapIds);
+      const notifSet = new Set(action.payload.notifIds);
+      return {
+        ...state,
+        swapRequests: (state.swapRequests || []).map(r =>
+          swapSet.has(r.id) ? { ...r, status: 'declined' as const } : r
+        ),
+        notifications: state.notifications.map(n =>
+          notifSet.has(n.id) ? { ...n, read: true } : n
+        ),
+      };
+    }
+
     case 'CLOCK_IN':
       return { ...state, clockRecords: [...state.clockRecords, action.payload] };
 
@@ -700,6 +716,33 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const interval = setInterval(refreshData, 120000);
     return () => clearInterval(interval);
   }, [refreshData]);
+
+  // Auto-expire pending swap requests whose shifts have passed. Flips them to
+  // 'declined' so they drop out of approval queues, and marks any linked
+  // notifications read so the bell stops nagging. Writes to Supabase directly
+  // because the diff-sync effect skips writes during the 500ms bulk-load
+  // window that this effect typically fires inside.
+  useEffect(() => {
+    if (state.shifts.length === 0) return;
+    const expired = (state.swapRequests || []).filter(
+      r => r.status === 'pending' && isSwapExpired(r, state.shifts),
+    );
+    if (expired.length === 0) return;
+    const expiredIds = new Set(expired.map(r => r.id));
+    const notifsToMark = state.notifications.filter(
+      n =>
+        n.userId === state.currentUser.id &&
+        !n.read &&
+        n.swapRequestId &&
+        expiredIds.has(n.swapRequestId),
+    );
+    expired.forEach(r => db.updateSwapRequestStatus(r.id, 'declined'));
+    notifsToMark.forEach(n => db.markNotificationRead(n.id));
+    dispatch({
+      type: 'EXPIRE_SWAP_REQUESTS',
+      payload: { swapIds: Array.from(expiredIds), notifIds: notifsToMark.map(n => n.id) },
+    });
+  }, [state.shifts, state.swapRequests, state.notifications, state.currentUser.id]);
 
   // Helper to check Slack notification preferences
   const getSlackPrefs = () => {
@@ -852,9 +895,9 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const adminUser = !isBulkLoad ? state.users.find(u => u.role === 'admin') : undefined;
     const slack = getSlackPrefs();
     const slackUrl = slack.url;
-    const notifyAdmin = (message: string) => {
+    const notifyAdmin = (message: string, swapRequestId?: string) => {
       if (adminUser && adminUser.id !== state.currentUser.id) {
-        const notif = createNotification(adminUser.id, message, 'info');
+        const notif: Notification = { ...createNotification(adminUser.id, message, 'info'), swapRequestId };
         db.insertNotification(notif);
       }
     };
@@ -891,7 +934,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
           const toName = state.users.find(u => u.id === r.toAgentId)?.name;
           const fromShift = state.shifts.find(s => s.id === r.fromShiftId);
           const toShift = state.shifts.find(s => s.id === r.toShiftId);
-          notifyAdmin(`Swap request: ${fromName} wants to swap "${fromShift?.name}" (${fromShift?.date}) with ${toName}'s "${toShift?.name}" (${toShift?.date})`);
+          notifyAdmin(`Swap request: ${fromName} wants to swap "${fromShift?.name}" (${fromShift?.date}) with ${toName}'s "${toShift?.name}" (${toShift?.date})`, r.id);
         }
       });
       updatedSwaps.forEach(r => {
@@ -1082,10 +1125,20 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   };
 
   const getPendingSwapRequests = () =>
-    (state.swapRequests || []).filter(r => r.status === 'pending' && r.toAgentId === state.currentUser.id);
+    (state.swapRequests || []).filter(
+      r =>
+        r.status === 'pending' &&
+        r.toAgentId === state.currentUser.id &&
+        !isSwapExpired(r, state.shifts),
+    );
 
   const getSwapRequestsForShift = (shiftId: string) =>
-    (state.swapRequests || []).filter(r => (r.fromShiftId === shiftId || r.toShiftId === shiftId) && r.status === 'pending');
+    (state.swapRequests || []).filter(
+      r =>
+        (r.fromShiftId === shiftId || r.toShiftId === shiftId) &&
+        r.status === 'pending' &&
+        !isSwapExpired(r, state.shifts),
+    );
 
   return (
     <AppContext.Provider value={{
