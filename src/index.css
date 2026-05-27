@@ -85,11 +85,19 @@ body {
   --tw-shadow-color: rgba(0, 0, 0, 0.5);
 }
 
-/* Active-shift "live" highlight: subtle ring pulse that doesn't fade content */
+/* Active-shift "live" highlight: thick ring pulse + colored halo */
 @keyframes shift-live-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--tw-ring-color, rgba(99, 102, 241, 0.5)); }
-  50%      { box-shadow: 0 0 0 6px transparent; }
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 var(--tw-ring-color, rgba(99, 102, 241, 0.85)),
+      0 0 14px 2px var(--tw-ring-color, rgba(99, 102, 241, 0.45));
+  }
+  50% {
+    box-shadow:
+      0 0 0 10px transparent,
+      0 0 28px 8px var(--tw-ring-color, rgba(99, 102, 241, 0.95));
+  }
 }
 .animate-pulse-glow {
-  animation: shift-live-pulse 2s ease-in-out infinite;
+  animation: shift-live-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

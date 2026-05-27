@@ -154,8 +154,10 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   if (compact) {
     return (
       <div
-        className={`rounded-lg px-2.5 py-1.5 text-xs font-medium text-white cursor-pointer hover:opacity-90 transition-opacity ${
-          isActiveNow ? 'ring-2 ring-offset-2 ring-offset-white shadow-lg animate-pulse-glow' : ''
+        className={`rounded-lg px-2.5 py-1.5 text-xs font-medium text-white cursor-pointer hover:opacity-90 transition-all ${
+          isActiveNow
+            ? 'ring-4 ring-offset-2 ring-offset-white shadow-2xl animate-pulse-glow scale-[1.04] relative z-10'
+            : ''
         }`}
         style={{ backgroundColor: shift.color, ...(isActiveNow ? { '--tw-ring-color': shift.color } as React.CSSProperties : {}) }}
         onClick={() => onEdit?.(shift)}
@@ -164,8 +166,11 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
         <div className="flex items-center justify-between">
           <span className="truncate flex items-center gap-1">
             {isActiveNow && (
-              <span className="inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide bg-white/30 rounded-full px-1.5 py-[1px] mr-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-white rounded-full px-1.5 py-[1px] mr-1 shadow-sm"
+                style={{ color: shift.color }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 Live
               </span>
             )}
@@ -244,8 +249,10 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
 
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow ${
-        isActiveNow ? 'ring-2 ring-offset-2 ring-offset-white shadow-lg animate-pulse-glow' : ''
+      className={`bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-all ${
+        isActiveNow
+          ? 'ring-4 ring-offset-2 ring-offset-white shadow-2xl animate-pulse-glow scale-[1.02] relative z-10'
+          : ''
       }`}
       style={isActiveNow ? ({ '--tw-ring-color': shift.color } as React.CSSProperties) : undefined}
     >
@@ -260,12 +267,12 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
               {shift.name}
               {isActiveNow && (
                 <span
-                  className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-white rounded-full px-2 py-0.5"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-white rounded-full px-2.5 py-1 shadow-md"
                   style={{ backgroundColor: shift.color }}
                   title="Currently active shift"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  Live
+                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.9)]" />
+                  Live now
                 </span>
               )}
             </h3>
