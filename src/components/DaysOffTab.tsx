@@ -183,8 +183,10 @@ export function DaysOffTab() {
     ? state.timeOffs.filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id).sort((a, b) => a.date.localeCompare(b.date))
     : [];
 
-  // Check if approving a time-off would drop any shift below minimum required
+  // Check if approving a time-off would drop any shift below minimum required.
+  // Half-day off leaves the agent on shift, so it never causes a shortage.
   const getShortageInfo = (timeOff: typeof state.timeOffs[0]) => {
+    if (timeOff.halfDay) return [];
     const shiftsOnDay = state.shifts.filter(s => s.date === timeOff.date && s.assignedAgentIds.includes(timeOff.userId));
     const shortages: { shiftName: string; afterCount: number; required: number; teammates: string[] }[] = [];
     shiftsOnDay.forEach(s => {
@@ -231,22 +233,29 @@ export function DaysOffTab() {
     dispatch({ type: 'UPDATE_TIME_OFF_STATUS', payload: { id, status: 'approved' } });
     updateTimeOffStatus(id, 'approved');
 
-    // Remove agent from all shifts on that day
-    const shiftsOnDay = state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
+    // Half-day time off leaves the agent on their shifts — only full days unassign.
+    const shiftsOnDay = to.halfDay
+      ? []
+      : state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
     shiftsOnDay.forEach(s => {
       const newAgentIds = s.assignedAgentIds.filter(aid => aid !== to.userId);
       dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId: to.userId } });
       updateShiftAssignment(s.id, newAgentIds);
     });
 
-    const notif = { id: uuid(), userId: to.userId, message: `Your time off request for ${to.date} has been approved ✅`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
+    const notif = { id: uuid(), userId: to.userId, message: `Your ${to.halfDay ? 'half day' : 'time'} off request for ${to.date} has been approved ✅`, timestamp: new Date().toISOString(), read: false, type: 'info' as const };
     dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
     insertNotification(notif);
     const slackAdmin2 = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
     const slackPrefs2 = slackAdmin2?.slackNotifications || {};
     if (slackAdmin2?.slackWebhookUrl && (slackPrefs2.slackNotifyTimeOffApproval ?? true)) {
       const agent = state.users.find(u => u.id === to.userId);
-      sendSlackNotification(slackAdmin2.slackWebhookUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
+      const suffix = to.halfDay
+        ? ' (½ day — kept on shifts)'
+        : shiftsOnDay.length > 0
+          ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})`
+          : '';
+      sendSlackNotification(slackAdmin2.slackWebhookUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${suffix}`);
     }
   };
 

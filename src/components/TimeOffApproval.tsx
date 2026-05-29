@@ -29,8 +29,10 @@ export function TimeOffApproval() {
     if (to) {
       const agent = getAgentById(to.userId);
 
-      // Remove agent from all shifts on that day
-      const shiftsOnDay = state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
+      // Half-day time off leaves the agent on their shifts — only full days unassign.
+      const shiftsOnDay = to.halfDay
+        ? []
+        : state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
       shiftsOnDay.forEach(s => {
         const newAgentIds = s.assignedAgentIds.filter(aid => aid !== to.userId);
         dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId: to.userId } });
@@ -42,14 +44,21 @@ export function TimeOffApproval() {
         payload: {
           id: uuid(),
           userId: to.userId,
-          message: `Your time off request for ${to.date} has been approved ✅`,
+          message: `Your ${to.halfDay ? 'half day' : 'time'} off request for ${to.date} has been approved ✅`,
           timestamp: new Date().toISOString(),
           read: false,
           type: 'info',
         },
       });
       const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-      if (slackUrl) sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${shiftsOnDay.length > 0 ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})` : ''}`);
+      if (slackUrl) {
+        const suffix = to.halfDay
+          ? ' (½ day — kept on shifts)'
+          : shiftsOnDay.length > 0
+            ? ` (removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''})`
+            : '';
+        sendSlackNotification(slackUrl, `✅ *Time off approved*: ${agent?.name} on ${to.date}${suffix}`);
+      }
     }
   };
 
