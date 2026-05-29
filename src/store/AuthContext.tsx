@@ -8,6 +8,7 @@ interface AuthContextType {
   profile: User | null;
   loading: boolean;
   isPasswordRecovery: boolean;
+  deactivated: boolean;
   signUp: (email: string, password: string, name: string, role?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [deactivated, setDeactivated] = useState(false);
 
   useEffect(() => {
     // Check if URL contains recovery token
@@ -73,15 +75,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false);
     }, 3000);
 
+    // Fetch profile and enforce the `active` flag. Deactivated accounts get
+    // signed out immediately so the app never renders for them; the
+    // `deactivated` flag tells AuthPage to surface a clear explanation.
+    const loadProfile = async (userId: string) => {
+      const p = await fetchProfile(userId);
+      if (!mounted) return;
+      if (p && p.active === false) {
+        setDeactivated(true);
+        await supabase.auth.signOut();
+        if (!mounted) return;
+        setSession(null);
+        setProfile(null);
+        return;
+      }
+      setProfile(p);
+    };
+
     // Initialize session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       setSession(session);
       setLoading(false);
       if (session?.user) {
-        fetchProfile(session.user.id).then(p => {
-          if (mounted) setProfile(p);
-        });
+        loadProfile(session.user.id);
       }
     }).catch(() => {
       if (mounted) setLoading(false);
@@ -96,9 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setLoading(false);
       if (session?.user) {
-        fetchProfile(session.user.id).then(p => {
-          if (mounted) setProfile(p);
-        });
+        loadProfile(session.user.id);
       } else {
         setProfile(null);
       }
@@ -124,11 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    setDeactivated(false);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message || null };
   };
 
   const signInWithGoogle = async () => {
+    setDeactivated(false);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -181,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, isPasswordRecovery, signUp, signIn, signInWithGoogle, signOut, updateProfile, resetPassword, updatePassword, clearPasswordRecovery }}>
+    <AuthContext.Provider value={{ session, profile, loading, isPasswordRecovery, deactivated, signUp, signIn, signInWithGoogle, signOut, updateProfile, resetPassword, updatePassword, clearPasswordRecovery }}>
       {children}
     </AuthContext.Provider>
   );

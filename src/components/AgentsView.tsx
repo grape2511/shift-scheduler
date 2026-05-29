@@ -11,7 +11,7 @@ import { format, parseISO, addDays } from 'date-fns';
 const TARGET_HOURS = 208;
 
 export function AgentsView() {
-  const { state, agents, addAgent, dispatch, getMonthlyHours, getPtoBalance } = useApp();
+  const { state, agents, addAgent, dispatch, getMonthlyHours, getPtoBalance, setAgentActive } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [showHolidayDropdown, setShowHolidayDropdown] = useState(false);
   const [name, setName] = useState('');
@@ -336,8 +336,8 @@ export function AgentsView() {
                     <div
                       onClick={() => {
                         const newActive = agent.active === false ? true : false;
-                        dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { active: newActive } } });
-                        updateProfile(agent.id, { active: newActive } as any);
+                        if (!newActive && !confirm(`Deactivate ${agent.name}? They'll be signed out, blocked from logging back in, and removed from all upcoming shifts.`)) return;
+                        setAgentActive(agent.id, newActive);
                       }}
                       className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${agent.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
                       title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
@@ -386,8 +386,8 @@ export function AgentsView() {
               <div
                 onClick={() => {
                   const newActive = agent.active === false ? true : false;
-                  dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates: { active: newActive } } });
-                  updateProfile(agent.id, { active: newActive } as any);
+                  if (!newActive && !confirm(`Deactivate ${agent.name}? They'll be signed out, blocked from logging back in, and removed from all upcoming shifts.`)) return;
+                  setAgentActive(agent.id, newActive);
                 }}
                 className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${agent.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
                 title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}

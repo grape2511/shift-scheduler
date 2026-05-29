@@ -678,6 +678,7 @@ interface AppContextType {
   getEnabledHolidayCountries: () => string[];
   getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number; sickUsed: number; sickTotal: number; sickRemaining: number };
   refreshData: () => Promise<void>;
+  setAgentActive: (agentId: string, active: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1028,6 +1029,24 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     });
   };
 
+  // Flip an agent active/inactive. Deactivation also strips them from every
+  // upcoming shift so the schedule doesn't keep counting on a terminated
+  // teammate. Past shifts are left alone to preserve history.
+  const setAgentActive = async (agentId: string, active: boolean) => {
+    dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { active } } });
+    await db.updateProfile(agentId, { active } as any);
+    if (active) return;
+    const todayStr = formatDate(new Date());
+    const futureShifts = state.shifts.filter(
+      s => s.date >= todayStr && s.assignedAgentIds.includes(agentId),
+    );
+    for (const s of futureShifts) {
+      const newAgentIds = s.assignedAgentIds.filter(id => id !== agentId);
+      dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId } });
+      await db.updateShiftAssignment(s.id, newAgentIds);
+    }
+  };
+
   const getPublicHolidaysForDate = (date: string) => {
     const results: { agent: User; holidays: PublicHoliday[] }[] = [];
     const seenCountries = new Set<string>();
@@ -1162,6 +1181,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       getEnabledHolidayCountries,
       getPtoBalance,
       refreshData,
+      setAgentActive,
     }}>
       {children}
     </AppContext.Provider>

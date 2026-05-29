@@ -38,7 +38,7 @@ const ROLES: { value: Role; label: string; description: string; color: string }[
 type SettingsSubTab = 'general' | 'agents';
 
 export function SettingsView() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, setAgentActive } = useApp();
   const [testing, setTesting] = useState(false);
   const [subTab, setSubTab] = useState<SettingsSubTab>('general');
   const prefs = getSlackPrefs(state.currentUser);
@@ -225,8 +225,8 @@ export function SettingsView() {
                   <div
                     onClick={() => {
                       const newActive = user.active === false ? true : false;
-                      dispatch({ type: 'UPDATE_USER', payload: { id: user.id, updates: { active: newActive } } });
-                      updateProfile(user.id, { active: newActive } as any);
+                      if (!newActive && !confirm(`Deactivate ${user.name}? They'll be signed out, blocked from logging back in, and removed from all upcoming shifts.`)) return;
+                      setAgentActive(user.id, newActive);
                     }}
                     className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${user.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
                     title={user.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}

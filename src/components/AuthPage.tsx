@@ -3,7 +3,7 @@ import { useAuth } from '../store/AuthContext';
 import { Calendar, LogIn, UserPlus, Eye, EyeOff, Mail } from 'lucide-react';
 
 export function AuthPage() {
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword, deactivated } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -110,6 +110,12 @@ export function AuthPage() {
         <p className="text-sm text-gray-500 text-center mb-6">
           {mode === 'signin' ? 'Sign in to manage your shifts' : mode === 'signup' ? 'Sign up to get started' : 'Enter your email to receive a reset link'}
         </p>
+
+        {deactivated && (
+          <div className="mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+            This account has been deactivated. Please contact your admin if you believe this is a mistake.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (
