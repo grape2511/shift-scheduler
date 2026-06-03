@@ -70,12 +70,18 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
   const isAdmin = state.currentUser.role === 'admin';
 
+  // Admins approve time off — count pending requests from other users so we can
+  // surface a red badge directly on the Days Off tab.
+  const pendingTimeOffCount = isAdmin
+    ? state.timeOffs.filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id).length
+    : 0;
+
   const tabs = [
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     ...(state.currentUser.role === 'team-lead' ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
     ...(!isAdmin ? [{ id: 'clock', label: 'Clock', icon: Timer }] : []),
     ...(!isAdmin ? [{ id: 'my-shifts', label: 'My Shifts', icon: Clock }] : []),
-    { id: 'days-off', label: 'Days Off', icon: CalendarCheck },
+    { id: 'days-off', label: 'Days Off', icon: CalendarCheck, badge: pendingTimeOffCount },
     ...(isAdmin ? [{ id: 'time-off-approval', label: 'Approvals', icon: CalendarCheck }] : []),
     ...(isAdmin ? [{ id: 'insights', label: 'Insights', icon: BarChart3 }] : []),
     ...(isAdmin ? [{ id: 'activity', label: 'Activity', icon: Activity }] : []),
@@ -130,6 +136,11 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                   >
                     <tab.icon className="w-4 h-4" />
                     {tab.label}
+                    {'badge' in tab && tab.badge > 0 && (
+                      <span className="ml-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                        {tab.badge > 9 ? '9+' : tab.badge}
+                      </span>
+                    )}
                   </button>
                 ))}
               </nav>
@@ -328,6 +339,11 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
+                {'badge' in tab && tab.badge > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {tab.badge > 9 ? '9+' : tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </nav>

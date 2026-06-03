@@ -55,6 +55,7 @@ export interface TimeOff {
   category?: TimeOffCategory;
   status?: TimeOffStatus; // default 'approved' for backwards compat
   halfDay?: boolean; // true = half day (counts as 0.5)
+  createdAt?: string; // ISO timestamp of when the request was submitted
 }
 
 export interface Notification {

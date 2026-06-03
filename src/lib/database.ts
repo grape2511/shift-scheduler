@@ -145,6 +145,7 @@ export async function fetchAllTimeOffs(): Promise<TimeOff[]> {
     category: t.category || undefined,
     status: t.status || 'approved',
     halfDay: t.half_day || false,
+    createdAt: t.created_at || undefined,
   }));
 }
 
@@ -157,6 +158,7 @@ export async function insertTimeOff(timeOff: TimeOff) {
     category: timeOff.category || null,
     status: timeOff.status || 'approved',
     half_day: timeOff.halfDay || false,
+    created_at: timeOff.createdAt || new Date().toISOString(),
   });
   if (error) console.error('insertTimeOff', error);
 }

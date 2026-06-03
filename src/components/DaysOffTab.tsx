@@ -72,9 +72,11 @@ export function DaysOffTab() {
       return;
     }
 
-    // Check for duplicate requests on the same date(s)
+    // Check for duplicate requests on the same date(s). A previously rejected
+    // request must NOT block a resubmission — circumstances may have changed and
+    // the agent is allowed to ask again. Only pending/approved records count.
     const checkDates = timeOffMode === 'period' && timeOffEndDate ? getDatesInRange(timeOffDate, timeOffEndDate) : [timeOffDate];
-    const duplicates = checkDates.filter(d => myTimeOffs.some(t => t.date === d));
+    const duplicates = checkDates.filter(d => myTimeOffs.some(t => t.date === d && (t.status || 'approved') !== 'rejected'));
     if (duplicates.length > 0) {
       alert(`You already have a day off request for: ${duplicates.join(', ')}`);
       return;
@@ -95,6 +97,7 @@ export function DaysOffTab() {
     }
     const isAdmin = state.currentUser.role === 'admin';
     const status = (isAdmin ? 'approved' : 'pending') as 'approved' | 'pending';
+    const submittedAt = new Date().toISOString();
 
     for (const date of effectiveDates) {
       const record = {
@@ -105,6 +108,7 @@ export function DaysOffTab() {
         category: timeOffCategory,
         status,
         halfDay: timeOffHalfDay,
+        createdAt: submittedAt,
       };
       dispatch({ type: 'ADD_TIME_OFF', payload: record });
       insertTimeOff(record);
@@ -156,7 +160,8 @@ export function DaysOffTab() {
   };
 
   const handleCalendarDayClick = (dateStr: string) => {
-    const existing = myTimeOffs.find(t => t.date === dateStr);
+    // A rejected request shouldn't lock the day — allow re-requesting it.
+    const existing = myTimeOffs.find(t => t.date === dateStr && (t.status || 'approved') !== 'rejected');
     if (!existing) {
       setTimeOffDate(dateStr);
       setShowForm(true);
@@ -179,8 +184,13 @@ export function DaysOffTab() {
 
   // Pending PTO requests for approval (admin only)
   const isApprover = state.currentUser.role === 'admin';
+  // Sort oldest-submitted first so requests can be approved in the order they
+  // came in (first-come-first-served). Fall back to the day-off date when a
+  // submission time is missing (legacy rows created before created_at existed).
   const pendingApprovals = isApprover
-    ? state.timeOffs.filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id).sort((a, b) => a.date.localeCompare(b.date))
+    ? state.timeOffs
+        .filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id)
+        .sort((a, b) => (a.createdAt || a.date).localeCompare(b.createdAt || b.date))
     : [];
 
   // Check if approving a time-off would drop any shift below minimum required.
@@ -330,6 +340,7 @@ export function DaysOffTab() {
         <div className="mb-6 bg-white rounded-xl border border-amber-200 overflow-hidden">
           <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-amber-800">Pending PTO Requests ({pendingApprovals.length})</h3>
+            <span className="text-[11px] text-amber-600">Oldest request first</span>
           </div>
           <div className="divide-y divide-gray-50">
             {pendingApprovals.map(to => {
@@ -351,6 +362,11 @@ export function DaysOffTab() {
                           {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">½ day</span>}
                           {to.reason && <span className="text-xs text-gray-400">– {to.reason}</span>}
                         </div>
+                        {to.createdAt && (
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            🕑 Requested {format(new Date(to.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -471,7 +487,10 @@ export function DaysOffTab() {
               <div className="grid grid-cols-7 gap-px bg-gray-200">
                 {calDays.map(day => {
                   const dateStr = formatDate(day);
-                  const timeOff = myTimeOffs.find(t => t.date === dateStr);
+                  // Ignore rejected records here: a rejected day is effectively free
+                  // again (it stays visible in the Rejected list below) and must be
+                  // re-requestable. After resubmission this picks the new pending one.
+                  const timeOff = myTimeOffs.find(t => t.date === dateStr && (t.status || 'approved') !== 'rejected');
                   const dayShifts = myShifts.filter(s => s.date === dateStr);
                   const inMonth = isSameMonth(day, calendarDate);
                   const isCurrentDay = isToday(day);
