@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { Plus, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
-import { TIME_OFF_CATEGORIES } from '../types';
+import { TIME_OFF_CATEGORIES, type User } from '../types';
+import { DeactivateAgentModal } from './DeactivateAgentModal';
 import { updateProfile } from '../lib/database';
 import * as db from '../lib/database';
 import { v4 as uuid } from 'uuid';
@@ -13,6 +14,7 @@ const TARGET_HOURS = 208;
 export function AgentsView() {
   const { state, agents, addAgent, dispatch, getMonthlyHours, getPtoBalance, setAgentActive } = useApp();
   const [showAdd, setShowAdd] = useState(false);
+  const [deactivateTarget, setDeactivateTarget] = useState<User | null>(null);
   const [showHolidayDropdown, setShowHolidayDropdown] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -336,8 +338,11 @@ export function AgentsView() {
                     <div
                       onClick={() => {
                         const newActive = agent.active === false ? true : false;
-                        if (!newActive && !confirm(`Deactivate ${agent.name}? They'll be signed out, blocked from logging back in, and removed from all upcoming shifts.`)) return;
-                        setAgentActive(agent.id, newActive);
+                        if (!newActive) {
+                          setDeactivateTarget(agent);
+                        } else {
+                          setAgentActive(agent.id, true);
+                        }
                       }}
                       className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${agent.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
                       title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
@@ -386,8 +391,11 @@ export function AgentsView() {
               <div
                 onClick={() => {
                   const newActive = agent.active === false ? true : false;
-                  if (!newActive && !confirm(`Deactivate ${agent.name}? They'll be signed out, blocked from logging back in, and removed from all upcoming shifts.`)) return;
-                  setAgentActive(agent.id, newActive);
+                  if (!newActive) {
+                    setDeactivateTarget(agent);
+                  } else {
+                    setAgentActive(agent.id, true);
+                  }
                 }}
                 className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${agent.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
                 title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
@@ -690,6 +698,10 @@ export function AgentsView() {
             </div>
           </div>
         </div>
+      )}
+
+      {deactivateTarget && (
+        <DeactivateAgentModal agent={deactivateTarget} onClose={() => setDeactivateTarget(null)} />
       )}
     </div>
   );

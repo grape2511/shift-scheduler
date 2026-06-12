@@ -678,7 +678,14 @@ interface AppContextType {
   getEnabledHolidayCountries: () => string[];
   getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number; sickUsed: number; sickTotal: number; sickRemaining: number };
   refreshData: () => Promise<void>;
-  setAgentActive: (agentId: string, active: boolean) => Promise<void>;
+  setAgentActive: (agentId: string, active: boolean, transferToAgentId?: string) => Promise<void>;
+  mirrorAgentSchedule: (
+    sourceAgentId: string,
+    targetAgentId: string,
+    refWeekStart: string,
+    targetStartDate: string,
+    weeks: number,
+  ) => Promise<{ patterns: number; shiftsAssigned: number }>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1029,10 +1036,11 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     });
   };
 
-  // Flip an agent active/inactive. Deactivation also strips them from every
-  // upcoming shift so the schedule doesn't keep counting on a terminated
-  // teammate. Past shifts are left alone to preserve history.
-  const setAgentActive = async (agentId: string, active: boolean) => {
+  // Flip an agent active/inactive. Deactivation strips them from every
+  // upcoming shift; when transferToAgentId is supplied the slot is handed
+  // over to that replacement instead of being left empty. Past shifts are
+  // left untouched so historical data stays intact.
+  const setAgentActive = async (agentId: string, active: boolean, transferToAgentId?: string) => {
     dispatch({ type: 'UPDATE_USER', payload: { id: agentId, updates: { active } } });
     await db.updateProfile(agentId, { active } as any);
     if (active) return;
@@ -1041,10 +1049,65 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       s => s.date >= todayStr && s.assignedAgentIds.includes(agentId),
     );
     for (const s of futureShifts) {
-      const newAgentIds = s.assignedAgentIds.filter(id => id !== agentId);
+      const remaining = s.assignedAgentIds.filter(id => id !== agentId);
+      const newAgentIds = transferToAgentId && !remaining.includes(transferToAgentId)
+        ? [...remaining, transferToAgentId]
+        : remaining;
       dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId } });
+      if (transferToAgentId && !s.assignedAgentIds.includes(transferToAgentId)) {
+        dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: s.id, agentId: transferToAgentId } });
+      }
       await db.updateShiftAssignment(s.id, newAgentIds);
     }
+  };
+
+  // Replicate one agent's weekly shift pattern onto another. Looks at every
+  // shift the source was assigned to during the reference week and, for each
+  // upcoming week, finds the matching shift (same name + day-of-week +
+  // start time) and adds the target agent to it. Useful when onboarding a
+  // replacement after a teammate has been terminated.
+  const mirrorAgentSchedule = async (
+    sourceAgentId: string,
+    targetAgentId: string,
+    refWeekStart: string,
+    targetStartDate: string,
+    weeks: number,
+  ) => {
+    const dayMs = 86400000;
+    const refStartTime = new Date(`${refWeekStart}T00:00:00Z`).getTime();
+    const refDates = new Set(
+      Array.from({ length: 7 }, (_, i) =>
+        new Date(refStartTime + i * dayMs).toISOString().slice(0, 10),
+      ),
+    );
+    const sourceShifts = state.shifts.filter(
+      s => refDates.has(s.date) && s.assignedAgentIds.includes(sourceAgentId),
+    );
+    type Pattern = { name: string; dow: number; startTime: string; refDate: string };
+    const patterns: Pattern[] = sourceShifts.map(s => ({
+      name: s.name,
+      dow: (new Date(`${s.date}T00:00:00Z`).getUTCDay() + 6) % 7, // Mon=0..Sun=6
+      startTime: s.startTime,
+      refDate: s.date,
+    }));
+    const targetStartTime = new Date(`${targetStartDate}T00:00:00Z`).getTime();
+    let assigned = 0;
+    for (let w = 0; w < weeks; w++) {
+      for (const p of patterns) {
+        const date = new Date(targetStartTime + (w * 7 + p.dow) * dayMs)
+          .toISOString()
+          .slice(0, 10);
+        const match = state.shifts.find(
+          s => s.date === date && s.name === p.name && s.startTime === p.startTime,
+        );
+        if (!match || match.assignedAgentIds.includes(targetAgentId)) continue;
+        const newAgentIds = [...match.assignedAgentIds, targetAgentId];
+        dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: match.id, agentId: targetAgentId } });
+        await db.updateShiftAssignment(match.id, newAgentIds);
+        assigned++;
+      }
+    }
+    return { patterns: patterns.length, shiftsAssigned: assigned };
   };
 
   const getPublicHolidaysForDate = (date: string) => {
@@ -1182,6 +1245,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       getPtoBalance,
       refreshData,
       setAgentActive,
+      mirrorAgentSchedule,
     }}>
       {children}
     </AppContext.Provider>

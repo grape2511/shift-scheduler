@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { updateProfile } from '../lib/database';
-import { Mail, Settings as SettingsIcon, Users } from 'lucide-react';
-import type { Role } from '../types';
+import { Mail, Settings as SettingsIcon, Users, Copy } from 'lucide-react';
+import type { Role, User } from '../types';
 import { AgentsView } from './AgentsView';
+import { DeactivateAgentModal } from './DeactivateAgentModal';
+import { ScheduleMirrorModal } from './ScheduleMirrorModal';
 
 const SLACK_NOTIFICATION_OPTIONS = [
   { key: 'slackNotifySwaps', label: 'Approved swaps', description: 'When both agents confirm a shift swap' },
@@ -41,6 +43,8 @@ export function SettingsView() {
   const { state, dispatch, setAgentActive } = useApp();
   const [testing, setTesting] = useState(false);
   const [subTab, setSubTab] = useState<SettingsSubTab>('general');
+  const [deactivateTarget, setDeactivateTarget] = useState<User | null>(null);
+  const [showMirror, setShowMirror] = useState(false);
   const prefs = getSlackPrefs(state.currentUser);
 
   const updateWebhookUrl = (url: string) => {
@@ -174,9 +178,19 @@ export function SettingsView() {
 
       {/* User Management */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">User Management</h3>
-          <p className="text-xs text-gray-500 mt-0.5">{state.users.length} users — manage roles and permissions</p>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">User Management</h3>
+            <p className="text-xs text-gray-500 mt-0.5">{state.users.length} users — manage roles and permissions</p>
+          </div>
+          <button
+            onClick={() => setShowMirror(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors shrink-0"
+            title="Replicate one agent's weekly shift pattern onto another"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            Copy schedule between agents
+          </button>
         </div>
 
         {/* Role legend */}
@@ -225,8 +239,11 @@ export function SettingsView() {
                   <div
                     onClick={() => {
                       const newActive = user.active === false ? true : false;
-                      if (!newActive && !confirm(`Deactivate ${user.name}? They'll be signed out, blocked from logging back in, and removed from all upcoming shifts.`)) return;
-                      setAgentActive(user.id, newActive);
+                      if (!newActive) {
+                        setDeactivateTarget(user);
+                      } else {
+                        setAgentActive(user.id, true);
+                      }
                     }}
                     className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${user.active !== false ? 'bg-green-500' : 'bg-gray-300'}`}
                     title={user.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
@@ -254,6 +271,11 @@ export function SettingsView() {
       </div>
         </div>
       )}
+
+      {deactivateTarget && (
+        <DeactivateAgentModal agent={deactivateTarget} onClose={() => setDeactivateTarget(null)} />
+      )}
+      {showMirror && <ScheduleMirrorModal onClose={() => setShowMirror(false)} />}
     </div>
   );
 }
