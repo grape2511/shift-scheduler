@@ -149,7 +149,7 @@ export async function fetchAllTimeOffs(): Promise<TimeOff[]> {
   }));
 }
 
-export async function insertTimeOff(timeOff: TimeOff) {
+export async function insertTimeOff(timeOff: TimeOff): Promise<boolean> {
   const { error } = await supabase.from('time_offs').insert({
     id: timeOff.id,
     user_id: timeOff.userId,
@@ -161,6 +161,7 @@ export async function insertTimeOff(timeOff: TimeOff) {
     created_at: timeOff.createdAt || new Date().toISOString(),
   });
   if (error) console.error('insertTimeOff', error);
+  return !error;
 }
 
 export async function deleteTimeOff(id: string) {

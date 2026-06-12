@@ -136,9 +136,9 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                   >
                     <tab.icon className="w-4 h-4" />
                     {tab.label}
-                    {'badge' in tab && tab.badge > 0 && (
+                    {'badge' in tab && (tab.badge ?? 0) > 0 && (
                       <span className="ml-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                        {tab.badge > 9 ? '9+' : tab.badge}
+                        {(tab.badge ?? 0) > 9 ? '9+' : tab.badge}
                       </span>
                     )}
                   </button>
@@ -339,9 +339,9 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
-                {'badge' in tab && tab.badge > 0 && (
+                {'badge' in tab && (tab.badge ?? 0) > 0 && (
                   <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {tab.badge > 9 ? '9+' : tab.badge}
+                    {(tab.badge ?? 0) > 9 ? '9+' : tab.badge}
                   </span>
                 )}
               </button>

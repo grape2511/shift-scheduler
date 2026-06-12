@@ -7,7 +7,7 @@ import { format, parseISO, isBefore, startOfDay, addMonths, addDays, isSameMonth
 import { getHolidays, getCountryName } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
-import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification, updateSwapRequestStatus } from '../lib/database';
+import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, updateSwapRequestStatus } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 
 export function MyShiftsView() {
@@ -20,6 +20,7 @@ export function MyShiftsView() {
   const [timeOffCategory, setTimeOffCategory] = useState<TimeOffCategory>('vacation');
   const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const myShifts = getShiftsForAgent(state.currentUser.id);
   const today = startOfDay(new Date());
@@ -44,8 +45,9 @@ export function MyShiftsView() {
     return dates;
   };
 
-  const handleAddTimeOff = (e: React.FormEvent) => {
+  const handleAddTimeOff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!timeOffDate) return;
     if (timeOffMode === 'period' && !timeOffEndDate) return;
     if (timeOffMode === 'period' && timeOffEndDate < timeOffDate) {
@@ -65,49 +67,53 @@ export function MyShiftsView() {
     const isAdmin = state.currentUser.role === 'admin';
     const status = (isAdmin ? 'approved' : 'pending') as 'approved' | 'pending';
 
-    for (const date of dates) {
-      const timeOffRecord = {
-        id: uuid(),
-        userId: state.currentUser.id,
-        date,
-        reason: timeOffReason || undefined,
-        category: timeOffCategory,
-        status,
-        halfDay: timeOffHalfDay,
-      };
-      dispatch({ type: 'ADD_TIME_OFF', payload: timeOffRecord });
-      insertTimeOff(timeOffRecord);
-    }
-
-    if (!isAdmin) {
-      const approver = state.users.find(u => u.role === 'admin');
-      const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} days)` : timeOffDate;
-      if (approver) {
-        const notif = {
+    setIsSubmitting(true);
+    try {
+      let anyInserted = false;
+      for (const date of dates) {
+        const timeOffRecord = {
           id: uuid(),
-          userId: approver.id,
-          message: `${state.currentUser.name} is requesting ${timeOffHalfDay ? 'half day' : ''} ${timeOffCategory || 'time'} off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`,
-          timestamp: new Date().toISOString(),
-          read: false,
-          type: 'info' as const,
+          userId: state.currentUser.id,
+          date,
+          reason: timeOffReason || undefined,
+          category: timeOffCategory,
+          status,
+          halfDay: timeOffHalfDay,
         };
-        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
-        insertNotification(notif);
+        const ok = await insertTimeOff(timeOffRecord);
+        if (ok) {
+          dispatch({ type: 'ADD_TIME_OFF', payload: timeOffRecord });
+          anyInserted = true;
+        }
       }
-      const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-      if (slackUrl) {
-        sendSlackNotification(slackUrl,
-          `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory}) off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`
-        );
+
+      // Every date was a duplicate (rejected by the DB) — don't notify.
+      if (!anyInserted) {
+        alert('You already have a day off request for the selected date(s).');
+        return;
       }
+
+      if (!isAdmin) {
+        // New requests surface as the red badge on the Days Off tab — no bell
+        // notification for the admin (Slack still fires below).
+        const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} days)` : timeOffDate;
+        const slackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
+        if (slackUrl) {
+          sendSlackNotification(slackUrl,
+            `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory}) off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`
+          );
+        }
+      }
+      setTimeOffDate('');
+      setTimeOffEndDate('');
+      setTimeOffMode('single');
+      setTimeOffReason('');
+      setTimeOffCategory('vacation');
+      setTimeOffHalfDay(false);
+      setShowTimeOff(false);
+    } finally {
+      setIsSubmitting(false);
     }
-    setTimeOffDate('');
-    setTimeOffEndDate('');
-    setTimeOffMode('single');
-    setTimeOffReason('');
-    setTimeOffCategory('vacation');
-    setTimeOffHalfDay(false);
-    setShowTimeOff(false);
   };
 
   const handleCalendarDayClick = (dateStr: string) => {
@@ -328,7 +334,7 @@ export function MyShiftsView() {
           )}
           <div className="flex gap-2 mt-3">
             <button type="button" onClick={() => { setShowTimeOff(false); setTimeOffDate(''); setTimeOffEndDate(''); setTimeOffMode('single'); }} className="px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-100 rounded-lg transition-colors">Cancel</button>
-            <button type="submit" className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors">Submit</button>
+            <button type="submit" disabled={isSubmitting} className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">{isSubmitting ? 'Submitting…' : 'Submit'}</button>
           </div>
         </form>
       )}

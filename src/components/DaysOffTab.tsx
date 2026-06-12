@@ -9,6 +9,7 @@ import { getHolidays, getCountryName } from '../utils/holidays';
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
 import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification, updateShiftAssignment } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
+import { ScheduleView } from './ScheduleView';
 
 export function DaysOffTab() {
   const { state, dispatch, getPtoBalance } = useApp();
@@ -20,6 +21,7 @@ export function DaysOffTab() {
   const [timeOffCategory, setTimeOffCategory] = useState<TimeOffCategory>('vacation');
   const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const now = new Date();
   const myTimeOffs = state.timeOffs.filter(t => t.userId === state.currentUser.id);
@@ -63,8 +65,9 @@ export function DaysOffTab() {
     return warnings;
   })();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!timeOffDate) return;
     if (timeOffMode === 'period' && !timeOffEndDate) return;
     if (timeOffMode === 'period' && timeOffEndDate < timeOffDate) {
@@ -99,59 +102,63 @@ export function DaysOffTab() {
     const status = (isAdmin ? 'approved' : 'pending') as 'approved' | 'pending';
     const submittedAt = new Date().toISOString();
 
-    for (const date of effectiveDates) {
-      const record = {
-        id: uuid(),
-        userId: state.currentUser.id,
-        date,
-        reason: timeOffReason || undefined,
-        category: timeOffCategory,
-        status,
-        halfDay: timeOffHalfDay,
-        createdAt: submittedAt,
-      };
-      dispatch({ type: 'ADD_TIME_OFF', payload: record });
-      insertTimeOff(record);
-    }
-
-    const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} working days)` : timeOffDate;
-    const slackAdmin = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
-    const slackPrefs = slackAdmin?.slackNotifications || {};
-
-    if (!isAdmin) {
-      const approver = state.users.find(u => u.role === 'admin');
-      if (approver) {
-        const notif = {
+    setIsSubmitting(true);
+    try {
+      let anyInserted = false;
+      for (const date of effectiveDates) {
+        const record = {
           id: uuid(),
-          userId: approver.id,
-          message: `${state.currentUser.name} is requesting ${timeOffHalfDay ? 'half day' : ''} ${timeOffCategory || 'time'} off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`,
-          timestamp: new Date().toISOString(),
-          read: false,
-          type: 'info' as const,
+          userId: state.currentUser.id,
+          date,
+          reason: timeOffReason || undefined,
+          category: timeOffCategory,
+          status,
+          halfDay: timeOffHalfDay,
+          createdAt: submittedAt,
         };
-        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
-        insertNotification(notif);
+        const ok = await insertTimeOff(record);
+        if (ok) {
+          dispatch({ type: 'ADD_TIME_OFF', payload: record });
+          anyInserted = true;
+        }
       }
-      if (slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
-        sendSlackNotification(slackAdmin.slackWebhookUrl,
-          `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory}) off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`
-        );
-      }
-    } else {
-      if (slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
-        sendSlackNotification(slackAdmin.slackWebhookUrl,
-          `📅 *Admin day off scheduled*: ${state.currentUser.name} will be off on ${dateLabel} — *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory})${timeOffReason ? ` — ${timeOffReason}` : ''}`
-        );
-      }
-    }
 
-    setTimeOffDate('');
-    setTimeOffEndDate('');
-    setTimeOffMode('single');
-    setTimeOffReason('');
-    setTimeOffCategory('vacation');
-    setTimeOffHalfDay(false);
-    setShowForm(false);
+      // Every date was a duplicate (rejected by the DB) — don't notify.
+      if (!anyInserted) {
+        alert('You already have a day off request for the selected date(s).');
+        return;
+      }
+
+      const dateLabel = daysCount > 1 ? `${timeOffDate} to ${timeOffEndDate} (${daysCount} working days)` : timeOffDate;
+      const slackAdmin = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+      const slackPrefs = slackAdmin?.slackNotifications || {};
+
+      if (!isAdmin) {
+        // New requests surface as the red badge on the Days Off tab — no bell
+        // notification for the admin (Slack still fires below).
+        if (slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
+          sendSlackNotification(slackAdmin.slackWebhookUrl,
+            `🏖️ *Time off request*: ${state.currentUser.name} is requesting *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory}) off on ${dateLabel}${timeOffReason ? ` — ${timeOffReason}` : ''}`
+          );
+        }
+      } else {
+        if (slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
+          sendSlackNotification(slackAdmin.slackWebhookUrl,
+            `📅 *Admin day off scheduled*: ${state.currentUser.name} will be off on ${dateLabel} — *${timeOffHalfDay ? 'half day' : 'full day'}* (${timeOffCategory})${timeOffReason ? ` — ${timeOffReason}` : ''}`
+          );
+        }
+      }
+
+      setTimeOffDate('');
+      setTimeOffEndDate('');
+      setTimeOffMode('single');
+      setTimeOffReason('');
+      setTimeOffCategory('vacation');
+      setTimeOffHalfDay(false);
+      setShowForm(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleRemove = (id: string) => {
@@ -293,7 +300,7 @@ export function DaysOffTab() {
     .slice(0, 20);
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className={isApprover ? undefined : 'max-w-5xl mx-auto'}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Days Off</h2>
@@ -461,11 +468,16 @@ export function DaysOffTab() {
           )}
           <div className="flex gap-2 mt-3">
             <button type="button" onClick={() => { setShowForm(false); setTimeOffDate(''); setTimeOffEndDate(''); setTimeOffMode('single'); }} className="px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700">Submit</button>
+            <button type="submit" disabled={isSubmitting} className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed">{isSubmitting ? 'Submitting…' : 'Submit'}</button>
           </div>
         </form>
       )}
 
+      {/* Admins see the full team schedule here; agents keep their own
+          calendar and request lists (their only place to track/cancel them). */}
+      {isApprover ? (
+        <ScheduleView />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Calendar */}
         <div>
@@ -728,6 +740,7 @@ export function DaysOffTab() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
