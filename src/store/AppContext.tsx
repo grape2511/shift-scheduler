@@ -780,8 +780,9 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     if (lastCheck === todayStr) return;
     localStorage.setItem('slack_weekly_check_date', todayStr);
 
-    const weekStart = new Date(today);
-    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(thisWeekStart.getDate() - ((thisWeekStart.getDay() + 6) % 7)); // Monday
+    const nextWeekStart = addDays(thisWeekStart, 7);
     const MIN_SHIFTS = 5;
     const SHIFT_LABELS = ['USA Shift', 'EU Shift', 'Mid Shift'];
     const agents = state.users.filter(u => {
@@ -789,33 +790,52 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       const labels = u.labels || (u.label ? [u.label] : []);
       return labels.some(l => SHIFT_LABELS.includes(l));
     });
-    const weekDateSet = new Set(
-      Array.from({ length: 7 }, (_, i) => formatDate(addDays(weekStart, i)))
-    );
-    const underAssigned: string[] = [];
 
-    agents.forEach(agent => {
-      let weekShiftCount = 0;
-      for (let i = 0; i < 7; i++) {
-        const ds = formatDate(addDays(weekStart, i));
-        if (state.shifts.some(sh => sh.date === ds && sh.assignedAgentIds.includes(agent.id))) {
-          weekShiftCount++;
+    // List agents below their weekly minimum (5 minus approved days off) for the
+    // given week. For the look-ahead week, agents with zero shifts are skipped —
+    // their schedule likely isn't built yet, so flagging them would be noise. We
+    // only want the "scheduled but short" case (e.g. 4/5), which is the abuse
+    // signal worth catching before the week starts.
+    const underAssignedFor = (weekStart: Date, skipUnscheduled: boolean): string[] => {
+      const weekDateSet = new Set(
+        Array.from({ length: 7 }, (_, i) => formatDate(addDays(weekStart, i)))
+      );
+      const under: string[] = [];
+      agents.forEach(agent => {
+        let weekShiftCount = 0;
+        for (let i = 0; i < 7; i++) {
+          const ds = formatDate(addDays(weekStart, i));
+          if (state.shifts.some(sh => sh.date === ds && sh.assignedAgentIds.includes(agent.id))) {
+            weekShiftCount++;
+          }
         }
-      }
-      const approvedDaysOff = state.timeOffs
-        .filter(t => t.userId === agent.id && (t.status || 'approved') === 'approved' && weekDateSet.has(t.date))
-        .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
-      const adjustedMin = Math.max(0, MIN_SHIFTS - approvedDaysOff);
-      if (weekShiftCount < adjustedMin) {
-        const offSuffix = approvedDaysOff > 0 ? `, ${approvedDaysOff} approved off` : '';
-        underAssigned.push(`${agent.name} (${weekShiftCount}${offSuffix})`);
-      }
-    });
+        if (skipUnscheduled && weekShiftCount === 0) return;
+        const approvedDaysOff = state.timeOffs
+          .filter(t => t.userId === agent.id && (t.status || 'approved') === 'approved' && weekDateSet.has(t.date))
+          .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
+        const adjustedMin = Math.max(0, MIN_SHIFTS - approvedDaysOff);
+        if (weekShiftCount < adjustedMin) {
+          const offSuffix = approvedDaysOff > 0 ? `, ${approvedDaysOff} approved off` : '';
+          under.push(`${agent.name} (${weekShiftCount}/${adjustedMin}${offSuffix})`);
+        }
+      });
+      return under;
+    };
 
-    if (underAssigned.length > 0) {
-      const weekLabel = formatDate(weekStart);
+    const thisUnder = underAssignedFor(thisWeekStart, false);
+    const nextUnder = underAssignedFor(nextWeekStart, true);
+
+    const sections: string[] = [];
+    if (thisUnder.length > 0) {
+      sections.push(`*This week* (of ${formatDate(thisWeekStart)}):\n${thisUnder.map(a => `• ${a}`).join('\n')}`);
+    }
+    if (nextUnder.length > 0) {
+      sections.push(`*Next week* (of ${formatDate(nextWeekStart)}):\n${nextUnder.map(a => `• ${a}`).join('\n')}`);
+    }
+
+    if (sections.length > 0) {
       sendSlackNotification(slackUrl,
-        `⚠️ *Weekly coverage alert* (week of ${weekLabel}):\n${underAssigned.length} agent${underAssigned.length > 1 ? 's' : ''} below adjusted minimum (approved days off subtracted from ${MIN_SHIFTS}):\n${underAssigned.map(a => `• ${a}`).join('\n')}`
+        `⚠️ *Weekly coverage alert* — agents below ${MIN_SHIFTS} shifts (approved days off subtracted):\n\n${sections.join('\n\n')}`
       );
     }
   }, [state.shifts, state.users, state.timeOffs]);
@@ -857,7 +877,8 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         if (clock?.clockIn) return; // they clocked in
         const agent = state.users.find(u => u.id === agentId);
         if (!agent || agent.active === false) return;
-        alerts.push(`• ${agent.name} — "${shift.name}" (${shift.date} ${shift.startTime} ${shift.timezone})`);
+        const firstName = agent.name.split(' ')[0];
+        alerts.push(`• ${firstName} — "${shift.name}" (${shift.date} ${shift.startTime} ${shift.timezone})`);
         alerted.add(key);
       });
     });
