@@ -166,3 +166,20 @@ create index idx_clock_records_user on clock_records(user_id);
 
 -- Add notes column to shifts
 alter table shifts add column if not exists notes text;
+
+-- ============================================
+-- Shift announcement log (Slack roster announcements)
+-- ============================================
+-- Internal idempotency log written ONLY by the announce_shift_roster()
+-- SECURITY DEFINER function. No client/frontend code reads this table.
+create table if not exists shift_announcement_log (
+  shift_date date not null,
+  shift_name text not null,
+  posted_at timestamptz not null default now(),
+  primary key (shift_date, shift_name)
+);
+
+-- RLS is enabled with NO policies on purpose: this blocks all direct
+-- anon/authenticated API access, while announce_shift_roster() keeps working
+-- because SECURITY DEFINER functions bypass RLS.
+alter table shift_announcement_log enable row level security;
