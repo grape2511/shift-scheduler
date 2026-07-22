@@ -47,6 +47,7 @@ type Action =
   | { type: 'UPDATE_SHIFT_FUTURE'; payload: Shift }
   | { type: 'CLOCK_IN'; payload: ClockRecord }
   | { type: 'CLOCK_OUT'; payload: { shiftId: string; userId: string; clockOut: string } }
+  | { type: 'UPSERT_CLOCK_RECORD'; payload: ClockRecord }
   | { type: 'LOAD_STATE'; payload: AppState };
 
 const defaultAdmin: User = {
@@ -651,6 +652,16 @@ function reducer(state: AppState, action: Action): AppState {
             : r
         ),
       };
+
+    case 'UPSERT_CLOCK_RECORD': {
+      const exists = state.clockRecords.some(r => r.id === action.payload.id);
+      return {
+        ...state,
+        clockRecords: exists
+          ? state.clockRecords.map(r => (r.id === action.payload.id ? action.payload : r))
+          : [...state.clockRecords, action.payload],
+      };
+    }
 
     default:
       return state;

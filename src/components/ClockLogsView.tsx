@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
+import { v4 as uuid } from 'uuid';
 import { useApp } from '../store/AppContext';
 import { getUserTimezone, convertTime } from '../utils/timezone';
+import { upsertClockRecord, insertNotification } from '../lib/database';
+import type { ClockRecord } from '../types';
 import { format, parseISO } from 'date-fns';
-import { Clock, AlertCircle, CheckCircle2, CircleAlert, PlayCircle, Filter } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle2, CircleAlert, PlayCircle, Filter, Pencil, X } from 'lucide-react';
 
 const RANGE_OPTIONS = [
   { value: 7, label: 'Last 7 days' },
@@ -47,14 +50,93 @@ function shiftEndUtcMs(date: string, startTime: string, endTime: string, timezon
   return shiftStartUtcMs(endDate, endTime, timezone);
 }
 
+interface EditTarget {
+  shiftId: string;
+  agentId: string;
+  agentName: string;
+  shiftName: string;
+  shiftDate: string;
+  shiftTimezone: string;
+  clockInIso: string | null;
+  clockOutIso: string | null;
+}
+
+// Render an ISO instant as HH:MM in the shift's own timezone, for the time inputs.
+function isoToLocalHHMM(iso: string | null, tz: string): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
+}
+
 export function ClockLogsView() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
+  const isAdmin = state.currentUser.role === 'admin';
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | Status>('all');
   const [rangeDays, setRangeDays] = useState<number>(30);
   const [includeMissing, setIncludeMissing] = useState<boolean>(true);
+  const [edit, setEdit] = useState<EditTarget | null>(null);
+  const [editIn, setEditIn] = useState('');
+  const [editOut, setEditOut] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const viewerTz = getUserTimezone(state.currentUser.timezone, state.currentUser.country);
+
+  const openEdit = (t: EditTarget) => {
+    setEdit(t);
+    setEditIn(isoToLocalHHMM(t.clockInIso, t.shiftTimezone));
+    setEditOut(isoToLocalHHMM(t.clockOutIso, t.shiftTimezone));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!edit || saving) return;
+    if (editOut && !editIn) {
+      alert('Set a clock-in time before a clock-out time.');
+      return;
+    }
+    setSaving(true);
+    try {
+      // Times are entered in the shift's timezone; convert back to UTC instants.
+      const clockIn = editIn ? new Date(shiftStartUtcMs(edit.shiftDate, editIn, edit.shiftTimezone)).toISOString() : null;
+      let clockOut: string | null = null;
+      if (editOut) {
+        // A clock-out at or before clock-in means the shift ran past midnight.
+        const nextDay = new Date(new Date(`${edit.shiftDate}T00:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10);
+        const outDate = editIn && editOut <= editIn ? nextDay : edit.shiftDate;
+        clockOut = new Date(shiftStartUtcMs(outDate, editOut, edit.shiftTimezone)).toISOString();
+      }
+
+      const existing = state.clockRecords.find(r => r.shiftId === edit.shiftId && r.userId === edit.agentId);
+      const record: ClockRecord = {
+        id: existing?.id || uuid(),
+        shiftId: edit.shiftId,
+        userId: edit.agentId,
+        clockIn,
+        clockOut,
+      };
+
+      dispatch({ type: 'UPSERT_CLOCK_RECORD', payload: record });
+      await upsertClockRecord(record);
+
+      // Leave an audit note in the admin's Activity log.
+      const summary = clockIn
+        ? `${isoToLocalHHMM(clockIn, edit.shiftTimezone)}–${clockOut ? isoToLocalHHMM(clockOut, edit.shiftTimezone) : '—'}`
+        : 'cleared';
+      const notif = {
+        id: uuid(),
+        userId: state.currentUser.id,
+        message: `You edited ${edit.agentName}'s clock times for "${edit.shiftName}" on ${edit.shiftDate} → ${summary} (${edit.shiftTimezone})`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        type: 'change' as const,
+      };
+      dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+      insertNotification(notif);
+
+      setEdit(null);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const agents = useMemo(
     () => state.users
@@ -253,6 +335,7 @@ export function ClockLogsView() {
                   <th className="px-4 py-2.5 text-left font-medium">Clocked out</th>
                   <th className="px-4 py-2.5 text-left font-medium">Duration</th>
                   <th className="px-4 py-2.5 text-left font-medium">Status</th>
+                  {isAdmin && <th className="px-4 py-2.5 text-right font-medium">Edit</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -295,6 +378,27 @@ export function ClockLogsView() {
                           {b.label}
                         </span>
                       </td>
+                      {isAdmin && (
+                        <td className="px-4 py-2.5 text-right">
+                          <button
+                            onClick={() => openEdit({
+                              shiftId: r.shiftId,
+                              agentId: r.agentId,
+                              agentName: r.agentName,
+                              shiftName: r.shiftName,
+                              shiftDate: r.shiftDate,
+                              shiftTimezone: r.shiftTimezone,
+                              clockInIso: r.clockInIso,
+                              clockOutIso: r.clockOutIso,
+                            })}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-2 py-1 rounded-lg transition-colors"
+                            title="Edit clock-in / clock-out times"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -304,6 +408,46 @@ export function ClockLogsView() {
           <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {rows.length} record{rows.length === 1 ? '' : 's'} · &gt;{LATE_THRESHOLD_MIN} min after start counts as late
+          </div>
+        </div>
+      )}
+
+      {/* Admin: edit clock-in / clock-out times */}
+      {edit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !saving && setEdit(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Edit clock times</h3>
+              <button onClick={() => !saving && setEdit(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                <span className="font-medium text-gray-900 dark:text-gray-100">{edit.agentName}</span> · {edit.shiftName} · {format(parseISO(edit.shiftDate), 'EEE, MMM d, yyyy')}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Clock in</label>
+                  <input type="time" value={editIn} onChange={e => setEditIn(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Clock out</label>
+                  <input type="time" value={editOut} onChange={e => setEditOut(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                Times are in the shift's timezone ({edit.shiftTimezone}). Leave both blank to clear the record (marks it a no-show). A clock-out earlier than clock-in is treated as the next day.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100 dark:border-gray-700">
+              <button onClick={() => setEdit(null)} disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-60">Cancel</button>
+              <button onClick={handleSaveEdit} disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
           </div>
         </div>
       )}
