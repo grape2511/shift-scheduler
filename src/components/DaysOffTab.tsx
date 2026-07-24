@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
-import { Calendar, X, ChevronLeft, ChevronRight, Plus, Check } from 'lucide-react';
-import { updateTimeOffStatus } from '../lib/database';
+import { Calendar, X, ChevronLeft, ChevronRight, Plus, Check, Pencil } from 'lucide-react';
+import { updateTimeOffStatus, updateTimeOff } from '../lib/database';
 import { format, parseISO, addMonths, addDays, isSameMonth, isToday } from 'date-fns';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { getHolidays, getCountryName } from '../utils/holidays';
-import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
+import { TIME_OFF_CATEGORIES, type TimeOffCategory, type TimeOff } from '../types';
 import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification, updateShiftAssignment } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import { ScheduleView } from './ScheduleView';
@@ -22,6 +22,13 @@ export function DaysOffTab() {
   const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Editing an already-submitted request (pending or approved)
+  const [editing, setEditing] = useState<TimeOff | null>(null);
+  const [editHalfDay, setEditHalfDay] = useState(false);
+  const [editCategory, setEditCategory] = useState<TimeOffCategory>('vacation');
+  const [editReason, setEditReason] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   const now = new Date();
   const myTimeOffs = state.timeOffs.filter(t => t.userId === state.currentUser.id);
@@ -164,6 +171,78 @@ export function DaysOffTab() {
   const handleRemove = (id: string) => {
     dispatch({ type: 'REMOVE_TIME_OFF', payload: id });
     dbDeleteTimeOff(id);
+  };
+
+  const openEdit = (to: TimeOff) => {
+    setEditing(to);
+    setEditHalfDay(!!to.halfDay);
+    setEditCategory((to.category as TimeOffCategory) || 'vacation');
+    setEditReason(to.reason || '');
+  };
+
+  // Save an edit to a request that was already submitted. A half↔full change on an
+  // *approved* request also has to fix the roster, because approval only unassigns
+  // the agent for full days — a half day leaves them on shift.
+  const handleSaveEdit = async () => {
+    if (!editing || editSaving) return;
+    const to = editing;
+    const wasHalf = !!to.halfDay;
+    const status = to.status || 'approved';
+    const changed = wasHalf !== editHalfDay || (to.category || 'vacation') !== editCategory || (to.reason || '') !== editReason;
+    if (!changed) { setEditing(null); return; }
+
+    setEditSaving(true);
+    try {
+      const ok = await updateTimeOff(to.id, { category: editCategory, halfDay: editHalfDay, reason: editReason });
+      if (!ok) { alert('Could not save the change — please try again.'); return; }
+      dispatch({ type: 'UPDATE_TIME_OFF', payload: { id: to.id, updates: { category: editCategory, halfDay: editHalfDay, reason: editReason || undefined } } });
+
+      // Half → full on an approved request: take them off that day's shifts.
+      let rosterNote = '';
+      if (status === 'approved' && wasHalf && !editHalfDay) {
+        const shiftsOnDay = state.shifts.filter(s => s.date === to.date && s.assignedAgentIds.includes(to.userId));
+        shiftsOnDay.forEach(s => {
+          const newAgentIds = s.assignedAgentIds.filter(aid => aid !== to.userId);
+          dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: s.id, agentId: to.userId } });
+          updateShiftAssignment(s.id, newAgentIds);
+        });
+        if (shiftsOnDay.length > 0) rosterNote = ` — removed from ${shiftsOnDay.length} shift${shiftsOnDay.length > 1 ? 's' : ''}`;
+      }
+      // Full → half on an approved request: they're back on shift for half the day,
+      // but we can't know which shift they were pulled from, so the admin re-adds them.
+      if (status === 'approved' && !wasHalf && editHalfDay) {
+        rosterNote = ' — admin may need to re-add them to that day\'s shift';
+      }
+
+      const isMine = to.userId === state.currentUser.id;
+      const label = `${wasHalf ? 'half day' : 'full day'} → ${editHalfDay ? 'half day' : 'full day'} (${editCategory})`;
+
+      // Tell the admin whenever an agent changes something already approved.
+      const slackAdmin = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl);
+      const slackPrefs = slackAdmin?.slackNotifications || {};
+      if (isMine && state.currentUser.role !== 'admin' && slackAdmin?.slackWebhookUrl && (slackPrefs.slackNotifyTimeOff ?? true)) {
+        sendSlackNotification(slackAdmin.slackWebhookUrl,
+          `✏️ *Time off updated*: ${state.currentUser.name} changed their ${status} day off on ${to.date} — ${label}${rosterNote}`
+        );
+      }
+      // Admin edited someone else's request — let that agent know.
+      if (!isMine) {
+        const notif = {
+          id: uuid(),
+          userId: to.userId,
+          message: `Your day off on ${to.date} was updated by ${state.currentUser.name}: ${label}`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          type: 'info' as const,
+        };
+        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+        insertNotification(notif);
+      }
+
+      setEditing(null);
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const handleCalendarDayClick = (dateStr: string) => {
@@ -377,6 +456,10 @@ export function DaysOffTab() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button onClick={() => openEdit(to)} title="Edit this request" className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100">
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
                       <button onClick={() => handleReject(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">
                         <X className="w-3 h-3" />
                         Reject
@@ -640,7 +723,10 @@ export function DaysOffTab() {
                         {to.halfDay && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded text-indigo-700 bg-indigo-50">½</span>}
                         <span className="px-1.5 py-0.5 text-[10px] font-medium rounded text-amber-700 bg-amber-100">⏳ Pending</span>
                       </div>
-                      <button onClick={() => handleRemove(to.id)} className="p-0.5 text-gray-300 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openEdit(to)} title="Edit this request" className="p-0.5 text-gray-300 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleRemove(to.id)} className="p-0.5 text-gray-300 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                      </div>
                     </div>
                   );
                 })}
@@ -665,7 +751,10 @@ export function DaysOffTab() {
                         {to.halfDay && <span className="px-1.5 py-0.5 text-[10px] font-medium rounded text-indigo-700 bg-indigo-50">½</span>}
                         {to.reason && <span className="text-gray-400 text-xs">– {to.reason}</span>}
                       </div>
-                      <button onClick={() => handleRemove(to.id)} className="p-0.5 text-gray-300 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openEdit(to)} title="Edit this day off" className="p-0.5 text-gray-300 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleRemove(to.id)} className="p-0.5 text-gray-300 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                      </div>
                     </div>
                   );
                 })}
@@ -740,6 +829,59 @@ export function DaysOffTab() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Edit an already-submitted request */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !editSaving && setEditing(null)}>
+          <div className="w-full max-w-md bg-white rounded-xl shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Edit day off</h3>
+                <p className="text-xs text-gray-500">
+                  {format(parseISO(editing.date), 'EEEE, MMM d, yyyy')}
+                  {editing.userId !== state.currentUser.id && ` · ${state.users.find(u => u.id === editing.userId)?.name || ''}`}
+                </p>
+              </div>
+              <button onClick={() => setEditing(null)} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Length</label>
+                <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                  <button type="button" onClick={() => setEditHalfDay(false)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!editHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Full Day</button>
+                  <button type="button" onClick={() => setEditHalfDay(true)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${editHalfDay ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Half Day</button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Reason</label>
+                <select value={editCategory} onChange={e => setEditCategory(e.target.value as TimeOffCategory)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                  {TIME_OFF_CATEGORIES.map(c => (<option key={c.value} value={c.value}>{c.label}</option>))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Note (optional)</label>
+                <input type="text" value={editReason} onChange={e => setEditReason(e.target.value)} placeholder="Additional details" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+
+              {(editing.status || 'approved') === 'approved' && !!editing.halfDay !== editHalfDay && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                  {editHalfDay
+                    ? '⚠️ Switching an approved full day to a half day means you stay on shift — your admin may need to put you back on that day\'s roster.'
+                    : '⚠️ Switching to a full day will take you off that day\'s shifts. Your admin is notified.'}
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
+              <button onClick={() => setEditing(null)} disabled={editSaving} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+              <button onClick={handleSaveEdit} disabled={editSaving} className="px-4 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-60">{editSaving ? 'Saving…' : 'Save changes'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

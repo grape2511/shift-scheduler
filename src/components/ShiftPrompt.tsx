@@ -3,6 +3,7 @@ import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { LogIn, LogOut, X } from 'lucide-react';
 import { convertTime, getUserTimezone } from '../utils/timezone';
+import { confirmClockOut } from '../utils/clock';
 
 export function ShiftPrompt() {
   const { state, dispatch, getShiftsForAgent, getClockRecord } = useApp();
@@ -101,6 +102,7 @@ export function ShiftPrompt() {
   };
 
   const handleClockOut = (shiftId: string) => {
+    if (!confirmClockOut(getClockRecord(shiftId, state.currentUser.id))) return;
     dispatch({
       type: 'CLOCK_OUT',
       payload: {

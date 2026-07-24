@@ -7,6 +7,7 @@ import { v4 as uuid } from 'uuid';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts, insertNotification } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import { getTaskAssignments, TASK_STYLES } from '../utils/tasks';
+import { confirmClockOut } from '../utils/clock';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -183,6 +184,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   };
 
   const handleClockOut = () => {
+    if (!confirmClockOut(myClockRecord)) return;
     dispatch({
       type: 'CLOCK_OUT',
       payload: {

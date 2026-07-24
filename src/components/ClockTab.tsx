@@ -3,6 +3,7 @@ import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { LogIn, LogOut, Clock, Calendar } from 'lucide-react';
 import { convertTime, getUserTimezone } from '../utils/timezone';
+import { confirmClockOut } from '../utils/clock';
 import { format } from 'date-fns';
 
 export function ClockTab() {
@@ -50,6 +51,7 @@ export function ClockTab() {
   };
 
   const handleClockOut = (shiftId: string) => {
+    if (!confirmClockOut(getClockRecord(shiftId, state.currentUser.id))) return;
     dispatch({
       type: 'CLOCK_OUT',
       payload: { shiftId, userId: state.currentUser.id, clockOut: new Date().toISOString() },

@@ -9,6 +9,7 @@ import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from 
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
 import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, updateSwapRequestStatus } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
+import { confirmClockOut } from '../utils/clock';
 
 export function MyShiftsView() {
   const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours, getPtoBalance } = useApp();
@@ -626,6 +627,7 @@ function ActiveShiftClock() {
   };
 
   const handleClockOut = (shiftId: string) => {
+    if (!confirmClockOut(state.clockRecords.find(r => r.shiftId === shiftId && r.userId === state.currentUser.id))) return;
     dispatch({
       type: 'CLOCK_OUT',
       payload: { shiftId, userId: state.currentUser.id, clockOut: new Date().toISOString() },

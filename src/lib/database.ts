@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord } from '../types';
+import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord } from '../types';
 
 // ---- Profiles ----
 
@@ -172,6 +172,22 @@ export async function deleteTimeOff(id: string) {
 export async function updateTimeOffStatus(id: string, status: string) {
   const { error } = await supabase.from('time_offs').update({ status }).eq('id', id);
   if (error) console.error('updateTimeOffStatus', error);
+}
+
+// Edit an already-submitted request (half/full day, category, note). Agents may
+// edit their own rows and admins any row — both covered by existing RLS policies.
+export async function updateTimeOff(
+  id: string,
+  updates: { category?: TimeOffCategory; halfDay?: boolean; reason?: string; status?: TimeOffStatus },
+): Promise<boolean> {
+  const payload: Record<string, unknown> = {};
+  if (updates.category !== undefined) payload.category = updates.category;
+  if (updates.halfDay !== undefined) payload.half_day = updates.halfDay;
+  if (updates.reason !== undefined) payload.reason = updates.reason || null;
+  if (updates.status !== undefined) payload.status = updates.status;
+  const { error } = await supabase.from('time_offs').update(payload).eq('id', id);
+  if (error) console.error('updateTimeOff', error);
+  return !error;
 }
 
 // ---- Notifications ----

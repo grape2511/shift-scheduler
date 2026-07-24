@@ -33,6 +33,7 @@ type Action =
   | { type: 'UNASSIGN_AGENT'; payload: { shiftId: string; agentId: string } }
   | { type: 'ADD_TIME_OFF'; payload: TimeOff }
   | { type: 'UPDATE_TIME_OFF_STATUS'; payload: { id: string; status: string } }
+  | { type: 'UPDATE_TIME_OFF'; payload: { id: string; updates: Partial<TimeOff> } }
   | { type: 'REMOVE_TIME_OFF'; payload: string }
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'MARK_NOTIFICATION_READ'; payload: string }
@@ -498,6 +499,14 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         timeOffs: state.timeOffs.map(t =>
           t.id === action.payload.id ? { ...t, status: action.payload.status as any } : t
+        ),
+      };
+
+    case 'UPDATE_TIME_OFF':
+      return {
+        ...state,
+        timeOffs: state.timeOffs.map(t =>
+          t.id === action.payload.id ? { ...t, ...action.payload.updates } : t
         ),
       };
 
