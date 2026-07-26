@@ -1,6 +1,24 @@
 import { supabase } from './supabase';
 import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord } from '../types';
 
+// PostgREST caps a single .select() at 1000 rows (db.max_rows). Once a table
+// crosses that, a plain .select('*') silently drops rows — which is how agents
+// ended up unable to clock out: their fresh clock-in wasn't in the truncated
+// batch the browser downloaded, so the UI still showed "Clock In". This pages
+// through in 1000-row chunks and returns every row.
+const PAGE = 1000;
+async function fetchAllRows(table: string): Promise<any[]> {
+  const all: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select('*').range(from, from + PAGE - 1);
+    if (error) { console.error(`fetchAllRows(${table})`, error); break; }
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return all;
+}
+
 // ---- Profiles ----
 
 export async function fetchAllProfiles(): Promise<User[]> {
@@ -59,9 +77,8 @@ export async function deleteProfile(id: string) {
 // ---- Shifts ----
 
 export async function fetchAllShifts(): Promise<Shift[]> {
-  const { data, error } = await supabase.from('shifts').select('*');
-  if (error) { console.error('fetchAllShifts', error); return []; }
-  return (data || []).map(s => ({
+  const data = await fetchAllRows('shifts');
+  return data.map(s => ({
     id: s.id,
     name: s.name,
     date: s.date,
@@ -135,9 +152,8 @@ export async function updateShiftAssignment(shiftId: string, agentIds: string[])
 // ---- Time Offs ----
 
 export async function fetchAllTimeOffs(): Promise<TimeOff[]> {
-  const { data, error } = await supabase.from('time_offs').select('*');
-  if (error) { console.error('fetchAllTimeOffs', error); return []; }
-  return (data || []).map(t => ({
+  const data = await fetchAllRows('time_offs');
+  return data.map(t => ({
     id: t.id,
     userId: t.user_id,
     date: t.date,
@@ -237,9 +253,8 @@ export async function markAllNotificationsRead(userId: string) {
 // ---- Swap Requests ----
 
 export async function fetchAllSwapRequests(): Promise<SwapRequest[]> {
-  const { data, error } = await supabase.from('swap_requests').select('*');
-  if (error) { console.error('fetchAllSwapRequests', error); return []; }
-  return (data || []).map(r => ({
+  const data = await fetchAllRows('swap_requests');
+  return data.map(r => ({
     id: r.id,
     fromShiftId: r.from_shift_id,
     toShiftId: r.to_shift_id,
@@ -273,9 +288,8 @@ export async function updateSwapRequestStatus(id: string, status: 'accepted' | '
 // ---- Clock Records ----
 
 export async function fetchAllClockRecords(): Promise<ClockRecord[]> {
-  const { data, error } = await supabase.from('clock_records').select('*');
-  if (error) { console.error('fetchAllClockRecords', error); return []; }
-  return (data || []).map(r => ({
+  const data = await fetchAllRows('clock_records');
+  return data.map(r => ({
     id: r.id,
     shiftId: r.shift_id,
     userId: r.user_id,
