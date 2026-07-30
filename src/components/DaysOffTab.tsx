@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { Calendar, X, ChevronLeft, ChevronRight, Plus, Check, Pencil } from 'lucide-react';
@@ -22,6 +22,10 @@ export function DaysOffTab() {
   const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Synchronous guard: `isSubmitting` is React state, so a rapid double-click
+  // fires both handlers before the re-render flips it — both see `false` and both
+  // send a Slack alert. A ref updates immediately and blocks the second call.
+  const submittingRef = useRef(false);
 
   // Editing an already-submitted request (pending or approved)
   const [editing, setEditing] = useState<TimeOff | null>(null);
@@ -74,7 +78,7 @@ export function DaysOffTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (submittingRef.current || isSubmitting) return;
     if (!timeOffDate) return;
     if (timeOffMode === 'period' && !timeOffEndDate) return;
     if (timeOffMode === 'period' && timeOffEndDate < timeOffDate) {
@@ -109,6 +113,7 @@ export function DaysOffTab() {
     const status = (isAdmin ? 'approved' : 'pending') as 'approved' | 'pending';
     const submittedAt = new Date().toISOString();
 
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       let anyInserted = false;
@@ -165,6 +170,7 @@ export function DaysOffTab() {
       setShowForm(false);
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
   };
 

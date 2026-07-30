@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
 import { ShiftCard } from './ShiftCard';
@@ -22,6 +22,9 @@ export function MyShiftsView() {
   const [timeOffHalfDay, setTimeOffHalfDay] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Synchronous double-submit guard (see DaysOffTab): blocks a rapid second click
+  // that would otherwise fire a duplicate Slack alert before the re-render.
+  const submittingRef = useRef(false);
 
   const myShifts = getShiftsForAgent(state.currentUser.id);
   const today = startOfDay(new Date());
@@ -48,7 +51,7 @@ export function MyShiftsView() {
 
   const handleAddTimeOff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (submittingRef.current || isSubmitting) return;
     if (!timeOffDate) return;
     if (timeOffMode === 'period' && !timeOffEndDate) return;
     if (timeOffMode === 'period' && timeOffEndDate < timeOffDate) {
@@ -68,6 +71,7 @@ export function MyShiftsView() {
     const isAdmin = state.currentUser.role === 'admin';
     const status = (isAdmin ? 'approved' : 'pending') as 'approved' | 'pending';
 
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       let anyInserted = false;
@@ -114,6 +118,7 @@ export function MyShiftsView() {
       setShowTimeOff(false);
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
