@@ -20,6 +20,7 @@ export const COUNTRIES = [
   { code: 'BR', name: 'Brazil' },
   { code: 'IN', name: 'India' },
   { code: 'VE', name: 'Venezuela' },
+  { code: 'HN', name: 'Honduras' },
   { code: 'AU', name: 'Australia' },
   { code: 'JP', name: 'Japan' },
   { code: 'CA', name: 'Canada' },
@@ -345,6 +346,20 @@ function getHolidaysForCountry(code: string, year: number): PublicHoliday[] {
         { date: `${year}-07-05`, name: 'Independence Day' },
         { date: `${year}-07-24`, name: 'Bolivar Day' },
         { date: `${year}-10-12`, name: 'Indigenous Resistance Day' },
+        { date: `${year}-12-25`, name: 'Christmas Day' },
+      ];
+    case 'HN':
+      return [
+        { date: `${year}-01-01`, name: "New Year's Day" },
+        { date: fmt(addDaysToDate(easter, -3)), name: 'Maundy Thursday' },
+        { date: fmt(goodFriday), name: 'Good Friday' },
+        { date: fmt(addDaysToDate(easter, -1)), name: 'Holy Saturday' },
+        { date: `${year}-04-14`, name: "America's Day" },
+        { date: `${year}-05-01`, name: 'Labour Day' },
+        { date: `${year}-09-15`, name: 'Independence Day' },
+        { date: `${year}-10-03`, name: 'Morazán Day' },
+        { date: `${year}-10-12`, name: 'Columbus Day' },
+        { date: `${year}-10-21`, name: 'Armed Forces Day' },
         { date: `${year}-12-25`, name: 'Christmas Day' },
       ];
     default:
