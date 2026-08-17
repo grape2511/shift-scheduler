@@ -4,10 +4,10 @@ import { Clock, UserPlus, Trash2, Edit2, AlertTriangle, UserMinus, LogIn, LogOut
 import { convertTime, getUserTimezone, isShiftActiveNow } from '../utils/timezone';
 import { useNow } from '../hooks/useNow';
 import { v4 as uuid } from 'uuid';
-import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts, insertNotification } from '../lib/database';
-import { sendSlackNotification } from '../utils/slack';
+import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
 import { getTaskAssignments, TASK_STYLES } from '../utils/tasks';
 import { confirmClockOut } from '../utils/clock';
+import { useSelfLeave } from '../hooks/useSelfLeave';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -18,6 +18,7 @@ interface ShiftCardProps {
 
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord } = useApp();
+  const attemptSelfLeave = useSelfLeave();
   const [showAssign, setShowAssign] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
@@ -39,74 +40,16 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
 
   const handleUnassign = (agentId: string) => {
     const isSelf = agentId === state.currentUser.id && !isAdmin;
-    let weeklyDayCount = 0;
-    let weeklyAdjustedMin = 5;
 
+    // Self-leave runs through the shared guard (headcount + weekly minimum,
+    // steering to the Swap feature) and notifies the admin on an allowed leave.
     if (isSelf) {
-      // Block leaving if it would drop the shift below its required headcount.
-      const minRequired = shift.requiredAgents || 1;
-      const afterCount = shift.assignedAgentIds.length - 1;
-      if (afterCount < minRequired) {
-        alert(`Cannot leave — this shift needs at least ${minRequired} agents and would only have ${afterCount}.`);
-        return;
-      }
-
-      // Enforce the weekly minimum: every agent owes 5 shifts a week unless an
-      // admin approved a day off. Count the days they'd still work in this
-      // shift's week after removing this one, and reduce the minimum by any
-      // approved days off that week.
-      const d = new Date(shift.date + 'T12:00:00');
-      const monday = new Date(d);
-      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      const weekDates: string[] = Array.from({ length: 7 }, (_, i) => {
-        const x = new Date(monday);
-        x.setDate(monday.getDate() + i);
-        return x.toISOString().slice(0, 10);
-      });
-      const weekDateSet = new Set(weekDates);
-      weeklyDayCount = weekDates.filter(ds =>
-        state.shifts.some(s => s.id !== shift.id && s.date === ds && s.assignedAgentIds.includes(agentId))
-      ).length;
-      const approvedDaysOff = state.timeOffs
-        .filter(t => t.userId === agentId && (t.status || 'approved') === 'approved' && weekDateSet.has(t.date))
-        .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
-      weeklyAdjustedMin = Math.max(0, 5 - approvedDaysOff);
-      const hasApprovedDayOff = state.timeOffs.some(t =>
-        t.userId === agentId && t.date === shift.date && (t.status || 'approved') === 'approved'
-      );
-      if (!hasApprovedDayOff && weeklyDayCount < weeklyAdjustedMin) {
-        alert(
-          `You need at least ${weeklyAdjustedMin} shifts this week — leaving this one would drop you to ${weeklyDayCount}.\n\nIf you need this day off, request it from the Days Off tab so an admin can approve it.`
-        );
-        return;
-      }
+      attemptSelfLeave(shift);
+      return;
     }
 
+    // Admin removing another agent — no weekly guard.
     dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: shift.id, agentId } });
-
-    // Surface self-removals to the admin (Slack + Activity) so a change to an
-    // agent's weekly coverage is never silent — even an allowed one.
-    if (isSelf) {
-      const admin = state.users.find(u => u.role === 'admin');
-      if (admin) {
-        const notif = {
-          id: uuid(),
-          userId: admin.id,
-          message: `${state.currentUser.name} left "${shift.name}" on ${shift.date} — now ${weeklyDayCount}/${weeklyAdjustedMin} shifts that week`,
-          timestamp: new Date().toISOString(),
-          read: false,
-          type: 'change' as const,
-        };
-        dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
-        insertNotification(notif);
-      }
-      const adminSlackUrl = state.users.find(u => u.role === 'admin' && u.slackWebhookUrl)?.slackWebhookUrl;
-      if (adminSlackUrl) {
-        sendSlackNotification(adminSlackUrl,
-          `🚪 *Shift left*: ${state.currentUser.name} removed themselves from "${shift.name}" (${shift.date}) — now ${weeklyDayCount}/${weeklyAdjustedMin} shifts that week`
-        );
-      }
-    }
   };
 
   const handleDeleteThis = () => {

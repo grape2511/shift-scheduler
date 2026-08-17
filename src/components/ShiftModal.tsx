@@ -5,6 +5,7 @@ import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft, MessageSquare 
 import { SHIFT_COLORS, getNextColor } from '../utils/colors';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
+import { useSelfLeave } from '../hooks/useSelfLeave';
 import type { Shift } from '../types';
 
 interface ShiftModalProps {
@@ -35,6 +36,7 @@ const PRESET_SHIFTS = [
 
 export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps) {
   const { state, dispatch, activeAgents: agents } = useApp();
+  const attemptSelfLeave = useSelfLeave();
   const [name, setName] = useState(editShift?.name || '');
   const [date, setDate] = useState(editShift?.date || defaultDate || new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState(editShift?.startTime || '09:00');
@@ -226,8 +228,10 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
 
   const handleSelfLeave = () => {
     if (!editShift) return;
-    dispatch({ type: 'UNASSIGN_AGENT', payload: { shiftId: editShift.id, agentId: state.currentUser.id } });
-    onClose();
+    // Shared guard: blocks a below-minimum leave (steering to Swap) and notifies
+    // the admin on an allowed one. Keep the modal open when blocked so the agent
+    // can reach the swap tool right here.
+    if (attemptSelfLeave(editShift)) onClose();
   };
 
   // Agent read-only view
