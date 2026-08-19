@@ -1,6 +1,7 @@
-import { createContext, useContext, useReducer, useEffect, useRef, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord, CoverageNote } from '../types';
+import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask } from '../types';
+import type { Task } from '../utils/tasks';
 import { AGENT_COLORS, getNextColor } from '../utils/colors';
 import { addDays, addWeeks, formatDate } from '../utils/dates';
 import { getHolidaysForDate as getPublicHolidays, type PublicHoliday } from '../utils/holidays';
@@ -17,6 +18,7 @@ interface AppState {
   swapRequests: SwapRequest[];
   clockRecords: ClockRecord[];
   coverageNotes: CoverageNote[];
+  shiftTasks: ShiftTask[];
 }
 
 type Action =
@@ -78,6 +80,7 @@ const initialState: AppState = {
   swapRequests: [],
   clockRecords: [],
   coverageNotes: [],
+  shiftTasks: [],
 };
 
 function createNotification(userId: string, message: string, type: Notification['type']): Notification {
@@ -712,6 +715,7 @@ interface AppContextType {
   getSwapRequestsForShift: (shiftId: string) => SwapRequest[];
   getPublicHolidaysForDate: (date: string) => { agent: User; holidays: PublicHoliday[] }[];
   getClockRecord: (shiftId: string, userId: string) => ClockRecord | undefined;
+  getShiftTasks: (shiftId: string) => Map<string, Task> | undefined;
   getMonthlyHours: (agentId: string, year: number, month: number) => number;
   getEnabledHolidayCountries: () => string[];
   getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number; sickUsed: number; sickTotal: number; sickRemaining: number };
@@ -738,7 +742,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   // Load data from Supabase on mount
   const refreshData = useCallback(async () => {
     try {
-      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes] = await Promise.all([
+      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks] = await Promise.all([
         db.fetchAllProfiles(),
         db.fetchAllShifts(),
         db.fetchAllTimeOffs(),
@@ -746,13 +750,14 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         db.fetchAllSwapRequests(),
         db.fetchAllClockRecords().catch(() => [] as ClockRecord[]),
         db.fetchAllCoverageNotes().catch(() => [] as CoverageNote[]),
+        db.fetchAllShiftTasks().catch(() => [] as ShiftTask[]),
       ]);
       // Use the freshly fetched profile for currentUser so admin settings persist
       const freshCurrentUser = users.find(u => u.id === currentUser.id) || currentUser;
       lastLoadRef.current = Date.now();
       dispatch({
         type: 'LOAD_STATE',
-        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes },
+        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks },
       });
     } catch (e) {
       console.error('refreshData failed:', e);
@@ -1304,6 +1309,19 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         !isSwapExpired(r, state.shifts),
     );
 
+  // Index the authoritative stored task assignments as shiftId -> (userId -> task)
+  // so shift cards read the same values everywhere instead of recomputing locally.
+  const shiftTaskIndex = useMemo(() => {
+    const idx = new Map<string, Map<string, Task>>();
+    for (const t of state.shiftTasks || []) {
+      let m = idx.get(t.shiftId);
+      if (!m) { m = new Map(); idx.set(t.shiftId, m); }
+      m.set(t.userId, t.task as Task);
+    }
+    return idx;
+  }, [state.shiftTasks]);
+  const getShiftTasks = (shiftId: string): Map<string, Task> | undefined => shiftTaskIndex.get(shiftId);
+
   const setCoverageNote = (userId: string, weekStart: string, note: string) => {
     const trimmed = note.trim();
     if (!trimmed) {
@@ -1337,6 +1355,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       getSwapRequestsForShift,
       getPublicHolidaysForDate,
       getClockRecord,
+      getShiftTasks,
       getMonthlyHours,
       getEnabledHolidayCountries,
       getPtoBalance,

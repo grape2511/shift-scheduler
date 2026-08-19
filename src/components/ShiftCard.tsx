@@ -25,7 +25,7 @@ function agentTags(agent: { labels?: string[]; label?: string } | undefined): st
 }
 
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
-  const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord } = useApp();
+  const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord, getShiftTasks } = useApp();
   const attemptSelfLeave = useSelfLeave();
   const [showAssign, setShowAssign] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
@@ -39,7 +39,12 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
     .map(id => getAgentById(id))
     .filter(Boolean);
 
-  const taskAssignments = getTaskAssignments(shift.date, shift.assignedAgentIds);
+  // Prefer the authoritative stored assignments (identical for everyone); fall
+  // back to local computation only for a shift not yet materialized in the DB.
+  const storedTasks = getShiftTasks(shift.id);
+  const taskAssignments = storedTasks && storedTasks.size > 0
+    ? storedTasks
+    : getTaskAssignments(shift.date, shift.assignedAgentIds);
 
   const handleAssign = (agentId: string) => {
     dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: shift.id, agentId } });

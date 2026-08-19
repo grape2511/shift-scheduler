@@ -95,4 +95,12 @@ export interface CoverageNote {
   note: string;
 }
 
+// Authoritative per-(shift, agent) task assignment, computed and stored in the
+// DB so every client and the Slack roster message read the same value.
+export interface ShiftTask {
+  shiftId: string;
+  userId: string;
+  task: string; // 'Dashboard' | 'Intercom' | 'Notion Tasks'
+}
+
 export type ViewMode = 'month' | 'week' | 'day';

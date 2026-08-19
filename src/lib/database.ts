@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord, CoverageNote } from '../types';
+import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask } from '../types';
 
 // PostgREST caps a single .select() at 1000 rows (db.max_rows). Once a table
 // crosses that, a plain .select('*') silently drops rows — which is how agents
@@ -310,6 +310,17 @@ export async function upsertCoverageNote(userId: string, weekStart: string, note
 export async function deleteCoverageNote(userId: string, weekStart: string) {
   const { error } = await supabase.from('coverage_notes').delete().eq('user_id', userId).eq('week_start', weekStart);
   if (error) console.error('deleteCoverageNote', error);
+}
+
+// ---- Shift Tasks (authoritative task assignments, maintained by a DB trigger) ----
+
+export async function fetchAllShiftTasks(): Promise<ShiftTask[]> {
+  const data = await fetchAllRows('shift_tasks');
+  return data.map(t => ({
+    shiftId: t.shift_id,
+    userId: t.user_id,
+    task: t.task,
+  }));
 }
 
 // ---- Clock Records ----
