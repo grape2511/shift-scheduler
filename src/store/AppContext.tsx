@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord } from '../types';
+import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord, CoverageNote } from '../types';
 import { AGENT_COLORS, getNextColor } from '../utils/colors';
 import { addDays, addWeeks, formatDate } from '../utils/dates';
 import { getHolidaysForDate as getPublicHolidays, type PublicHoliday } from '../utils/holidays';
@@ -16,6 +16,7 @@ interface AppState {
   notifications: Notification[];
   swapRequests: SwapRequest[];
   clockRecords: ClockRecord[];
+  coverageNotes: CoverageNote[];
 }
 
 type Action =
@@ -49,6 +50,8 @@ type Action =
   | { type: 'CLOCK_IN'; payload: ClockRecord }
   | { type: 'CLOCK_OUT'; payload: { shiftId: string; userId: string; clockOut: string } }
   | { type: 'UPSERT_CLOCK_RECORD'; payload: ClockRecord }
+  | { type: 'SET_COVERAGE_NOTE'; payload: CoverageNote }
+  | { type: 'DELETE_COVERAGE_NOTE'; payload: { userId: string; weekStart: string } }
   | { type: 'LOAD_STATE'; payload: AppState };
 
 const defaultAdmin: User = {
@@ -74,6 +77,7 @@ const initialState: AppState = {
   notifications: [],
   swapRequests: [],
   clockRecords: [],
+  coverageNotes: [],
 };
 
 function createNotification(userId: string, message: string, type: Notification['type']): Notification {
@@ -89,6 +93,20 @@ function createNotification(userId: string, message: string, type: Notification[
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
+    case 'SET_COVERAGE_NOTE': {
+      const { userId, weekStart } = action.payload;
+      const rest = (state.coverageNotes || []).filter(n => !(n.userId === userId && n.weekStart === weekStart));
+      return { ...state, coverageNotes: [...rest, action.payload] };
+    }
+
+    case 'DELETE_COVERAGE_NOTE': {
+      const { userId, weekStart } = action.payload;
+      return {
+        ...state,
+        coverageNotes: (state.coverageNotes || []).filter(n => !(n.userId === userId && n.weekStart === weekStart)),
+      };
+    }
+
     case 'LOAD_STATE': {
       // Preserve active clock-ins (clockIn set, no clockOut) that haven't saved to DB yet
       const activeClockIns = state.clockRecords.filter(r => r.clockIn && !r.clockOut);
@@ -698,6 +716,8 @@ interface AppContextType {
   getEnabledHolidayCountries: () => string[];
   getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number; sickUsed: number; sickTotal: number; sickRemaining: number };
   refreshData: () => Promise<void>;
+  setCoverageNote: (userId: string, weekStart: string, note: string) => void;
+  clearCoverageNote: (userId: string, weekStart: string) => void;
   setAgentActive: (agentId: string, active: boolean, transferToAgentId?: string) => Promise<void>;
   mirrorAgentSchedule: (
     sourceAgentId: string,
@@ -718,20 +738,21 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   // Load data from Supabase on mount
   const refreshData = useCallback(async () => {
     try {
-      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords] = await Promise.all([
+      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes] = await Promise.all([
         db.fetchAllProfiles(),
         db.fetchAllShifts(),
         db.fetchAllTimeOffs(),
         db.fetchNotifications(currentUser.id),
         db.fetchAllSwapRequests(),
         db.fetchAllClockRecords().catch(() => [] as ClockRecord[]),
+        db.fetchAllCoverageNotes().catch(() => [] as CoverageNote[]),
       ]);
       // Use the freshly fetched profile for currentUser so admin settings persist
       const freshCurrentUser = users.find(u => u.id === currentUser.id) || currentUser;
       lastLoadRef.current = Date.now();
       dispatch({
         type: 'LOAD_STATE',
-        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords },
+        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes },
       });
     } catch (e) {
       console.error('refreshData failed:', e);
@@ -1263,6 +1284,21 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         !isSwapExpired(r, state.shifts),
     );
 
+  const setCoverageNote = (userId: string, weekStart: string, note: string) => {
+    const trimmed = note.trim();
+    if (!trimmed) {
+      clearCoverageNote(userId, weekStart);
+      return;
+    }
+    dispatch({ type: 'SET_COVERAGE_NOTE', payload: { userId, weekStart, note: trimmed } });
+    db.upsertCoverageNote(userId, weekStart, trimmed, state.currentUser.id);
+  };
+
+  const clearCoverageNote = (userId: string, weekStart: string) => {
+    dispatch({ type: 'DELETE_COVERAGE_NOTE', payload: { userId, weekStart } });
+    db.deleteCoverageNote(userId, weekStart);
+  };
+
   return (
     <AppContext.Provider value={{
       state,
@@ -1285,6 +1321,8 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       getEnabledHolidayCountries,
       getPtoBalance,
       refreshData,
+      setCoverageNote,
+      clearCoverageNote,
       setAgentActive,
       mirrorAgentSchedule,
     }}>

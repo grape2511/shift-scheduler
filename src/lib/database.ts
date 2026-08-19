@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord } from '../types';
+import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord, CoverageNote } from '../types';
 
 // PostgREST caps a single .select() at 1000 rows (db.max_rows). Once a table
 // crosses that, a plain .select('*') silently drops rows — which is how agents
@@ -283,6 +283,33 @@ export async function insertSwapRequest(req: SwapRequest) {
 export async function updateSwapRequestStatus(id: string, status: 'accepted' | 'declined') {
   const { error } = await supabase.from('swap_requests').update({ status }).eq('id', id);
   if (error) console.error('updateSwapRequestStatus', error);
+}
+
+// ---- Coverage Notes ----
+
+export async function fetchAllCoverageNotes(): Promise<CoverageNote[]> {
+  const data = await fetchAllRows('coverage_notes');
+  return data.map(n => ({
+    userId: n.user_id,
+    weekStart: n.week_start,
+    note: n.note,
+  }));
+}
+
+export async function upsertCoverageNote(userId: string, weekStart: string, note: string, updatedBy?: string) {
+  const { error } = await supabase.from('coverage_notes').upsert({
+    user_id: userId,
+    week_start: weekStart,
+    note,
+    updated_by: updatedBy || null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,week_start' });
+  if (error) console.error('upsertCoverageNote', error);
+}
+
+export async function deleteCoverageNote(userId: string, weekStart: string) {
+  const { error } = await supabase.from('coverage_notes').delete().eq('user_id', userId).eq('week_start', weekStart);
+  if (error) console.error('deleteCoverageNote', error);
 }
 
 // ---- Clock Records ----

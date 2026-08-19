@@ -87,4 +87,12 @@ export interface ClockRecord {
   clockOut: string | null; // ISO timestamp
 }
 
+// Admin note explaining an intentional weekly-coverage shortfall (e.g. a
+// cross-week duty swap). Keyed by agent + the Monday of the week it applies to.
+export interface CoverageNote {
+  userId: string;
+  weekStart: string; // YYYY-MM-DD, the Monday of the week
+  note: string;
+}
+
 export type ViewMode = 'month' | 'week' | 'day';

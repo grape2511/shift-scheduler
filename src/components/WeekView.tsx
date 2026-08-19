@@ -3,17 +3,20 @@ import { useApp } from '../store/AppContext';
 import { getWeekDays, formatDate, formatShortDay, formatDayNum, formatWeekRange, addWeeks } from '../utils/dates';
 import { ShiftCard } from './ShiftCard';
 import { ShiftModal } from './ShiftModal';
-import { ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle, Pencil, Check, X } from 'lucide-react';
 import { isToday, startOfWeek } from 'date-fns';
 import type { Shift } from '../types';
 
 export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWeekDateChange: (d: Date) => void }) {
-  const { state, dispatch, activeAgents: agents, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate } = useApp();
+  const { state, dispatch, activeAgents: agents, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate, setCoverageNote, clearCoverageNote } = useApp();
   const currentDate = weekDate;
   const setCurrentDate = onWeekDateChange;
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // Coverage-note inline editor: which agent's note is being edited, and the draft text.
+  const [noteEditFor, setNoteEditFor] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
 
   const isAdmin = state.currentUser.role === 'admin';
   const weekDays = getWeekDays(currentDate);
@@ -224,6 +227,7 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
         const weekDateSet = new Set(weekDateStrs);
         const MIN_SHIFTS_PER_WEEK = 5;
 
+        const weekStart = weekDateStrs[0]; // Monday — key for coverage notes
         const shiftLabels = ['USA Shift', 'EU Shift', 'Mid Shift'];
         const agentSummary = agents
           .filter(a => {
@@ -239,11 +243,14 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
               .filter(t => t.userId === agent.id && (t.status || 'approved') === 'approved' && weekDateSet.has(t.date))
               .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
             const adjustedMin = Math.max(0, MIN_SHIFTS_PER_WEEK - approvedDaysOff);
-            return { agent, shiftCount, approvedDaysOff, adjustedMin };
+            const note = (state.coverageNotes || []).find(n => n.userId === agent.id && n.weekStart === weekStart)?.note;
+            return { agent, shiftCount, approvedDaysOff, adjustedMin, note };
           })
           .sort((a, b) => (a.shiftCount - a.adjustedMin) - (b.shiftCount - b.adjustedMin));
 
-        const underMin = agentSummary.filter(a => a.shiftCount < a.adjustedMin);
+        // A shortfall with an admin note is intentional (e.g. a cross-week swap),
+        // so it no longer counts as a red "under minimum" alarm.
+        const underMin = agentSummary.filter(a => a.shiftCount < a.adjustedMin && !a.note);
 
         return (
           <div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -257,34 +264,86 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
               )}
             </div>
             <div className="max-h-64 overflow-y-auto">
-              {agentSummary.map(({ agent, shiftCount, approvedDaysOff, adjustedMin }) => {
-                const isUnder = shiftCount < adjustedMin;
+              {agentSummary.map(({ agent, shiftCount, approvedDaysOff, adjustedMin, note }) => {
+                const isShort = shiftCount < adjustedMin;
+                const isFlagged = isShort && !note; // red alarm only when unexplained
                 const hasDaysOff = approvedDaysOff > 0;
+                const editing = noteEditFor === agent.id;
                 return (
-                  <div key={agent.id} className={`flex items-center justify-between px-4 py-2 border-b border-gray-50 last:border-0 ${isUnder ? 'bg-red-50' : ''}`}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: agent.color }}>
-                        {agent.name[0]}
+                  <div key={agent.id} className={`px-4 py-2 border-b border-gray-50 last:border-0 ${isFlagged ? 'bg-red-50' : isShort ? 'bg-indigo-50/40' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: agent.color }}>
+                          {agent.name[0]}
+                        </div>
+                        <span className="text-sm text-gray-700 truncate">{agent.name}</span>
+                        {(agent.labels || []).slice(0, 1).map(l => (
+                          <span key={l} className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-500 rounded-full shrink-0">{l}</span>
+                        ))}
+                        {hasDaysOff && (
+                          <span
+                            className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium shrink-0"
+                            title={`${approvedDaysOff} approved day${approvedDaysOff === 1 ? '' : 's'} off — coverage minimum reduced from ${MIN_SHIFTS_PER_WEEK} to ${adjustedMin}`}
+                          >
+                            {approvedDaysOff === 1 ? '1 day off' : `${approvedDaysOff} days off`}
+                          </span>
+                        )}
                       </div>
-                      <span className="text-sm text-gray-700">{agent.name}</span>
-                      {(agent.labels || []).slice(0, 1).map(l => (
-                        <span key={l} className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-500 rounded-full">{l}</span>
-                      ))}
-                      {hasDaysOff && (
-                        <span
-                          className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium"
-                          title={`${approvedDaysOff} approved day${approvedDaysOff === 1 ? '' : 's'} off — coverage minimum reduced from ${MIN_SHIFTS_PER_WEEK} to ${adjustedMin}`}
-                        >
-                          {approvedDaysOff === 1 ? '1 day off' : `${approvedDaysOff} days off`}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`text-sm font-bold ${isFlagged ? 'text-red-600' : isShort ? 'text-indigo-600' : 'text-gray-700'}`}>
+                          {shiftCount}/{hasDaysOff ? adjustedMin : MIN_SHIFTS_PER_WEEK}
                         </span>
-                      )}
+                        {isFlagged && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
+                        <button
+                          onClick={() => { setNoteEditFor(editing ? null : agent.id); setNoteDraft(note || ''); }}
+                          className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded transition-colors"
+                          title={note ? 'Edit coverage note' : 'Add a note explaining this week (e.g. a swap)'}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${isUnder ? 'text-red-600' : 'text-gray-700'}`}>
-                        {shiftCount}/{hasDaysOff ? adjustedMin : MIN_SHIFTS_PER_WEEK}
-                      </span>
-                      {isUnder && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
-                    </div>
+
+                    {note && !editing && (
+                      <div className="mt-1 ml-8">
+                        <span className="inline-block text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5">
+                          {note}
+                        </span>
+                      </div>
+                    )}
+
+                    {editing && (
+                      <div className="mt-1.5 ml-8 flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={noteDraft}
+                          onChange={e => setNoteDraft(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { setCoverageNote(agent.id, weekStart, noteDraft); setNoteEditFor(null); }
+                            if (e.key === 'Escape') setNoteEditFor(null);
+                          }}
+                          placeholder="Reason (e.g. swapped Sat with Jainnie — worked 6 last week)"
+                          className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <button
+                          onClick={() => { setCoverageNote(agent.id, weekStart, noteDraft); setNoteEditFor(null); }}
+                          className="p-1 text-white bg-indigo-600 rounded hover:bg-indigo-700"
+                          title="Save note"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        {note && (
+                          <button
+                            onClick={() => { clearCoverageNote(agent.id, weekStart); setNoteEditFor(null); }}
+                            className="p-1 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded"
+                            title="Remove note"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
