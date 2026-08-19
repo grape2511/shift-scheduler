@@ -766,6 +766,26 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     return () => clearInterval(interval);
   }, [refreshData]);
 
+  // Refresh whenever the tab regains focus/visibility. Browsers throttle (or
+  // pause) setInterval in background tabs, so an agent who leaves the schedule
+  // open in the background can hold a stale roster — and since task duties
+  // (Dashboard/Intercom/Notion) are computed live from that roster, a stale tab
+  // shows different duties than everyone else. Pulling fresh data on focus keeps
+  // what an agent sees when they look at the schedule in sync with the server.
+  useEffect(() => {
+    const refreshIfStale = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLoadRef.current > 10_000) {
+        refreshData();
+      }
+    };
+    document.addEventListener('visibilitychange', refreshIfStale);
+    window.addEventListener('focus', refreshIfStale);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfStale);
+      window.removeEventListener('focus', refreshIfStale);
+    };
+  }, [refreshData]);
+
   // Auto-expire pending swap requests whose shifts have passed. Flips them to
   // 'declined' so they drop out of approval queues, and marks any linked
   // notifications read so the bell stops nagging. Writes to Supabase directly
