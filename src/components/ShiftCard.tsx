@@ -16,6 +16,14 @@ interface ShiftCardProps {
   onEdit?: (shift: Shift) => void;
 }
 
+// Labels used to tag an agent's team; redundant on a shift card, so we hide
+// them here and surface only the meaningful per-agent tags (e.g. "Trainee").
+const TEAM_LABELS = new Set(['EU Shift', 'USA Shift', 'Mid Shift', 'Devs Team']);
+function agentTags(agent: { labels?: string[]; label?: string } | undefined): string[] {
+  if (!agent) return [];
+  return (agent.labels || (agent.label ? [agent.label] : [])).filter(l => !TEAM_LABELS.has(l));
+}
+
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord } = useApp();
   const attemptSelfLeave = useSelfLeave();
@@ -201,6 +209,15 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                     {agent!.name[0]}
                   </div>
                   <span className="truncate">{agent!.name.split(' ')[0]}</span>
+                  {agentTags(agent).map(l => (
+                    <span
+                      key={l}
+                      className="shrink-0 px-1 py-px rounded-full bg-amber-400 text-white text-[7px] font-bold uppercase tracking-wide leading-none"
+                      title={l}
+                    >
+                      {l}
+                    </span>
+                  ))}
                   {style && (
                     <span
                       className={`relative group/task ml-auto p-0.5 rounded ${style.bg} shrink-0 inline-flex items-center justify-center`}
@@ -369,6 +386,15 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                         {agent!.name[0]}
                       </div>
                       <span className="text-sm text-gray-700">{agent!.name}</span>
+                      {agentTags(agent).map(l => (
+                        <span
+                          key={l}
+                          className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-semibold"
+                          title={`${agent!.name.split(' ')[0]} is a trainee — keep them supported on shift`}
+                        >
+                          {l}
+                        </span>
+                      ))}
                       {style && (
                         <span
                           className={`relative group/task inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.bg} text-gray-700 cursor-help`}
