@@ -15,6 +15,7 @@ import { DaysOffTab } from './components/DaysOffTab';
 import { SettingsView } from './components/SettingsView';
 import { ActivityView } from './components/ActivityView';
 import { ClockLogsView } from './components/ClockLogsView';
+import { ReportsView } from './components/ReportsView';
 
 const TAB_PATHS: Record<string, string> = {
   schedule: '/',
@@ -26,6 +27,7 @@ const TAB_PATHS: Record<string, string> = {
   insights: '/insights',
   activity: '/activity',
   'clock-logs': '/clock-logs',
+  reports: '/reports',
   settings: '/settings',
 };
 
@@ -59,6 +61,7 @@ function AppContent() {
       {activeTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
       {activeTab === 'activity' && state.currentUser.role === 'admin' && <ActivityView />}
       {activeTab === 'clock-logs' && state.currentUser.role === 'admin' && <ClockLogsView />}
+      {activeTab === 'reports' && state.currentUser.role === 'admin' && <ReportsView />}
       {activeTab === 'settings' && state.currentUser.role === 'admin' && <SettingsView />}
     </Layout>
   );
