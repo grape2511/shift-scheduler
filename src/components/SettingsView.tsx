@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { updateProfile } from '../lib/database';
-import { Mail, Settings as SettingsIcon, Users, Copy } from 'lucide-react';
+import { Mail, Settings as SettingsIcon, Users, Copy, FileText } from 'lucide-react';
 import type { Role, User } from '../types';
 import { AgentsView } from './AgentsView';
+import { ReportsView } from './ReportsView';
 import { DeactivateAgentModal } from './DeactivateAgentModal';
 import { ScheduleMirrorModal } from './ScheduleMirrorModal';
 
@@ -37,7 +38,7 @@ const ROLES: { value: Role; label: string; description: string; color: string }[
   { value: 'agent', label: 'Agent', description: 'Can view schedules, clock in/out, and request swaps', color: 'text-gray-700 bg-gray-50 border-gray-200' },
 ];
 
-type SettingsSubTab = 'general' | 'agents';
+type SettingsSubTab = 'general' | 'agents' | 'reports';
 
 export function SettingsView() {
   const { state, dispatch, setAgentActive } = useApp();
@@ -89,11 +90,15 @@ export function SettingsView() {
   const SUB_TABS: { id: SettingsSubTab; label: string; Icon: typeof SettingsIcon }[] = [
     { id: 'general', label: 'General', Icon: SettingsIcon },
     { id: 'agents', label: 'Agents', Icon: Users },
+    { id: 'reports', label: 'Reports', Icon: FileText },
   ];
 
+  // Full-width sub-tabs (tables) vs the narrow General column.
+  const wide = subTab === 'agents' || subTab === 'reports';
+
   return (
-    <div className={subTab === 'agents' ? '' : 'max-w-3xl mx-auto'}>
-      <div className={subTab === 'agents' ? 'max-w-3xl mx-auto' : ''}>
+    <div className={wide ? '' : 'max-w-3xl mx-auto'}>
+      <div className={wide ? 'max-w-3xl mx-auto' : ''}>
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
           <p className="text-sm text-gray-500">Configure notifications, integrations, and manage agents</p>
@@ -116,7 +121,9 @@ export function SettingsView() {
         </div>
       </div>
 
-      {subTab === 'agents' ? (
+      {subTab === 'reports' ? (
+        <ReportsView />
+      ) : subTab === 'agents' ? (
         <AgentsView />
       ) : (
         <div className="space-y-6">
