@@ -356,18 +356,18 @@ export function DaysOffTab() {
               const shortages = getShortageInfo(to);
               return (
                 <div key={to.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: agent?.color || '#6366f1' }}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0" style={{ backgroundColor: agent?.color || '#6366f1' }}>
                         {agent?.name?.[0]}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">{agent?.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="text-xs text-gray-500">{to.date}</span>
                           <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
                           {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">½ day</span>}
-                          {to.reason && <span className="text-xs text-gray-400">– {to.reason}</span>}
+                          {to.reason && <span className="text-xs text-gray-400 truncate">– {to.reason}</span>}
                         </div>
                         {to.createdAt && (
                           <p className="text-[11px] text-gray-400 mt-0.5">
@@ -376,12 +376,12 @@ export function DaysOffTab() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleReject(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      <button onClick={() => handleReject(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 whitespace-nowrap">
                         <X className="w-3 h-3" />
                         Reject
                       </button>
-                      <button onClick={() => handleApprove(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                      <button onClick={() => handleApprove(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 whitespace-nowrap">
                         <Check className="w-3 h-3" />
                         Approve
                       </button>
