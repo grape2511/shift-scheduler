@@ -824,6 +824,8 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const prefs = admin?.slackNotifications || {};
     return {
       url: admin?.slackWebhookUrl,
+      // Optional override: routes ONLY missed clock-in alerts to a separate channel.
+      missedClockInUrl: admin?.slackMissedClockInWebhookUrl,
       swaps: prefs.slackNotifySwaps ?? true,
       timeOff: prefs.slackNotifyTimeOff ?? true,
       timeOffApproval: prefs.slackNotifyTimeOffApproval ?? true,
@@ -911,8 +913,9 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     if (state.shifts.length === 0 || state.users.length === 0) return;
     if (state.currentUser.role !== 'admin') return;
     const slack = getSlackPrefs();
-    if (!slack.url || !slack.missedClockIn) return;
-    const slackUrl = slack.url;
+    // Missed clock-in can post to its own channel; fall back to the shared webhook when unset.
+    const slackUrl = slack.missedClockInUrl || slack.url;
+    if (!slackUrl || !slack.missedClockIn) return;
 
     const GRACE_MINUTES = 15;
     const LOOKBACK_MS = 6 * 3600_000;

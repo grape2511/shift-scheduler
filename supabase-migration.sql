@@ -144,6 +144,8 @@ alter table profiles add column if not exists holidays_deduct_pto boolean defaul
 alter table profiles add column if not exists label text;
 alter table profiles add column if not exists labels text[] default '{}';
 alter table profiles add column if not exists slack_webhook_url text;
+-- Optional override webhook: routes ONLY missed clock-in alerts to a separate Slack channel.
+alter table profiles add column if not exists slack_missed_clockin_webhook_url text;
 alter table profiles add column if not exists slack_notifications jsonb default '{}';
 alter table profiles add column if not exists active boolean default true;
 
