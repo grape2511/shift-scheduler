@@ -116,7 +116,7 @@ export const TASK_STYLES: Record<
   },
   KYC: {
     bg: 'bg-rose-100',
-    badge: 'bg-rose-500 text-white',
+    badge: 'bg-rose-100 text-rose-700',
     tooltip: 'This shift you will mainly work on KYC',
   },
   'Notion Tasks': {

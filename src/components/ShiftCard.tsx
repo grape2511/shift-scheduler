@@ -170,32 +170,38 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   if (compact) {
     return (
       <div
-        className={`rounded-lg px-2.5 py-1.5 text-xs font-medium text-white cursor-pointer hover:opacity-90 transition-all ${
+        className={`rounded-lg pl-2 pr-2.5 py-1.5 text-xs cursor-pointer border transition-all ${
           isActiveNow
-            ? 'ring-4 ring-offset-2 ring-offset-white shadow-2xl animate-pulse-glow scale-[1.04] relative z-10'
-            : ''
+            ? 'ring-2 ring-offset-1 ring-offset-white shadow-md relative z-10'
+            : 'hover:shadow-sm'
         }`}
-        style={{ backgroundColor: shift.color, ...(isActiveNow ? { '--tw-ring-color': shift.color } as React.CSSProperties : {}) }}
+        style={{
+          backgroundColor: `${shift.color}1a`,
+          borderColor: `${shift.color}33`,
+          borderLeftWidth: '3px',
+          borderLeftColor: shift.color,
+          ...(isActiveNow ? { '--tw-ring-color': shift.color } as React.CSSProperties : {}),
+        }}
         onClick={() => onEdit?.(shift)}
         title={isActiveNow ? 'Currently active shift' : undefined}
       >
         <div className="flex items-center justify-between">
-          <span className="truncate flex items-center gap-1">
+          <span className="truncate flex items-center gap-1 font-semibold text-gray-800">
             {isActiveNow && (
               <span
-                className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-white rounded-full px-1.5 py-[1px] mr-1 shadow-sm"
-                style={{ color: shift.color }}
+                className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-white rounded-full px-1.5 py-[1px] mr-1"
+                style={{ backgroundColor: shift.color }}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                 Live
               </span>
             )}
-            {shift.name}{shift.notes && <MessageSquare className="w-2.5 h-2.5 opacity-70" />}
+            {shift.name}{shift.notes && <MessageSquare className="w-2.5 h-2.5 text-gray-400" />}
           </span>
-          <span className="opacity-80 ml-1">{formatShiftTime(shift.startTime)}</span>
+          <span className="text-gray-400 ml-1 font-medium">{formatShiftTime(shift.startTime)}</span>
         </div>
         {shift.notes && (
-          <div className="mt-0.5 text-[9px] text-white/75 italic truncate">{shift.notes}</div>
+          <div className="mt-0.5 text-[9px] text-gray-500 italic truncate">{shift.notes}</div>
         )}
         {/* Agent names */}
         {assignedAgents.length > 0 && (
@@ -205,9 +211,9 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
               const style = task ? TASK_STYLES[task] : null;
               const partial = getPartial(shift.id, agent!.id);
               return (
-                <div key={agent!.id} className="flex items-center gap-1 text-[10px] text-white/90">
+                <div key={agent!.id} className="flex items-center gap-1 text-[10px] text-gray-700">
                   <div
-                    className="w-3.5 h-3.5 rounded-full border border-white/40 flex items-center justify-center text-[7px] shrink-0"
+                    className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-white text-[7px] shrink-0"
                     style={{ backgroundColor: agent!.color }}
                   >
                     {agent!.name[0]}
@@ -215,7 +221,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   <span className="truncate">{agent!.name.split(' ')[0]}</span>
                   {partial && (
                     <span
-                      className="shrink-0 px-1 py-px rounded-full bg-white/90 text-amber-700 text-[7px] font-bold leading-none whitespace-nowrap"
+                      className="shrink-0 px-1 py-px rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[7px] font-semibold leading-none whitespace-nowrap"
                       title={`Only covering ${partial.startTime}–${partial.endTime}`}
                     >
                       {partial.startTime}–{partial.endTime}
@@ -224,7 +230,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   {agentTags(agent).map(l => (
                     <span
                       key={l}
-                      className="shrink-0 px-1 py-px rounded-full bg-amber-400 text-white text-[7px] font-bold uppercase tracking-wide leading-none"
+                      className="shrink-0 px-1 py-px rounded-full bg-amber-100 text-amber-700 text-[7px] font-semibold uppercase tracking-wide leading-none"
                       title={l}
                     >
                       {l}
@@ -232,7 +238,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   ))}
                   {style && (!style.iconUrl ? (
                     <span
-                      className={`ml-auto shrink-0 px-1 py-px rounded-full ${style.badge || 'bg-rose-500 text-white'} text-[7px] font-bold uppercase tracking-wide leading-none`}
+                      className={`ml-auto shrink-0 px-1 py-px rounded-full ${style.badge || 'bg-rose-100 text-rose-700'} text-[7px] font-bold uppercase tracking-wide leading-none`}
                       title={style.tooltip}
                     >
                       {task}
@@ -263,13 +269,13 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
         )}
         {/* Vacancy indicator + Join */}
         <div className="mt-1 flex items-center justify-between">
-          <span className={`text-[10px] font-semibold ${filled > required ? 'text-green-200' : filled >= required ? 'text-white/90' : 'text-yellow-200'}`}>
+          <span className={`text-[10px] font-semibold ${filled > required ? 'text-emerald-600' : filled >= required ? 'text-gray-500' : 'text-amber-600'}`}>
             {filled}/{required} filled
           </span>
           {!isAdmin && (isAssignedToMe ? (
             <button
               onClick={(e) => { e.stopPropagation(); handleUnassign(state.currentUser.id); }}
-              className="text-[10px] font-semibold bg-white/25 hover:bg-red-400/50 rounded px-1.5 py-0.5 transition-colors"
+              className="text-[10px] font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded px-1.5 py-0.5 transition-colors"
               title="Leave this shift"
             >
               Leave
@@ -277,7 +283,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); setShowJoin(true); }}
-              className="text-[10px] font-semibold bg-white/25 hover:bg-white/40 rounded px-1.5 py-0.5 transition-colors"
+              className="text-[10px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded px-1.5 py-0.5 transition-colors"
               title="Join this shift (full or partial)"
             >
               + Join
