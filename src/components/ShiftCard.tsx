@@ -5,7 +5,7 @@ import { convertTime, getUserTimezone, isShiftActiveNow } from '../utils/timezon
 import { useNow } from '../hooks/useNow';
 import { v4 as uuid } from 'uuid';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
-import { getTaskAssignments, TASK_STYLES } from '../utils/tasks';
+import { getTaskAssignments, TASK_STYLES, taskLabel } from '../utils/tasks';
 import { confirmClockOut } from '../utils/clock';
 import { useSelfLeave } from '../hooks/useSelfLeave';
 import { JoinShiftModal } from './JoinShiftModal';
@@ -203,6 +203,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             {assignedAgents.map(agent => {
               const task = taskAssignments.get(agent!.id);
               const style = task ? TASK_STYLES[task] : null;
+              const label = task ? taskLabel(task, shift.date) : task;
+              const relabeled = !!task && label !== task;
               const partial = getPartial(shift.id, agent!.id);
               return (
                 <div key={agent!.id} className="flex items-center gap-1 text-[10px] text-white/90">
@@ -230,7 +232,14 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                       {l}
                     </span>
                   ))}
-                  {style && (
+                  {style && (relabeled ? (
+                    <span
+                      className="ml-auto shrink-0 px-1 py-px rounded-full bg-rose-500 text-white text-[7px] font-bold uppercase tracking-wide leading-none"
+                      title={`This shift you will mainly work on ${label}`}
+                    >
+                      {label}
+                    </span>
+                  ) : (
                     <span
                       className={`relative group/task ml-auto p-0.5 rounded ${style.bg} shrink-0 inline-flex items-center justify-center`}
                       aria-label={style.tooltip}
@@ -248,7 +257,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                         {style.tooltip}
                       </span>
                     </span>
-                  )}
+                  ))}
                 </div>
               );
             })}
@@ -384,6 +393,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                 const conflict = hasConflict(agent!.id, shift.date);
                 const task = taskAssignments.get(agent!.id);
                 const style = task ? TASK_STYLES[task] : null;
+                const label = task ? taskLabel(task, shift.date) : task;
+                const taskTip = task && label !== task ? `This shift you will mainly work on ${label}` : style?.tooltip;
                 const partial = getPartial(shift.id, agent!.id);
                 const isMe = agent!.id === state.currentUser.id && !isAdmin;
                 return (
@@ -430,21 +441,23 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                       ))}
                       {style && (
                         <span
-                          className={`relative group/task inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.bg} text-gray-700 cursor-help`}
-                          aria-label={style.tooltip}
+                          className={`relative group/task inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${label !== task ? 'bg-rose-100 text-rose-700' : `${style.bg} text-gray-700`} cursor-help`}
+                          aria-label={taskTip}
                         >
-                          <img
-                            src={style.iconUrl}
-                            alt={task!}
-                            className="w-3.5 h-3.5 object-contain"
-                            draggable={false}
-                          />
-                          {task}
+                          {label === task && (
+                            <img
+                              src={style.iconUrl}
+                              alt={label!}
+                              className="w-3.5 h-3.5 object-contain"
+                              draggable={false}
+                            />
+                          )}
+                          {label}
                           <span
                             className="pointer-events-none invisible opacity-0 group-hover/task:visible group-hover/task:opacity-100 transition-opacity absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-[11px] font-medium text-white bg-gray-900 rounded shadow-lg whitespace-nowrap"
                             role="tooltip"
                           >
-                            {style.tooltip}
+                            {taskTip}
                           </span>
                         </span>
                       )}

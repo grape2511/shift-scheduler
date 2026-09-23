@@ -125,3 +125,16 @@ export const TASK_STYLES: Record<
     tooltip: 'This shift you will mainly work on pending Notion Tasks',
   },
 };
+
+// Temporary task relabel: for shifts on/before this date the "Notion Tasks" duty
+// is *shown* as "KYC" — a crucial task that outranks Notion right now. The
+// rotation and the stored assignments are unchanged, so this is display-only and
+// reverts automatically after the date with no further edits. Mirrored in the
+// Slack roster SQL (announce_shift_roster) — keep the two in sync.
+export const TASK_RELABEL_UNTIL = '2026-10-07'; // inclusive, YYYY-MM-DD (shift's own date)
+
+/** Display label for a task on a given shift date (applies the temporary swap). */
+export function taskLabel(task: string, shiftDate: string): string {
+  if (task === 'Notion Tasks' && shiftDate <= TASK_RELABEL_UNTIL) return 'KYC';
+  return task;
+}

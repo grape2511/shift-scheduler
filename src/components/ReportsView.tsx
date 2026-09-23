@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { formatDate } from '../utils/dates';
-import { getTaskAssignments } from '../utils/tasks';
+import { getTaskAssignments, taskLabel } from '../utils/tasks';
 import { subDays, subMonths, subYears, format, parseISO } from 'date-fns';
 import { Download, FileText, Filter } from 'lucide-react';
 
@@ -25,6 +25,7 @@ interface ReportRow {
   scheduledStart: string;
   scheduledEnd: string;
   task: string;
+  coverage: string; // 'Full shift' or e.g. '08:00–12:00'
   clockInIso: string | null;
   clockOutIso: string | null;
   hours: number | null;
@@ -62,7 +63,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 const PREVIEW_LIMIT = 200;
 
 export function ReportsView() {
-  const { state, getShiftTasks } = useApp();
+  const { state, getShiftTasks, getPartial } = useApp();
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [range, setRange] = useState<RangeKey>('1m');
 
@@ -108,7 +109,10 @@ export function ReportsView() {
           status = 'Worked';
         }
 
-        const task = (stored?.get(agentId) ?? computed?.get(agentId) ?? '') as string;
+        const rawTask = (stored?.get(agentId) ?? computed?.get(agentId) ?? '') as string;
+        const task = rawTask ? taskLabel(rawTask, shift.date) : '';
+        const p = getPartial(shift.id, agentId);
+        const coverage = p ? `${p.startTime}–${p.endTime}` : 'Full shift';
 
         out.push({
           agentId,
@@ -121,6 +125,7 @@ export function ReportsView() {
           scheduledStart: shift.startTime,
           scheduledEnd: shift.endTime,
           task,
+          coverage,
           clockInIso,
           clockOutIso,
           hours,
@@ -130,7 +135,7 @@ export function ReportsView() {
     }
     out.sort((a, b) => (a.shiftDate < b.shiftDate ? 1 : a.shiftDate > b.shiftDate ? -1 : a.agentName.localeCompare(b.agentName)));
     return out;
-  }, [state.shifts, state.clockRecords, state.users, agentFilter, range, getShiftTasks]);
+  }, [state.shifts, state.clockRecords, state.users, state.partials, agentFilter, range, getShiftTasks, getPartial]);
 
   const totalHours = useMemo(() => rows.reduce((s, r) => s + (r.hours || 0), 0), [rows]);
 
@@ -138,7 +143,7 @@ export function ReportsView() {
     const allAgents = agentFilter === 'all';
     const header = [
       ...(allAgents ? ['Agent'] : []),
-      'Date', 'Shift', 'Scheduled Start', 'Scheduled End', 'Timezone', 'Task', 'Clocked In', 'Clocked Out', 'Hours Worked', 'Status',
+      'Date', 'Shift', 'Scheduled Start', 'Scheduled End', 'Timezone', 'Task', 'Coverage', 'Clocked In', 'Clocked Out', 'Hours Worked', 'Status',
     ];
     const body = rows.map(r => [
       ...(allAgents ? [r.agentName] : []),
@@ -148,6 +153,7 @@ export function ReportsView() {
       r.scheduledEnd,
       r.timezone,
       r.task,
+      r.coverage,
       fmtClock(r.clockInIso, r.timezone),
       fmtClock(r.clockOutIso, r.timezone),
       r.hours ?? '',
@@ -235,6 +241,7 @@ export function ReportsView() {
                   <th className="px-4 py-2.5 text-left font-medium">Date</th>
                   <th className="px-4 py-2.5 text-left font-medium">Shift</th>
                   <th className="px-4 py-2.5 text-left font-medium">Task</th>
+                  <th className="px-4 py-2.5 text-left font-medium">Coverage</th>
                   <th className="px-4 py-2.5 text-left font-medium">Clocked in</th>
                   <th className="px-4 py-2.5 text-left font-medium">Clocked out</th>
                   <th className="px-4 py-2.5 text-right font-medium">Hours</th>
@@ -257,6 +264,7 @@ export function ReportsView() {
                     <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 whitespace-nowrap">{format(parseISO(r.shiftDate), 'EEE, MMM d, yyyy')}</td>
                     <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">{r.shiftName}</td>
                     <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">{r.task || '—'}</td>
+                    <td className={`px-4 py-2.5 whitespace-nowrap ${r.coverage === 'Full shift' ? 'text-gray-400 dark:text-gray-500' : 'text-amber-700 dark:text-amber-400 font-medium'}`}>{r.coverage}</td>
                     <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 whitespace-nowrap">{fmtClock(r.clockInIso, r.timezone) || '—'}</td>
                     <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 whitespace-nowrap">{fmtClock(r.clockOutIso, r.timezone) || '—'}</td>
                     <td className="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">{r.hours ?? '—'}</td>
