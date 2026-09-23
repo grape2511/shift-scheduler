@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask } from '../types';
+import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask, PartialCoverage } from '../types';
 import type { Task } from '../utils/tasks';
 import { AGENT_COLORS, getNextColor } from '../utils/colors';
 import { addDays, addWeeks, formatDate } from '../utils/dates';
@@ -19,6 +19,7 @@ interface AppState {
   clockRecords: ClockRecord[];
   coverageNotes: CoverageNote[];
   shiftTasks: ShiftTask[];
+  partials: PartialCoverage[];
 }
 
 type Action =
@@ -54,6 +55,8 @@ type Action =
   | { type: 'UPSERT_CLOCK_RECORD'; payload: ClockRecord }
   | { type: 'SET_COVERAGE_NOTE'; payload: CoverageNote }
   | { type: 'DELETE_COVERAGE_NOTE'; payload: { userId: string; weekStart: string } }
+  | { type: 'SET_PARTIAL'; payload: PartialCoverage }
+  | { type: 'DELETE_PARTIAL'; payload: { shiftId: string; userId: string } }
   | { type: 'LOAD_STATE'; payload: AppState };
 
 const defaultAdmin: User = {
@@ -81,6 +84,7 @@ const initialState: AppState = {
   clockRecords: [],
   coverageNotes: [],
   shiftTasks: [],
+  partials: [],
 };
 
 function createNotification(userId: string, message: string, type: Notification['type']): Notification {
@@ -107,6 +111,20 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         coverageNotes: (state.coverageNotes || []).filter(n => !(n.userId === userId && n.weekStart === weekStart)),
+      };
+    }
+
+    case 'SET_PARTIAL': {
+      const { shiftId, userId } = action.payload;
+      const rest = (state.partials || []).filter(p => !(p.shiftId === shiftId && p.userId === userId));
+      return { ...state, partials: [...rest, action.payload] };
+    }
+
+    case 'DELETE_PARTIAL': {
+      const { shiftId, userId } = action.payload;
+      return {
+        ...state,
+        partials: (state.partials || []).filter(p => !(p.shiftId === shiftId && p.userId === userId)),
       };
     }
 
@@ -716,6 +734,9 @@ interface AppContextType {
   getPublicHolidaysForDate: (date: string) => { agent: User; holidays: PublicHoliday[] }[];
   getClockRecord: (shiftId: string, userId: string) => ClockRecord | undefined;
   getShiftTasks: (shiftId: string) => Map<string, Task> | undefined;
+  getPartial: (shiftId: string, userId: string) => PartialCoverage | undefined;
+  setPartial: (shiftId: string, userId: string, startTime: string, endTime: string) => void;
+  clearPartial: (shiftId: string, userId: string) => void;
   getMonthlyHours: (agentId: string, year: number, month: number) => number;
   getEnabledHolidayCountries: () => string[];
   getPtoBalance: (agentId: string, year?: number) => { used: number; total: number; remaining: number; sickUsed: number; sickTotal: number; sickRemaining: number };
@@ -742,7 +763,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   // Load data from Supabase on mount
   const refreshData = useCallback(async () => {
     try {
-      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks] = await Promise.all([
+      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks, partials] = await Promise.all([
         db.fetchAllProfiles(),
         db.fetchAllShifts(),
         db.fetchAllTimeOffs(),
@@ -751,13 +772,14 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         db.fetchAllClockRecords().catch(() => [] as ClockRecord[]),
         db.fetchAllCoverageNotes().catch(() => [] as CoverageNote[]),
         db.fetchAllShiftTasks().catch(() => [] as ShiftTask[]),
+        db.fetchAllShiftPartials().catch(() => [] as PartialCoverage[]),
       ]);
       // Use the freshly fetched profile for currentUser so admin settings persist
       const freshCurrentUser = users.find(u => u.id === currentUser.id) || currentUser;
       lastLoadRef.current = Date.now();
       dispatch({
         type: 'LOAD_STATE',
-        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks },
+        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks, partials },
       });
     } catch (e) {
       console.error('refreshData failed:', e);
@@ -1322,6 +1344,29 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   }, [state.shiftTasks]);
   const getShiftTasks = (shiftId: string): Map<string, Task> | undefined => shiftTaskIndex.get(shiftId);
 
+  // Index partial-coverage windows as shiftId -> (userId -> {startTime,endTime}).
+  const partialIndex = useMemo(() => {
+    const idx = new Map<string, Map<string, PartialCoverage>>();
+    for (const p of state.partials || []) {
+      let m = idx.get(p.shiftId);
+      if (!m) { m = new Map(); idx.set(p.shiftId, m); }
+      m.set(p.userId, p);
+    }
+    return idx;
+  }, [state.partials]);
+  const getPartial = (shiftId: string, userId: string): PartialCoverage | undefined => partialIndex.get(shiftId)?.get(userId);
+
+  const setPartial = (shiftId: string, userId: string, startTime: string, endTime: string) => {
+    dispatch({ type: 'SET_PARTIAL', payload: { shiftId, userId, startTime, endTime } });
+    db.upsertShiftPartial(shiftId, userId, startTime, endTime);
+  };
+
+  const clearPartial = (shiftId: string, userId: string) => {
+    if (!getPartial(shiftId, userId)) return; // nothing stored — skip the write
+    dispatch({ type: 'DELETE_PARTIAL', payload: { shiftId, userId } });
+    db.deleteShiftPartial(shiftId, userId);
+  };
+
   const setCoverageNote = (userId: string, weekStart: string, note: string) => {
     const trimmed = note.trim();
     if (!trimmed) {
@@ -1356,6 +1401,9 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       getPublicHolidaysForDate,
       getClockRecord,
       getShiftTasks,
+      getPartial,
+      setPartial,
+      clearPartial,
       getMonthlyHours,
       getEnabledHolidayCountries,
       getPtoBalance,

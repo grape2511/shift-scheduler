@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask } from '../types';
+import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask, PartialCoverage } from '../types';
 
 // PostgREST caps a single .select() at 1000 rows (db.max_rows). Once a table
 // crosses that, a plain .select('*') silently drops rows — which is how agents
@@ -321,6 +321,34 @@ export async function fetchAllShiftTasks(): Promise<ShiftTask[]> {
     userId: t.user_id,
     task: t.task,
   }));
+}
+
+// ---- Shift Partials (per-agent partial-coverage windows) ----
+
+export async function fetchAllShiftPartials(): Promise<PartialCoverage[]> {
+  const data = await fetchAllRows('shift_partials');
+  return data.map(p => ({
+    shiftId: p.shift_id,
+    userId: p.user_id,
+    startTime: p.start_time,
+    endTime: p.end_time,
+  }));
+}
+
+export async function upsertShiftPartial(shiftId: string, userId: string, startTime: string, endTime: string) {
+  const { error } = await supabase.from('shift_partials').upsert({
+    shift_id: shiftId,
+    user_id: userId,
+    start_time: startTime,
+    end_time: endTime,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'shift_id,user_id' });
+  if (error) console.error('upsertShiftPartial', error);
+}
+
+export async function deleteShiftPartial(shiftId: string, userId: string) {
+  const { error } = await supabase.from('shift_partials').delete().eq('shift_id', shiftId).eq('user_id', userId);
+  if (error) console.error('deleteShiftPartial', error);
 }
 
 // ---- Clock Records ----

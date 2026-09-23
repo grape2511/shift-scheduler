@@ -8,6 +8,7 @@ import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShift
 import { getTaskAssignments, TASK_STYLES } from '../utils/tasks';
 import { confirmClockOut } from '../utils/clock';
 import { useSelfLeave } from '../hooks/useSelfLeave';
+import { JoinShiftModal } from './JoinShiftModal';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -25,9 +26,10 @@ function agentTags(agent: { labels?: string[]; label?: string } | undefined): st
 }
 
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
-  const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord, getShiftTasks } = useApp();
+  const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord, getShiftTasks, getPartial } = useApp();
   const attemptSelfLeave = useSelfLeave();
   const [showAssign, setShowAssign] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(shift.notes || '');
@@ -104,10 +106,6 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
     }
     dispatch({ type: 'DELETE_SHIFT_PAST', payload: { shiftId: shift.id, toDate: shift.date } });
     setShowDeleteMenu(false);
-  };
-
-  const handleSelfJoin = () => {
-    dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: shift.id, agentId: state.currentUser.id } });
   };
 
   const handleSaveNote = () => {
@@ -205,6 +203,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             {assignedAgents.map(agent => {
               const task = taskAssignments.get(agent!.id);
               const style = task ? TASK_STYLES[task] : null;
+              const partial = getPartial(shift.id, agent!.id);
               return (
                 <div key={agent!.id} className="flex items-center gap-1 text-[10px] text-white/90">
                   <div
@@ -214,6 +213,14 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                     {agent!.name[0]}
                   </div>
                   <span className="truncate">{agent!.name.split(' ')[0]}</span>
+                  {partial && (
+                    <span
+                      className="shrink-0 px-1 py-px rounded-full bg-white/90 text-amber-700 text-[7px] font-bold leading-none whitespace-nowrap"
+                      title={`Only covering ${partial.startTime}–${partial.endTime}`}
+                    >
+                      {partial.startTime}–{partial.endTime}
+                    </span>
+                  )}
                   {agentTags(agent).map(l => (
                     <span
                       key={l}
@@ -262,14 +269,15 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             </button>
           ) : (
             <button
-              onClick={(e) => { e.stopPropagation(); handleSelfJoin(); }}
+              onClick={(e) => { e.stopPropagation(); setShowJoin(true); }}
               className="text-[10px] font-semibold bg-white/25 hover:bg-white/40 rounded px-1.5 py-0.5 transition-colors"
-              title="Join this shift"
+              title="Join this shift (full or partial)"
             >
               + Join
             </button>
           ))}
         </div>
+        {showJoin && <JoinShiftModal shift={shift} onClose={() => setShowJoin(false)} />}
       </div>
     );
   }
@@ -376,6 +384,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                 const conflict = hasConflict(agent!.id, shift.date);
                 const task = taskAssignments.get(agent!.id);
                 const style = task ? TASK_STYLES[task] : null;
+                const partial = getPartial(shift.id, agent!.id);
+                const isMe = agent!.id === state.currentUser.id && !isAdmin;
                 return (
                   <div
                     key={agent!.id}
@@ -391,6 +401,24 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                         {agent!.name[0]}
                       </div>
                       <span className="text-sm text-gray-700">{agent!.name}</span>
+                      {partial && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-semibold whitespace-nowrap"
+                          title={`Covering only ${partial.startTime}–${partial.endTime} of this shift`}
+                        >
+                          <Clock className="w-2.5 h-2.5" />
+                          {partial.startTime}–{partial.endTime}
+                        </span>
+                      )}
+                      {isMe && (
+                        <button
+                          onClick={() => setShowJoin(true)}
+                          className="text-[10px] font-medium text-indigo-600 hover:bg-indigo-50 rounded px-1 py-0.5 transition-colors"
+                          title="Set the hours you're covering"
+                        >
+                          {partial ? 'edit hours' : 'partial?'}
+                        </button>
+                      )}
                       {agentTags(agent).map(l => (
                         <span
                           key={l}
@@ -563,7 +591,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
           )}
           {!isAdmin && !isAssignedToMe && (
             <button
-              onClick={handleSelfJoin}
+              onClick={() => setShowJoin(true)}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -571,6 +599,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
             </button>
           )}
         </div>
+        {showJoin && <JoinShiftModal shift={shift} onClose={() => setShowJoin(false)} />}
 
         {/* Clock In/Out for assigned agent */}
         {isAssignedToMe && (

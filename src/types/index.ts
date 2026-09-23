@@ -103,4 +103,13 @@ export interface ShiftTask {
   task: string; // 'Dashboard' | 'Intercom' | 'Notion Tasks'
 }
 
+// A per-(shift, agent) partial-coverage window. No record = the agent covers the
+// full shift; a record means they only cover startTime–endTime (shift timezone).
+export interface PartialCoverage {
+  shiftId: string;
+  userId: string;
+  startTime: string; // HH:MM
+  endTime: string;   // HH:MM
+}
+
 export type ViewMode = 'month' | 'week' | 'day';

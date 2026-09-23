@@ -6,6 +6,7 @@ import { SHIFT_COLORS, getNextColor } from '../utils/colors';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import { useSelfLeave } from '../hooks/useSelfLeave';
+import { JoinShiftModal } from './JoinShiftModal';
 import type { Shift } from '../types';
 
 interface ShiftModalProps {
@@ -220,12 +221,6 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
     onClose();
   };
 
-  const handleSelfJoin = () => {
-    if (!editShift) return;
-    dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: editShift.id, agentId: state.currentUser.id } });
-    onClose();
-  };
-
   const handleSelfLeave = () => {
     if (!editShift) return;
     // Shared guard: blocks a below-minimum leave (steering to Swap) and notifies
@@ -241,7 +236,6 @@ export function ShiftModal({ onClose, editShift, defaultDate }: ShiftModalProps)
         shift={editShift}
         onClose={onClose}
         isAssignedToMe={isAssignedToMe}
-        onJoin={handleSelfJoin}
         onLeave={handleSelfLeave}
       />
     );
@@ -716,17 +710,16 @@ function AgentShiftView({
   shift,
   onClose,
   isAssignedToMe,
-  onJoin,
   onLeave,
 }: {
   shift: Shift;
   onClose: () => void;
   isAssignedToMe: boolean;
-  onJoin: () => void;
   onLeave: () => void;
 }) {
   const { state, dispatch, activeAgents: agents, getSwapRequestsForShift, getShiftsForAgent } = useApp();
   const [showSwap, setShowSwap] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const [swapTargetId, setSwapTargetId] = useState('');
   const [swapTargetShiftId, setSwapTargetShiftId] = useState('');
   const [swapReason, setSwapReason] = useState('');
@@ -966,7 +959,7 @@ function AgentShiftView({
             ) : (
               <button
                 type="button"
-                onClick={onJoin}
+                onClick={() => setShowJoin(true)}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Join Shift
@@ -975,6 +968,7 @@ function AgentShiftView({
           </div>
         </div>
       </div>
+      {showJoin && <JoinShiftModal shift={shift} onClose={() => { setShowJoin(false); onClose(); }} />}
     </div>
   );
 }
