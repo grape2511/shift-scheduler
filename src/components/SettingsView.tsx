@@ -53,6 +53,11 @@ export function SettingsView() {
     updateProfile(state.currentUser.id, { slackWebhookUrl: url || undefined });
   };
 
+  const updateMissedClockInWebhookUrl = (url: string) => {
+    dispatch({ type: 'UPDATE_USER', payload: { id: state.currentUser.id, updates: { slackMissedClockInWebhookUrl: url || undefined } } });
+    updateProfile(state.currentUser.id, { slackMissedClockInWebhookUrl: url || undefined });
+  };
+
   const togglePref = (key: SlackNotifKey) => {
     const updated = { ...prefs, [key]: !prefs[key] };
     dispatch({ type: 'UPDATE_USER', payload: { id: state.currentUser.id, updates: { slackNotifications: updated } } });
@@ -157,6 +162,25 @@ export function SettingsView() {
           </div>
           {state.currentUser.slackWebhookUrl && (
             <p className="text-[10px] text-green-600 mt-2">Slack notifications are active</p>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-b border-gray-100">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Missed clock-in webhook URL <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <p className="text-[11px] text-gray-500 mb-2">
+            Send <span className="font-medium">Missed clock-in</span> alerts to a different channel. Leave blank to use the main webhook above.
+          </p>
+          <input
+            type="url"
+            value={state.currentUser.slackMissedClockInWebhookUrl || ''}
+            onChange={e => updateMissedClockInWebhookUrl(e.target.value)}
+            placeholder="https://hooks.slack.com/services/..."
+            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {state.currentUser.slackMissedClockInWebhookUrl && (
+            <p className="text-[10px] text-green-600 mt-2">Missed clock-in alerts go to this separate channel</p>
           )}
         </div>
 

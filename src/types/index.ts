@@ -15,6 +15,7 @@ export interface User {
   label?: string; // deprecated, kept for backwards compat
   labels?: string[]; // multiple labels from predefined list
   slackWebhookUrl?: string;
+  slackMissedClockInWebhookUrl?: string; // optional: routes ONLY missed clock-in alerts to a separate channel; falls back to slackWebhookUrl when unset
   slackNotifications?: Record<string, boolean>;
   active?: boolean; // default true
 }
