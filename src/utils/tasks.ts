@@ -1,8 +1,8 @@
 // Deterministic per-shift task rotation. Two goals held at once, statelessly:
-//   1. Coverage — every shift covers the priority tasks first: 1 Intercom, then
-//      1 Dashboard, then 1 KYC, then 1 Notion. Extra agents cycle back through in
-//      the same order, so the busy live queues (Intercom, Dashboard) get the
-//      second bodies before KYC/Notion are ever doubled.
+//   1. Coverage — every shift covers one each of Dashboard, Intercom, KYC and
+//      Notion first, then every extra agent goes to Dashboard (the highest-traffic
+//      queue). So Intercom/KYC/Notion stay at one and Dashboard absorbs the surplus
+//      (e.g. 5 agents -> 2 Dashboard, 1 Intercom, 1 KYC, 1 Notion).
 //   2. Fair per-agent rotation — each agent has their own rotation clock that
 //      advances one task per calendar day, independent of who else is on the
 //      shift, so nobody gets stuck on the same task when the roster changes.
@@ -14,18 +14,17 @@
 export const TASKS = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'] as const;
 export type Task = (typeof TASKS)[number];
 
-// The order in which tasks earn their slots as the shift grows. First four agents
-// cover one each of Intercom, Dashboard, KYC, Notion; further agents repeat the
-// cycle (2nd Intercom, 2nd Dashboard, …).
-const SLOT_PRIORITY: Task[] = ['Intercom', 'Dashboard', 'KYC', 'Notion Tasks'];
+// The first four agents cover one each of Dashboard, Intercom, KYC, Notion (in
+// that order for smaller shifts); every agent beyond the fourth goes to Dashboard.
+const BASE_PRIORITY: Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'];
 
-// Slot allocation by team size (one of each priority task first, then repeat):
-//   1 → [I]                      2 → [I, D]
-//   3 → [I, D, KYC]              4 → [I, D, KYC, N]
-//   5 → [I, D, KYC, N, I]        6 → [I, D, KYC, N, I, D]
+// Slot allocation by team size:
+//   1 → [D]                      2 → [D, I]
+//   3 → [D, I, KYC]              4 → [D, I, KYC, N]
+//   5 → [D, I, KYC, N, D]        6 → [D, I, KYC, N, D, D]
 function buildSlots(n: number): Task[] {
   const slots: Task[] = [];
-  for (let i = 0; i < n; i++) slots.push(SLOT_PRIORITY[i % SLOT_PRIORITY.length]);
+  for (let i = 0; i < n; i++) slots.push(i < BASE_PRIORITY.length ? BASE_PRIORITY[i] : 'Dashboard');
   return slots;
 }
 
