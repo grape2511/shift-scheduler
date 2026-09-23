@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { formatDate } from '../utils/dates';
-import { getTaskAssignments, taskLabel } from '../utils/tasks';
+import { getTaskAssignments } from '../utils/tasks';
 import { subDays, subMonths, subYears, format, parseISO } from 'date-fns';
 import { Download, FileText, Filter } from 'lucide-react';
 
@@ -109,8 +109,7 @@ export function ReportsView() {
           status = 'Worked';
         }
 
-        const rawTask = (stored?.get(agentId) ?? computed?.get(agentId) ?? '') as string;
-        const task = rawTask ? taskLabel(rawTask, shift.date) : '';
+        const task = (stored?.get(agentId) ?? computed?.get(agentId) ?? '') as string;
         const p = getPartial(shift.id, agentId);
         const coverage = p ? `${p.startTime}–${p.endTime}` : 'Full shift';
 

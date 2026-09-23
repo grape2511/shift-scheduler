@@ -1,37 +1,32 @@
 // Deterministic per-shift task rotation. Two goals held at once, statelessly:
-//   1. Coverage — every day the shift covers each task (>=1 Intercom, >=1 Notion,
-//      the rest on Dashboard) whenever there are at least 3 agents.
+//   1. Coverage — every shift covers the priority tasks first: 1 Intercom, then
+//      1 Dashboard, then 1 KYC, then 1 Notion. Extra agents cycle back through in
+//      the same order, so the busy live queues (Intercom, Dashboard) get the
+//      second bodies before KYC/Notion are ever doubled.
 //   2. Fair per-agent rotation — each agent has their own rotation clock that
-//      advances one task per calendar day (Dashboard -> Intercom -> Notion -> ...),
-//      independent of who else is on the shift that day. This is what keeps an
-//      agent from getting stuck on the same task when the daily roster changes.
+//      advances one task per calendar day, independent of who else is on the
+//      shift, so nobody gets stuck on the same task when the roster changes.
 // Each agent is given their personal preferred task; assignments are then capped
 // to the per-task coverage quota, bumping only the minimum number of agents to the
 // next task in their own cycle. Priority for a contested task rotates by day so the
 // same person isn't always the one bumped.
 
-export const TASKS = ['Dashboard', 'Intercom', 'Notion Tasks'] as const;
+export const TASKS = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'] as const;
 export type Task = (typeof TASKS)[number];
 
-// Slot allocation by team size:
-//   1 → [D]
-//   2 → [D, I]
-//   3 → [D, I, N]
-//   4 → [D, D, I, N]   (extra weight on Dashboard, per ops decision)
-//   5 → [D, D, I, I, N]
-//   6 → [D, D, I, I, N, N]
-//   N → ceil(N/3) Dashboard, ceil(rem/2) Intercom, rest Notion Tasks
+// The order in which tasks earn their slots as the shift grows. First four agents
+// cover one each of Intercom, Dashboard, KYC, Notion; further agents repeat the
+// cycle (2nd Intercom, 2nd Dashboard, …).
+const SLOT_PRIORITY: Task[] = ['Intercom', 'Dashboard', 'KYC', 'Notion Tasks'];
+
+// Slot allocation by team size (one of each priority task first, then repeat):
+//   1 → [I]                      2 → [I, D]
+//   3 → [I, D, KYC]              4 → [I, D, KYC, N]
+//   5 → [I, D, KYC, N, I]        6 → [I, D, KYC, N, I, D]
 function buildSlots(n: number): Task[] {
-  if (n <= 0) return [];
-  const dCount = Math.ceil(n / 3);
-  const remaining = n - dCount;
-  const iCount = Math.ceil(remaining / 2);
-  const tCount = remaining - iCount;
-  return [
-    ...Array(dCount).fill('Dashboard' as Task),
-    ...Array(iCount).fill('Intercom' as Task),
-    ...Array(tCount).fill('Notion Tasks' as Task),
-  ];
+  const slots: Task[] = [];
+  for (let i = 0; i < n; i++) slots.push(SLOT_PRIORITY[i % SLOT_PRIORITY.length]);
+  return slots;
 }
 
 const REFERENCE_DATE_MS = Date.UTC(2026, 0, 1); // 2026-01-01
@@ -61,8 +56,8 @@ export function getTaskAssignments(
   const n = sorted.length;
   if (n === 0) return result;
 
-  // Per-task coverage quota (e.g. 4 agents -> 2 Dashboard, 1 Intercom, 1 Notion).
-  const remaining: Record<Task, number> = { Dashboard: 0, Intercom: 0, 'Notion Tasks': 0 };
+  // Per-task coverage quota (e.g. 4 agents -> 1 each of Intercom/Dashboard/KYC/Notion).
+  const remaining: Record<Task, number> = { Dashboard: 0, Intercom: 0, KYC: 0, 'Notion Tasks': 0 };
   for (const slot of buildSlots(n)) remaining[slot]++;
 
   // Each agent's preferred task advances one step per calendar day.
@@ -105,9 +100,10 @@ export function getTaskAssignments(
   return result;
 }
 
+// iconUrl is optional — tasks without an icon asset (KYC) render as a text badge.
 export const TASK_STYLES: Record<
   Task,
-  { bg: string; iconUrl: string; tooltip: string }
+  { bg: string; iconUrl?: string; badge?: string; tooltip: string }
 > = {
   Dashboard: {
     bg: 'bg-blue-50',
@@ -119,22 +115,14 @@ export const TASK_STYLES: Record<
     iconUrl: '/icons/intercom.png',
     tooltip: 'This shift you will mainly work on Intercom tickets',
   },
+  KYC: {
+    bg: 'bg-rose-100',
+    badge: 'bg-rose-500 text-white',
+    tooltip: 'This shift you will mainly work on KYC',
+  },
   'Notion Tasks': {
     bg: 'bg-gray-100',
     iconUrl: '/icons/notion.png',
     tooltip: 'This shift you will mainly work on pending Notion Tasks',
   },
 };
-
-// Temporary task relabel: for shifts on/before this date the "Notion Tasks" duty
-// is *shown* as "KYC" — a crucial task that outranks Notion right now. The
-// rotation and the stored assignments are unchanged, so this is display-only and
-// reverts automatically after the date with no further edits. Mirrored in the
-// Slack roster SQL (announce_shift_roster) — keep the two in sync.
-export const TASK_RELABEL_UNTIL = '2026-10-07'; // inclusive, YYYY-MM-DD (shift's own date)
-
-/** Display label for a task on a given shift date (applies the temporary swap). */
-export function taskLabel(task: string, shiftDate: string): string {
-  if (task === 'Notion Tasks' && shiftDate <= TASK_RELABEL_UNTIL) return 'KYC';
-  return task;
-}
