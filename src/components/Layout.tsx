@@ -3,6 +3,7 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, BarChart3, CalendarCheck, Timer, Moon, Sun, Eye, Settings, Activity, History } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
+import { AppIcon } from './AppIcon';
 import { COUNTRIES } from '../utils/holidays';
 
 interface LayoutProps {
@@ -116,9 +117,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             {/* Logo + Nav */}
             <div className="flex items-center gap-8">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-white" />
-                </div>
+                <AppIcon className="w-7 h-7" />
                 <span className="font-semibold text-gray-900 text-lg">Shifts</span>
               </div>
 

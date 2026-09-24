@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, LogIn, UserPlus, Eye, EyeOff, Mail } from 'lucide-react';
+import { LogIn, UserPlus, Eye, EyeOff, Mail } from 'lucide-react';
+import { AppIcon } from './AppIcon';
 
 export function AuthPage() {
   const { signIn, signUp, signInWithGoogle, resetPassword, deactivated } = useAuth();
@@ -98,9 +99,7 @@ export function AuthPage() {
       <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-sm">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-white" />
-          </div>
+          <AppIcon className="w-9 h-9" />
           <span className="font-bold text-gray-900 text-xl">Shifts</span>
         </div>
 
