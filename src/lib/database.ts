@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask, PartialCoverage } from '../types';
+import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification, SwapRequest, ClockRecord, ClockCorrection, CoverageNote, ShiftTask, PartialCoverage } from '../types';
 
 // PostgREST caps a single .select() at 1000 rows (db.max_rows). Once a table
 // crosses that, a plain .select('*') silently drops rows — which is how agents
@@ -375,4 +375,49 @@ export async function upsertClockRecord(record: ClockRecord) {
     clock_out: record.clockOut,
   }, { onConflict: 'shift_id,user_id' });
   if (error) console.error('upsertClockRecord', error);
+}
+
+// ---- Clock Corrections (agent-submitted, admin-approved) ----
+
+export async function fetchAllClockCorrections(): Promise<ClockCorrection[]> {
+  const data = await fetchAllRows('clock_corrections');
+  return data.map(c => ({
+    id: c.id,
+    shiftId: c.shift_id,
+    userId: c.user_id,
+    proposedClockIn: c.proposed_clock_in,
+    proposedClockOut: c.proposed_clock_out,
+    note: c.note || undefined,
+    status: c.status as ClockCorrection['status'],
+    createdAt: c.created_at,
+    reviewedBy: c.reviewed_by || undefined,
+    reviewedAt: c.reviewed_at || undefined,
+  }));
+}
+
+export async function insertClockCorrection(c: ClockCorrection) {
+  const { error } = await supabase.from('clock_corrections').insert({
+    id: c.id,
+    shift_id: c.shiftId,
+    user_id: c.userId,
+    proposed_clock_in: c.proposedClockIn,
+    proposed_clock_out: c.proposedClockOut,
+    note: c.note || null,
+    status: c.status,
+    created_at: c.createdAt,
+  });
+  if (error) console.error('insertClockCorrection', error);
+}
+
+export async function updateClockCorrectionStatus(
+  id: string,
+  status: 'approved' | 'rejected',
+  reviewedBy: string,
+) {
+  const { error } = await supabase.from('clock_corrections').update({
+    status,
+    reviewed_by: reviewedBy,
+    reviewed_at: new Date().toISOString(),
+  }).eq('id', id);
+  if (error) console.error('updateClockCorrectionStatus', error);
 }

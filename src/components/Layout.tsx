@@ -76,16 +76,22 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
     ? state.timeOffs.filter(t => (t.status || 'approved') === 'pending' && t.userId !== state.currentUser.id).length
     : 0;
 
+  // Admins review clock-correction requests — surface a red badge on Clock Logs.
+  const pendingCorrectionCount = isAdmin
+    ? (state.clockCorrections || []).filter(c => c.status === 'pending').length
+    : 0;
+
   const tabs = [
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     ...(state.currentUser.role === 'team-lead' ? [{ id: 'agents', label: 'Agents', icon: Users }] : []),
     ...(!isAdmin ? [{ id: 'clock', label: 'Clock', icon: Timer }] : []),
     ...(!isAdmin ? [{ id: 'my-shifts', label: 'My Shifts', icon: Clock }] : []),
+    ...(!isAdmin ? [{ id: 'my-clock-log', label: 'My Clock Log', icon: History }] : []),
     { id: 'days-off', label: 'Days Off', icon: CalendarCheck, badge: pendingTimeOffCount },
     ...(isAdmin ? [{ id: 'time-off-approval', label: 'Approvals', icon: CalendarCheck }] : []),
     ...(isAdmin ? [{ id: 'insights', label: 'Insights', icon: BarChart3 }] : []),
     ...(isAdmin ? [{ id: 'activity', label: 'Activity', icon: Activity }] : []),
-    ...(isAdmin ? [{ id: 'clock-logs', label: 'Clock Logs', icon: History }] : []),
+    ...(isAdmin ? [{ id: 'clock-logs', label: 'Clock Logs', icon: History, badge: pendingCorrectionCount }] : []),
     ...(isAdmin ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
   ];
 
