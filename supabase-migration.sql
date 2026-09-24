@@ -168,3 +168,32 @@ create index idx_clock_records_user on clock_records(user_id);
 
 -- Add notes column to shifts
 alter table shifts add column if not exists notes text;
+
+-- ============================================
+-- Clock Corrections (agent-submitted, admin-approved)
+-- ============================================
+-- An agent requests a correction to their own clock-in/out for a shift; it
+-- stays pending until an admin approves (which writes the times to the clock
+-- record) or rejects. Admin approval is enforced in the UI, consistent with the
+-- rest of this app's permissive RLS model.
+create table if not exists clock_corrections (
+  id uuid primary key default gen_random_uuid(),
+  shift_id uuid references shifts(id) on delete cascade not null,
+  user_id uuid references profiles(id) on delete cascade not null,
+  proposed_clock_in timestamptz,
+  proposed_clock_out timestamptz,
+  note text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz not null default now(),
+  reviewed_by uuid references profiles(id) on delete set null,
+  reviewed_at timestamptz
+);
+
+alter table clock_corrections enable row level security;
+
+create policy "Anyone can view clock_corrections" on clock_corrections for select using (true);
+create policy "Users can insert own clock_corrections" on clock_corrections for insert with check (auth.uid() = user_id);
+create policy "Authenticated can update clock_corrections" on clock_corrections for update using (auth.uid() is not null);
+
+create index idx_clock_corrections_status on clock_corrections(status);
+create index idx_clock_corrections_user on clock_corrections(user_id);

@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord, CoverageNote, ShiftTask, PartialCoverage } from '../types';
+import type { User, Shift, TimeOff, Notification, SwapRequest, ClockRecord, ClockCorrection, CoverageNote, ShiftTask, PartialCoverage } from '../types';
 import type { Task } from '../utils/tasks';
 import { AGENT_COLORS, getNextColor } from '../utils/colors';
 import { addDays, addWeeks, formatDate } from '../utils/dates';
@@ -17,6 +17,7 @@ interface AppState {
   notifications: Notification[];
   swapRequests: SwapRequest[];
   clockRecords: ClockRecord[];
+  clockCorrections: ClockCorrection[];
   coverageNotes: CoverageNote[];
   shiftTasks: ShiftTask[];
   partials: PartialCoverage[];
@@ -53,6 +54,8 @@ type Action =
   | { type: 'CLOCK_IN'; payload: ClockRecord }
   | { type: 'CLOCK_OUT'; payload: { shiftId: string; userId: string; clockOut: string } }
   | { type: 'UPSERT_CLOCK_RECORD'; payload: ClockRecord }
+  | { type: 'ADD_CLOCK_CORRECTION'; payload: ClockCorrection }
+  | { type: 'UPDATE_CLOCK_CORRECTION'; payload: { id: string; updates: Partial<ClockCorrection> } }
   | { type: 'SET_COVERAGE_NOTE'; payload: CoverageNote }
   | { type: 'DELETE_COVERAGE_NOTE'; payload: { userId: string; weekStart: string } }
   | { type: 'SET_PARTIAL'; payload: PartialCoverage }
@@ -82,6 +85,7 @@ const initialState: AppState = {
   notifications: [],
   swapRequests: [],
   clockRecords: [],
+  clockCorrections: [],
   coverageNotes: [],
   shiftTasks: [],
   partials: [],
@@ -711,6 +715,17 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case 'ADD_CLOCK_CORRECTION':
+      return { ...state, clockCorrections: [...(state.clockCorrections || []), action.payload] };
+
+    case 'UPDATE_CLOCK_CORRECTION':
+      return {
+        ...state,
+        clockCorrections: (state.clockCorrections || []).map(c =>
+          c.id === action.payload.id ? { ...c, ...action.payload.updates } : c
+        ),
+      };
+
     default:
       return state;
   }
@@ -763,13 +778,14 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
   // Load data from Supabase on mount
   const refreshData = useCallback(async () => {
     try {
-      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks, partials] = await Promise.all([
+      const [users, shifts, timeOffs, notifications, swapRequests, clockRecords, clockCorrections, coverageNotes, shiftTasks, partials] = await Promise.all([
         db.fetchAllProfiles(),
         db.fetchAllShifts(),
         db.fetchAllTimeOffs(),
         db.fetchNotifications(currentUser.id),
         db.fetchAllSwapRequests(),
         db.fetchAllClockRecords().catch(() => [] as ClockRecord[]),
+        db.fetchAllClockCorrections().catch(() => [] as ClockCorrection[]),
         db.fetchAllCoverageNotes().catch(() => [] as CoverageNote[]),
         db.fetchAllShiftTasks().catch(() => [] as ShiftTask[]),
         db.fetchAllShiftPartials().catch(() => [] as PartialCoverage[]),
@@ -779,7 +795,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       lastLoadRef.current = Date.now();
       dispatch({
         type: 'LOAD_STATE',
-        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords, coverageNotes, shiftTasks, partials },
+        payload: { currentUser: freshCurrentUser, users, shifts, timeOffs, notifications, swapRequests, clockRecords, clockCorrections, coverageNotes, shiftTasks, partials },
       });
     } catch (e) {
       console.error('refreshData failed:', e);

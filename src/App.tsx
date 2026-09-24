@@ -15,12 +15,14 @@ import { DaysOffTab } from './components/DaysOffTab';
 import { SettingsView } from './components/SettingsView';
 import { ActivityView } from './components/ActivityView';
 import { ClockLogsView } from './components/ClockLogsView';
+import { MyClockLog } from './components/MyClockLog';
 
 const TAB_PATHS: Record<string, string> = {
   schedule: '/',
   agents: '/agents',
   clock: '/clock',
   'my-shifts': '/my-shifts',
+  'my-clock-log': '/my-clock-log',
   'days-off': '/days-off',
   'time-off-approval': '/time-off',
   insights: '/insights',
@@ -54,6 +56,7 @@ function AppContent() {
       {activeTab === 'agents' && (state.currentUser.role === 'admin' || state.currentUser.role === 'team-lead') && <AgentsView />}
       {activeTab === 'clock' && <ClockTab />}
       {activeTab === 'my-shifts' && <MyShiftsView />}
+      {activeTab === 'my-clock-log' && state.currentUser.role !== 'admin' && <MyClockLog />}
       {activeTab === 'days-off' && <DaysOffTab />}
       {activeTab === 'time-off-approval' && state.currentUser.role === 'admin' && <TimeOffApproval />}
       {activeTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
