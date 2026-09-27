@@ -150,33 +150,33 @@ export function TimeOffApproval() {
 
             return (
               <div key={to.id} className="bg-white rounded-xl border border-amber-200 p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
                     {agent && (
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0" style={{ backgroundColor: agent.color }}>
                         {agent.name[0]}
                       </div>
                     )}
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900">{agent?.name}</p>
                       <p className="text-xs text-gray-500">{format(new Date(to.date + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
-                        {to.reason && <span className="text-xs text-gray-400">– {to.reason}</span>}
+                        <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded shrink-0 ${catInfo.color}`}>{catInfo.label}</span>
+                        {to.reason && <span className="text-xs text-gray-400 truncate">– {to.reason}</span>}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                     <button
                       onClick={() => handleReject(to.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors whitespace-nowrap"
                     >
                       <X className="w-3.5 h-3.5" />
                       Reject
                     </button>
                     <button
                       onClick={() => handleApprove(to.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
                     >
                       <Check className="w-3.5 h-3.5" />
                       Approve
