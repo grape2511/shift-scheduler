@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Eye, EyeOff, Lock } from 'lucide-react';
+import { Eye, EyeOff, Lock } from 'lucide-react';
+import { AppIcon } from './AppIcon';
 
 export function SetNewPassword() {
   const { updatePassword, clearPasswordRecovery } = useAuth();
@@ -32,9 +33,7 @@ export function SetNewPassword() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-sm">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-white" />
-          </div>
+          <AppIcon className="w-9 h-9" />
           <span className="font-bold text-gray-900 text-xl">Shifts</span>
         </div>
 

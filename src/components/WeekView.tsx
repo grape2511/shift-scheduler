@@ -102,6 +102,49 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
           const publicHolidays = getPublicHolidaysForDate(dateStr);
           const today = isToday(day);
 
+          // Group each day-off under the shift its agent belongs to, so the
+          // admin sees who's out *per shift* rather than one undifferentiated
+          // list. A person counts as "on" a shift if they're assigned to it
+          // that day (covers pending + half-day) or their shift label matches
+          // the shift name (covers approved full days, where approval already
+          // unassigned them). Anyone with no matching shift on the board falls
+          // into `unmatchedOffs`, shown at the top of the day.
+          const activeOffs = timeOffs.filter(t => (t.status || 'approved') !== 'rejected');
+          const offsByShift = new Map<string, typeof activeOffs>();
+          const unmatchedOffs: typeof activeOffs = [];
+          for (const to of activeOffs) {
+            const user = state.users.find(u => u.id === to.userId);
+            const userLabels = user ? (user.labels || (user.label ? [user.label] : [])) : [];
+            const matchedShifts = shifts.filter(s => s.assignedAgentIds.includes(to.userId) || userLabels.includes(s.name));
+            if (matchedShifts.length === 0) {
+              unmatchedOffs.push(to);
+            } else {
+              for (const s of matchedShifts) {
+                const list = offsByShift.get(s.id) || [];
+                list.push(to);
+                offsByShift.set(s.id, list);
+              }
+            }
+          }
+
+          const renderOffPill = (to: typeof activeOffs[number]) => {
+            const user = state.users.find(u => u.id === to.userId);
+            const isPending = (to.status || 'approved') === 'pending';
+            return (
+              <div
+                key={to.id}
+                className={`text-[10px] rounded px-1.5 py-0.5 truncate ${
+                  isPending
+                    ? 'text-amber-700 bg-amber-50 border border-dashed border-amber-400'
+                    : 'text-amber-700 bg-amber-100 border border-amber-300'
+                }`}
+                title={`${user?.name || 'Unknown'} — ${isPending ? 'Pending' : 'Approved'}${to.halfDay ? ' (½ day)' : ''}${to.reason ? ` — ${to.reason}` : ''}`}
+              >
+                {isPending && '⏳ '}{user?.name} {to.halfDay ? '(½ day)' : 'off'}
+              </div>
+            );
+          };
+
           return (
             <div
               key={dateStr}
@@ -133,28 +176,11 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
                 )}
               </div>
 
-              {/* Time Off Indicators (approved + pending) */}
-              {timeOffs.length > 0 && (
-                <div className="px-2 pt-2">
-                  {timeOffs
-                    .filter(t => (t.status || 'approved') !== 'rejected')
-                    .map(to => {
-                      const user = state.users.find(u => u.id === to.userId);
-                      const isPending = (to.status || 'approved') === 'pending';
-                      return (
-                        <div
-                          key={to.id}
-                          className={`text-[10px] rounded px-1.5 py-0.5 mb-1 truncate ${
-                            isPending
-                              ? 'text-amber-700 bg-amber-50 border border-dashed border-amber-400'
-                              : 'text-amber-700 bg-amber-100 border border-amber-300'
-                          }`}
-                          title={`${user?.name || 'Unknown'} — ${isPending ? 'Pending' : 'Approved'}${to.halfDay ? ' (½ day)' : ''}${to.reason ? ` — ${to.reason}` : ''}`}
-                        >
-                          {isPending && '⏳ '}{user?.name} {to.halfDay ? '(½ day)' : 'off'}
-                        </div>
-                      );
-                    })}
+              {/* Off-days for people with no shift on the board this day.
+                  Shift-linked off-days render above their shift card below. */}
+              {unmatchedOffs.length > 0 && (
+                <div className="px-2 pt-2 space-y-1">
+                  {unmatchedOffs.map(renderOffPill)}
                 </div>
               )}
 
@@ -169,19 +195,23 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
                 </div>
               )}
 
-              {/* Shifts */}
+              {/* Shifts — each preceded by the off-day pills for its own team,
+                  so a day-off sits right above the shift it affects. */}
               <div className="p-2 space-y-1.5">
                 {shifts.length === 0 && (
                   <div className="text-xs text-gray-300 text-center py-4">No shifts</div>
                 )}
-                {shifts.map(shift => (
-                  <ShiftCard
-                    key={shift.id}
-                    shift={shift}
-                    compact
-                    onEdit={handleEditShift}
-                  />
-                ))}
+                {shifts.map(shift => {
+                  const shiftOffs = offsByShift.get(shift.id) || [];
+                  return (
+                    <div key={shift.id} className="space-y-1">
+                      {shiftOffs.length > 0 && (
+                        <div className="space-y-1">{shiftOffs.map(renderOffPill)}</div>
+                      )}
+                      <ShiftCard shift={shift} compact onEdit={handleEditShift} />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
