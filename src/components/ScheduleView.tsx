@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
@@ -6,13 +6,22 @@ import { DayView } from './DayView';
 import { Calendar, CalendarDays, List, Clock } from 'lucide-react';
 import { getWeekDays, formatDate } from '../utils/dates';
 import { convertTime, getUserTimezone } from '../utils/timezone';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { ViewMode } from '../types';
 
-export function ScheduleView() {
+// `focusDate` + `focusToken`: when a caller (e.g. the Days Off tab) wants the
+// calendar to jump to a specific day, it bumps `focusToken` alongside the date.
+// The effect keys on the token so repeat clicks on the same date still jump.
+export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; focusToken?: number } = {}) {
   const { state, getShiftsForDate } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekDate, setWeekDate] = useState(new Date());
+
+  useEffect(() => {
+    if (!focusDate) return;
+    setViewMode('week');
+    setWeekDate(parseISO(focusDate));
+  }, [focusToken, focusDate]);
 
   const isAdmin = state.currentUser.role === 'admin';
   const userTimezone = getUserTimezone(state.currentUser.timezone, state.currentUser.country);

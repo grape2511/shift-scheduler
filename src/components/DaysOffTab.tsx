@@ -34,6 +34,12 @@ export function DaysOffTab() {
   const [editReason, setEditReason] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
+  // Clicking a pending request jumps the calendar on the right to that day.
+  // `focusToken` bumps on every click so re-clicking the same date re-jumps.
+  const [focusDate, setFocusDate] = useState<string | undefined>();
+  const [focusToken, setFocusToken] = useState(0);
+  const jumpToDate = (d: string) => { setFocusDate(d); setFocusToken(t => t + 1); };
+
   const now = new Date();
   const myTimeOffs = state.timeOffs.filter(t => t.userId === state.currentUser.id);
   const balance = getPtoBalance(state.currentUser.id);
@@ -508,7 +514,7 @@ export function DaysOffTab() {
       {isApprover ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left: pending requests (stays in view while the calendar scrolls) */}
-          <div className="lg:col-span-4 lg:sticky lg:top-6 self-start">
+          <div className="lg:col-span-3 lg:sticky lg:top-6 self-start">
             <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
               <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-amber-800">
@@ -522,8 +528,14 @@ export function DaysOffTab() {
                     const agent = state.users.find(u => u.id === to.userId);
                     const catInfo = getCategoryInfo(to.category);
                     const shortages = getShortageInfo(to);
+                    const isFocused = focusDate === to.date;
                     return (
-                      <div key={to.id} className="px-4 py-3">
+                      <div
+                        key={to.id}
+                        onClick={() => jumpToDate(to.date)}
+                        title="Jump to this day on the calendar"
+                        className={`px-4 py-3 cursor-pointer transition-colors ${isFocused ? 'bg-amber-50 ring-1 ring-inset ring-amber-300' : 'hover:bg-amber-50/50'}`}
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0" style={{ backgroundColor: agent?.color || '#6366f1' }}>
                             {agent?.name?.[0]}
@@ -548,7 +560,7 @@ export function DaysOffTab() {
                             ⚠️ Approving will leave {shortages.map(s => `${s.shiftName} with ${s.afterCount}/${s.required} agents`).join(', ')} — replacement needed
                           </div>
                         )}
-                        <div className="flex items-center gap-2 mt-2.5">
+                        <div className="flex items-center gap-2 mt-2.5" onClick={e => e.stopPropagation()}>
                           <button onClick={() => openEdit(to)} title="Edit this request" className="flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100">
                             <Pencil className="w-3 h-3" />
                             Edit
@@ -573,8 +585,8 @@ export function DaysOffTab() {
           </div>
 
           {/* Right: team schedule / calendar */}
-          <div className="lg:col-span-8 min-w-0">
-            <ScheduleView />
+          <div className="lg:col-span-9 min-w-0">
+            <ScheduleView focusDate={focusDate} focusToken={focusToken} />
           </div>
         </div>
       ) : (
