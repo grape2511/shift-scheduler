@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useApp } from '../store/AppContext';
 import { getUserTimezone, convertTime } from '../utils/timezone';
-import { upsertClockRecord, insertNotification } from '../lib/database';
-import type { ClockRecord } from '../types';
+import { upsertClockRecord, insertNotification, updateClockCorrectionStatus } from '../lib/database';
+import type { ClockRecord, ClockCorrection, Notification } from '../types';
 import { format, parseISO } from 'date-fns';
-import { Clock, AlertCircle, CheckCircle2, CircleAlert, PlayCircle, Filter, Pencil, X } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle2, CircleAlert, PlayCircle, Filter, Pencil, X, Check, Hourglass } from 'lucide-react';
 
 const RANGE_OPTIONS = [
   { value: 7, label: 'Last 7 days' },
@@ -80,6 +80,55 @@ export function ClockLogsView() {
   const [saving, setSaving] = useState(false);
 
   const viewerTz = getUserTimezone(state.currentUser.timezone, state.currentUser.country);
+
+  const pendingCorrections = useMemo(
+    () => (state.clockCorrections || [])
+      .filter(c => c.status === 'pending')
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [state.clockCorrections],
+  );
+  const [reviewing, setReviewing] = useState<string | null>(null);
+
+  const reviewCorrection = async (c: ClockCorrection, decision: 'approved' | 'rejected') => {
+    if (reviewing) return;
+    setReviewing(c.id);
+    try {
+      const shift = state.shifts.find(s => s.id === c.shiftId);
+      // On approval, write the proposed times to the clock record (create one if none existed).
+      if (decision === 'approved' && (c.proposedClockIn || c.proposedClockOut)) {
+        const existing = state.clockRecords.find(r => r.shiftId === c.shiftId && r.userId === c.userId);
+        const record: ClockRecord = {
+          id: existing?.id || uuid(),
+          shiftId: c.shiftId,
+          userId: c.userId,
+          clockIn: c.proposedClockIn,
+          clockOut: c.proposedClockOut,
+        };
+        dispatch({ type: 'UPSERT_CLOCK_RECORD', payload: record });
+        await upsertClockRecord(record);
+      }
+      dispatch({
+        type: 'UPDATE_CLOCK_CORRECTION',
+        payload: { id: c.id, updates: { status: decision, reviewedBy: state.currentUser.id, reviewedAt: new Date().toISOString() } },
+      });
+      await updateClockCorrectionStatus(c.id, decision, state.currentUser.id);
+
+      const notif: Notification = {
+        id: uuid(),
+        userId: c.userId,
+        message: decision === 'approved'
+          ? `Your clock correction for "${shift?.name}" on ${shift?.date} was approved ✅`
+          : `Your clock correction for "${shift?.name}" on ${shift?.date} was declined ❌`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        type: 'change',
+      };
+      dispatch({ type: 'ADD_NOTIFICATION', payload: notif });
+      insertNotification(notif);
+    } finally {
+      setReviewing(null);
+    }
+  };
 
   const openEdit = (t: EditTarget) => {
     setEdit(t);
@@ -244,6 +293,74 @@ export function ClockLogsView() {
           Clock-in / clock-out history per agent — times shown in your local timezone ({viewerTz}).
         </p>
       </div>
+
+      {/* Pending correction requests from agents */}
+      {pendingCorrections.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 dark:border-amber-700/50 overflow-hidden">
+          <div className="px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-700/50 flex items-center gap-2">
+            <Hourglass className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Clock correction requests ({pendingCorrections.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {pendingCorrections.map(c => {
+              const shift = state.shifts.find(s => s.id === c.shiftId);
+              const agent = state.users.find(u => u.id === c.userId);
+              const tz = shift?.timezone || 'UTC';
+              const existing = state.clockRecords.find(r => r.shiftId === c.shiftId && r.userId === c.userId);
+              const currentTimes = existing?.clockIn
+                ? `${isoToLocalHHMM(existing.clockIn, tz)}–${existing.clockOut ? isoToLocalHHMM(existing.clockOut, tz) : '—'}`
+                : 'no clock-in';
+              const proposedTimes = c.proposedClockIn
+                ? `${isoToLocalHHMM(c.proposedClockIn, tz)}–${c.proposedClockOut ? isoToLocalHHMM(c.proposedClockOut, tz) : '—'}`
+                : 'no time change';
+              return (
+                <div key={c.id} className="px-4 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium shrink-0" style={{ backgroundColor: agent?.color || '#6366f1' }}>
+                          {agent?.name?.[0]}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{agent?.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {shift?.name} · {shift ? format(parseISO(shift.date), 'EEE, MMM d') : ''}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                        <span className="line-through text-gray-400 dark:text-gray-500">{currentTimes}</span>
+                        {' → '}
+                        <span className="font-medium">{proposedTimes}</span>
+                        <span className="text-gray-400"> ({tz})</span>
+                      </p>
+                      {c.note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">“{c.note}”</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      <button
+                        onClick={() => reviewCorrection(c, 'rejected')}
+                        disabled={reviewing === c.id}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-60 whitespace-nowrap"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Decline
+                      </button>
+                      <button
+                        onClick={() => reviewCorrection(c, 'approved')}
+                        disabled={reviewing === c.id}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-60 whitespace-nowrap"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Approve
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-wrap items-end gap-4">

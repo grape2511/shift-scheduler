@@ -88,6 +88,24 @@ export interface ClockRecord {
   clockOut: string | null; // ISO timestamp
 }
 
+export type ClockCorrectionStatus = 'pending' | 'approved' | 'rejected';
+
+// An agent's request to correct their own clock-in/out for a shift. Stays
+// pending until an admin approves (which writes the times to the clock record)
+// or rejects. The note explains why they missed / were late.
+export interface ClockCorrection {
+  id: string;
+  shiftId: string;
+  userId: string;
+  proposedClockIn: string | null;  // ISO timestamp (null = still no clock-in)
+  proposedClockOut: string | null; // ISO timestamp
+  note?: string;
+  status: ClockCorrectionStatus;
+  createdAt: string;               // ISO timestamp
+  reviewedBy?: string;             // admin user id
+  reviewedAt?: string;             // ISO timestamp
+}
+
 // Admin note explaining an intentional weekly-coverage shortfall (e.g. a
 // cross-week duty swap). Keyed by agent + the Monday of the week it applies to.
 export interface CoverageNote {
