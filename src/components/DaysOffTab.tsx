@@ -427,67 +427,6 @@ export function DaysOffTab() {
         </div>
       </div>
 
-      {/* Pending Approvals (admin only) */}
-      {isApprover && pendingApprovals.length > 0 && (
-        <div className="mb-6 bg-white rounded-xl border border-amber-200 overflow-hidden">
-          <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-amber-800">Pending PTO Requests ({pendingApprovals.length})</h3>
-            <span className="text-[11px] text-amber-600">Oldest request first</span>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {pendingApprovals.map(to => {
-              const agent = state.users.find(u => u.id === to.userId);
-              const catInfo = getCategoryInfo(to.category);
-              const shortages = getShortageInfo(to);
-              return (
-                <div key={to.id} className="px-4 py-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0" style={{ backgroundColor: agent?.color || '#6366f1' }}>
-                        {agent?.name?.[0]}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{agent?.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className="text-xs text-gray-500">{to.date}</span>
-                          <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
-                          {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">½ day</span>}
-                          {to.reason && <span className="text-xs text-gray-400 truncate">– {to.reason}</span>}
-                        </div>
-                        {to.createdAt && (
-                          <p className="text-[11px] text-gray-400 mt-0.5">
-                            🕑 Requested {format(new Date(to.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                      <button onClick={() => openEdit(to)} title="Edit this request" className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 whitespace-nowrap">
-                        <Pencil className="w-3 h-3" />
-                        Edit
-                      </button>
-                      <button onClick={() => handleReject(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 whitespace-nowrap">
-                        <X className="w-3 h-3" />
-                        Reject
-                      </button>
-                      <button onClick={() => handleApprove(to.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 whitespace-nowrap">
-                        <Check className="w-3 h-3" />
-                        Approve
-                      </button>
-                    </div>
-                  </div>
-                  {shortages.length > 0 && (
-                    <div className="mt-2 ml-11 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-700">
-                      ⚠️ Approving will leave {shortages.map(s => `${s.shiftName} with ${s.afterCount}/${s.required} agents`).join(', ')} — replacement needed
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Request Form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="mb-6 bg-amber-50 rounded-xl border border-amber-200 p-4">
@@ -562,10 +501,82 @@ export function DaysOffTab() {
         </form>
       )}
 
-      {/* Admins see the full team schedule here; agents keep their own
-          calendar and request lists (their only place to track/cancel them). */}
+      {/* Admins see requests on the left and the team schedule on the right,
+          so they can review a request and check that day's coverage without
+          scrolling. Agents keep their own calendar and request lists (their
+          only place to track/cancel them). */}
       {isApprover ? (
-        <ScheduleView />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left: pending requests (stays in view while the calendar scrolls) */}
+          <div className="lg:col-span-4 lg:sticky lg:top-6 self-start">
+            <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+              <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-amber-800">
+                  Pending Requests{pendingApprovals.length > 0 ? ` (${pendingApprovals.length})` : ''}
+                </h3>
+                {pendingApprovals.length > 0 && <span className="text-[11px] text-amber-600">Oldest first</span>}
+              </div>
+              {pendingApprovals.length > 0 ? (
+                <div className="divide-y divide-gray-50 max-h-[70vh] overflow-y-auto">
+                  {pendingApprovals.map(to => {
+                    const agent = state.users.find(u => u.id === to.userId);
+                    const catInfo = getCategoryInfo(to.category);
+                    const shortages = getShortageInfo(to);
+                    return (
+                      <div key={to.id} className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0" style={{ backgroundColor: agent?.color || '#6366f1' }}>
+                            {agent?.name?.[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{agent?.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className="text-xs text-gray-500">{to.date}</span>
+                              <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded ${catInfo.color}`}>{catInfo.label}</span>
+                              {to.halfDay && <span className="px-1.5 py-0.5 text-[9px] font-medium rounded text-indigo-700 bg-indigo-50">½ day</span>}
+                            </div>
+                            {to.reason && <p className="text-xs text-gray-400 mt-0.5 truncate">– {to.reason}</p>}
+                            {to.createdAt && (
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                🕑 {format(new Date(to.createdAt), "MMM d 'at' h:mm a")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {shortages.length > 0 && (
+                          <div className="mt-2 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-700">
+                            ⚠️ Approving will leave {shortages.map(s => `${s.shiftName} with ${s.afterCount}/${s.required} agents`).join(', ')} — replacement needed
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 mt-2.5">
+                          <button onClick={() => openEdit(to)} title="Edit this request" className="flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100">
+                            <Pencil className="w-3 h-3" />
+                            Edit
+                          </button>
+                          <button onClick={() => handleReject(to.id)} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">
+                            <X className="w-3 h-3" />
+                            Reject
+                          </button>
+                          <button onClick={() => handleApprove(to.id)} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                            <Check className="w-3 h-3" />
+                            Approve
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="px-4 py-10 text-sm text-gray-400 text-center">🎉 No pending requests — you're all caught up.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Right: team schedule / calendar */}
+          <div className="lg:col-span-8 min-w-0">
+            <ScheduleView />
+          </div>
+        </div>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Calendar */}
