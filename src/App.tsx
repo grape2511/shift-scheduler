@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { AppProvider, useApp } from './store/AppContext';
 import { Layout } from './components/Layout';
@@ -16,53 +16,53 @@ import { SettingsView } from './components/SettingsView';
 import { ActivityView } from './components/ActivityView';
 import { ClockLogsView } from './components/ClockLogsView';
 import { MyClockLog } from './components/MyClockLog';
+import { pathForTab, currentTab } from './routes';
 
-const TAB_PATHS: Record<string, string> = {
-  schedule: '/',
-  agents: '/agents',
-  clock: '/clock',
-  'my-shifts': '/my-shifts',
-  'my-clock-log': '/my-clock-log',
-  'days-off': '/days-off',
-  'time-off-approval': '/time-off',
-  insights: '/insights',
-  activity: '/activity',
-  'clock-logs': '/clock-logs',
-  settings: '/settings',
-};
-
-const PATH_TABS: Record<string, string> = Object.fromEntries(
-  Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab])
-);
-
-function getTabFromPath(): string {
-  const path = window.location.pathname;
-  return PATH_TABS[path] || 'schedule';
-}
+// Tabs only an admin may open; agent-only tabs are gated the other way. A
+// deep-link to a tab the current role can't see falls back to the schedule so
+// the page is never blank.
+const ADMIN_ONLY_TABS = new Set(['time-off-approval', 'insights', 'activity', 'clock-logs', 'settings']);
 
 function AppContent() {
   const { state } = useApp();
-  const [activeTab, setActiveTab] = useState(getTabFromPath);
+  const [activeTab, setActiveTab] = useState(currentTab);
+  const isAdmin = state.currentUser.role === 'admin';
+  const effectiveTab =
+    (ADMIN_ONLY_TABS.has(activeTab) && !isAdmin) || (activeTab === 'my-clock-log' && isAdmin)
+      ? 'schedule'
+      : activeTab;
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
-    const path = TAB_PATHS[tab] || '/';
-    window.history.pushState(null, '', path);
+    const path = pathForTab(tab);
+    // Only push a new history entry when the URL actually changes, so repeated
+    // clicks on the same tab don't stack duplicate back-button steps.
+    if (path !== window.location.pathname) {
+      window.history.pushState(null, '', path);
+    }
+  }, []);
+
+  // Keep the active tab in sync with the browser URL for back/forward and for
+  // links opened in the same tab.
+  useEffect(() => {
+    const onPopState = () => setActiveTab(currentTab());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   return (
-    <Layout activeTab={activeTab} onTabChange={handleTabChange}>
-      {activeTab === 'schedule' && <ScheduleView />}
-      {activeTab === 'agents' && (state.currentUser.role === 'admin' || state.currentUser.role === 'team-lead') && <AgentsView />}
-      {activeTab === 'clock' && <ClockTab />}
-      {activeTab === 'my-shifts' && <MyShiftsView />}
-      {activeTab === 'my-clock-log' && state.currentUser.role !== 'admin' && <MyClockLog />}
-      {activeTab === 'days-off' && <DaysOffTab />}
-      {activeTab === 'time-off-approval' && state.currentUser.role === 'admin' && <TimeOffApproval />}
-      {activeTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
-      {activeTab === 'activity' && state.currentUser.role === 'admin' && <ActivityView />}
-      {activeTab === 'clock-logs' && state.currentUser.role === 'admin' && <ClockLogsView />}
-      {activeTab === 'settings' && state.currentUser.role === 'admin' && <SettingsView />}
+    <Layout activeTab={effectiveTab} onTabChange={handleTabChange}>
+      {effectiveTab === 'schedule' && <ScheduleView />}
+      {effectiveTab === 'agents' && (state.currentUser.role === 'admin' || state.currentUser.role === 'team-lead') && <AgentsView />}
+      {effectiveTab === 'clock' && <ClockTab />}
+      {effectiveTab === 'my-shifts' && <MyShiftsView />}
+      {effectiveTab === 'my-clock-log' && state.currentUser.role !== 'admin' && <MyClockLog />}
+      {effectiveTab === 'days-off' && <DaysOffTab />}
+      {effectiveTab === 'time-off-approval' && state.currentUser.role === 'admin' && <TimeOffApproval />}
+      {effectiveTab === 'insights' && state.currentUser.role === 'admin' && <InsightsView />}
+      {effectiveTab === 'activity' && state.currentUser.role === 'admin' && <ActivityView />}
+      {effectiveTab === 'clock-logs' && state.currentUser.role === 'admin' && <ClockLogsView />}
+      {effectiveTab === 'settings' && state.currentUser.role === 'admin' && <SettingsView />}
     </Layout>
   );
 }
