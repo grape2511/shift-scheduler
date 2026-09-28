@@ -5,6 +5,7 @@ import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapP
 import { NotificationPanel } from './NotificationPanel';
 import { AppIcon } from './AppIcon';
 import { COUNTRIES } from '../utils/holidays';
+import { pathForTab } from '../routes';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -130,9 +131,16 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
               {/* Desktop Nav */}
               <nav className="hidden md:flex items-center gap-1">
                 {tabs.map(tab => (
-                  <button
+                  <a
                     key={tab.id}
-                    onClick={() => onTabChange(tab.id)}
+                    href={pathForTab(tab.id)}
+                    onClick={e => {
+                      // Let the browser handle modified/middle clicks so the tab
+                      // opens in a new browser tab or window natively.
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                      e.preventDefault();
+                      onTabChange(tab.id);
+                    }}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       activeTab === tab.id
                         ? 'bg-indigo-50 text-indigo-700'
@@ -146,7 +154,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                         {(tab.badge ?? 0) > 9 ? '9+' : tab.badge}
                       </span>
                     )}
-                  </button>
+                  </a>
                 ))}
               </nav>
             </div>
@@ -330,9 +338,13 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
         {mobileMenuOpen && (
           <nav className="md:hidden border-t border-gray-100 px-4 py-2">
             {tabs.map(tab => (
-              <button
+              <a
                 key={tab.id}
-                onClick={() => {
+                href={pathForTab(tab.id)}
+                onClick={e => {
+                  // Modified/middle clicks open a new browser tab natively.
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
                   onTabChange(tab.id);
                   setMobileMenuOpen(false);
                 }}
@@ -349,7 +361,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                     {(tab.badge ?? 0) > 9 ? '9+' : tab.badge}
                   </span>
                 )}
-              </button>
+              </a>
             ))}
           </nav>
         )}
