@@ -946,60 +946,11 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     }
   }, [state.shifts, state.users, state.timeOffs]);
 
-  // Missed clock-in check: alert when an assigned agent hasn't clocked in 15min after shift start
-  useEffect(() => {
-    if (state.shifts.length === 0 || state.users.length === 0) return;
-    if (state.currentUser.role !== 'admin') return;
-    const slack = getSlackPrefs();
-    // Missed clock-in can post to its own channel; fall back to the shared webhook when unset.
-    const slackUrl = slack.missedClockInUrl || slack.url;
-    if (!slackUrl || !slack.missedClockIn) return;
+  // Missed clock-in alerts are now sent server-side by the Supabase pg_cron job
+  // `notify-missed-clock-ins` (function public.notify_missed_clock_ins), so they
+  // fire reliably ~15 min after a shift starts even when no admin has the app
+  // open. The old browser-based check was removed to avoid duplicate alerts.
 
-    const GRACE_MINUTES = 15;
-    const LOOKBACK_MS = 6 * 3600_000;
-    const now = Date.now();
-
-    const alertedRaw = localStorage.getItem('slack_missed_clockin_alerts');
-    const alerted = new Set<string>(alertedRaw ? JSON.parse(alertedRaw) : []);
-    const alertedBefore = alerted.size;
-
-    const alerts: string[] = [];
-
-    state.shifts.forEach(shift => {
-      if (!shift.assignedAgentIds.length) return;
-      // Compute shift start in UTC based on shift.timezone
-      const asUtc = new Date(`${shift.date}T${shift.startTime}:00Z`).getTime();
-      const tzFormatted = new Date(new Date(asUtc).toLocaleString('en-US', { timeZone: shift.timezone })).getTime();
-      const utcFormatted = new Date(new Date(asUtc).toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
-      const startUtcMs = asUtc - (tzFormatted - utcFormatted);
-
-      const graceEnd = startUtcMs + GRACE_MINUTES * 60_000;
-      if (graceEnd > now) return; // grace not yet elapsed
-      if (startUtcMs < now - LOOKBACK_MS) return; // too old
-
-      shift.assignedAgentIds.forEach(agentId => {
-        const key = `${shift.id}:${agentId}`;
-        if (alerted.has(key)) return;
-        const clock = state.clockRecords.find(r => r.shiftId === shift.id && r.userId === agentId);
-        if (clock?.clockIn) return; // they clocked in
-        const agent = state.users.find(u => u.id === agentId);
-        if (!agent || agent.active === false) return;
-        const firstName = agent.name.split(' ')[0];
-        alerts.push(`• ${firstName} — "${shift.name}" (${shift.date} ${shift.startTime} ${shift.timezone})`);
-        alerted.add(key);
-      });
-    });
-
-    if (alerts.length > 0) {
-      sendSlackNotification(slackUrl,
-        `⏰ *Missed clock-in* (${GRACE_MINUTES}min+ past start):\n${alerts.join('\n')}`
-      );
-    }
-    if (alerted.size !== alertedBefore) {
-      const trimmed = Array.from(alerted).slice(-1000);
-      localStorage.setItem('slack_missed_clockin_alerts', JSON.stringify(trimmed));
-    }
-  }, [state.shifts, state.clockRecords, state.users]);
 
   // Track whether a bulk data load just happened (LOAD_STATE from DB refresh)
   const lastLoadRef = useRef(0);
