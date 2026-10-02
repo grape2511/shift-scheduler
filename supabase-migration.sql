@@ -214,3 +214,85 @@ create policy "Authenticated can update clock_corrections" on clock_corrections 
 
 create index idx_clock_corrections_status on clock_corrections(status);
 create index idx_clock_corrections_user on clock_corrections(user_id);
+
+-- ============================================
+-- Server-side missed clock-in notifier (Slack)
+-- ============================================
+-- Fires ~15 min after a shift starts, whether or not any admin has the app open
+-- (the browser-based check was removed). Reads the same "Missed clock-in" Slack
+-- webhook configured in Settings, and dedupes via clock_missed_alert_log.
+create table if not exists clock_missed_alert_log (
+  shift_id uuid not null,
+  user_id uuid not null,
+  posted_at timestamptz not null default now(),
+  primary key (shift_id, user_id)
+);
+-- Internal log, written only by the SECURITY DEFINER function below.
+alter table clock_missed_alert_log enable row level security;
+
+create or replace function public.notify_missed_clock_ins()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare
+  v_webhook text;
+  v_grace   interval := interval '15 minutes';
+  v_window  interval := interval '6 hours';
+  v_lines   text;
+  v_msg     text;
+begin
+  -- Webhook + toggle come from an admin's Settings, mirroring the app.
+  select coalesce(p.slack_missed_clockin_webhook_url, p.slack_webhook_url)
+    into v_webhook
+  from public.profiles p
+  where p.role = 'admin'
+    and p.slack_webhook_url is not null
+    and coalesce((p.slack_notifications->>'slackNotifyMissedClockIn')::boolean, true)
+  order by (p.slack_missed_clockin_webhook_url is null)
+  limit 1;
+  if v_webhook is null then return; end if;
+
+  with candidates as (
+    select s.id as shift_id, a.agent_id as user_id, s.name as shift_name,
+           s.date, s.start_time, s.timezone
+    from public.shifts s
+    cross join lateral unnest(s.assigned_agent_ids) as a(agent_id)
+    join public.profiles p on p.id = a.agent_id and p.active is not false
+    where now() >= ((s.date + s.start_time::time) at time zone s.timezone) + v_grace
+      and now() <  ((s.date + s.start_time::time) at time zone s.timezone) + v_window
+      and not exists (
+        select 1 from public.clock_records r
+        where r.shift_id = s.id and r.user_id = a.agent_id and r.clock_in is not null
+      )
+  ),
+  claimed as (
+    insert into public.clock_missed_alert_log (shift_id, user_id)
+    select shift_id, user_id from candidates
+    on conflict (shift_id, user_id) do nothing
+    returning shift_id, user_id
+  )
+  select string_agg(
+           '• ' || split_part(p.name, ' ', 1) || ' — "' || c.shift_name || '" (' ||
+           to_char(c.date, 'YYYY-MM-DD') || ' ' || c.start_time || ' ' || c.timezone || ')',
+           E'\n' order by c.shift_name, p.name)
+    into v_lines
+  from claimed cl
+  join candidates c on c.shift_id = cl.shift_id and c.user_id = cl.user_id
+  join public.profiles p on p.id = cl.user_id;
+
+  if v_lines is null then return; end if;
+
+  v_msg := '⏰ *Missed clock-in* (15min+ past start):' || E'\n' || v_lines;
+
+  perform net.http_post(
+    url     := v_webhook,
+    headers := jsonb_build_object('Content-Type', 'application/json'),
+    body    := jsonb_build_object('text', v_msg)
+  );
+end;
+$function$;
+
+-- Run every 5 minutes.
+select cron.schedule('notify-missed-clock-ins', '*/5 * * * *', $$select public.notify_missed_clock_ins()$$);
