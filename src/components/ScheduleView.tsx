@@ -113,7 +113,7 @@ export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; fo
       </div>
 
       {viewMode === 'month' && <MonthView />}
-      {viewMode === 'week' && <WeekView weekDate={weekDate} onWeekDateChange={setWeekDate} />}
+      {viewMode === 'week' && <WeekView weekDate={weekDate} onWeekDateChange={setWeekDate} focusDate={focusDate} />}
       {viewMode === 'day' && <DayView />}
     </div>
   );

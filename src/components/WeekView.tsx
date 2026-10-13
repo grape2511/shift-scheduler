@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle, Pencil, Check, X 
 import { isToday, startOfWeek } from 'date-fns';
 import type { Shift } from '../types';
 
-export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWeekDateChange: (d: Date) => void }) {
+export function WeekView({ weekDate, onWeekDateChange, focusDate }: { weekDate: Date; onWeekDateChange: (d: Date) => void; focusDate?: string }) {
   const { state, dispatch, activeAgents: agents, getShiftsForDate, getTimeOffsForDate, getPublicHolidaysForDate, setCoverageNote, clearCoverageNote } = useApp();
   const currentDate = weekDate;
   const setCurrentDate = onWeekDateChange;
@@ -101,6 +101,9 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
           const timeOffs = getTimeOffsForDate(dateStr);
           const publicHolidays = getPublicHolidaysForDate(dateStr);
           const today = isToday(day);
+          // The day the admin is reviewing a pending request for — called out
+          // so it's unmistakable which column the request maps to.
+          const isFocused = focusDate === dateStr;
 
           // Group each day-off under the shift its agent belongs to, so the
           // admin sees who's out *per shift* rather than one undifferentiated
@@ -148,8 +151,17 @@ export function WeekView({ weekDate, onWeekDateChange }: { weekDate: Date; onWee
           return (
             <div
               key={dateStr}
-              className={`bg-white min-h-[120px] sm:min-h-[160px] ${today ? 'bg-indigo-50/30' : ''}`}
+              className={`bg-white min-h-[120px] sm:min-h-[160px] ${today ? 'bg-indigo-50/30' : ''} ${
+                isFocused ? 'relative z-10 ring-2 ring-inset ring-indigo-500 bg-indigo-50/60' : ''
+              }`}
             >
+              {/* Reviewing banner: the day a pending request was clicked for */}
+              {isFocused && (
+                <div className="bg-indigo-600 text-white text-[10px] font-semibold text-center py-0.5 tracking-wide uppercase">
+                  Reviewing
+                </div>
+              )}
+
               {/* Day Header */}
               <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
