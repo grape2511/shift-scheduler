@@ -3,19 +3,21 @@
 //      Notion first, then every extra agent goes to Dashboard (the highest-traffic
 //      queue). So Intercom/KYC/Notion stay at one and Dashboard absorbs the surplus
 //      (e.g. 5 agents -> 2 Dashboard, 1 Intercom, 1 KYC, 1 Notion).
-//   2. Fair per-agent rotation — each agent has their own rotation clock that
-//      advances one task per calendar day, independent of who else is on the
-//      shift, so nobody gets stuck on the same task when the roster changes.
-// Each agent is given their personal preferred task; assignments are then capped
-// to the per-task coverage quota, bumping only the minimum number of agents to the
-// next task in their own cycle. Priority for a contested task rotates by day so the
-// same person isn't always the one bumped.
+//   2. Fair per-agent rotation — agents are ranked by id, and each agent takes the
+//      coverage slot at (rank + day) mod n. Because that's a straight rotation of a
+//      fixed slot list, every agent walks through *all* the slots over n days: the
+//      assignment is an exact permutation of the quota each day (coverage holds),
+//      and no agent is ever stuck on one task. Over a full cycle everyone pulls
+//      Dashboard the same number of times, so the load is equal.
+// This is deliberately collision-free: an earlier version gave each agent a hashed
+// "preferred" task and bumped losers off contested tasks, which could pin an agent
+// (whose hash collided with a teammate's) to Dashboard every single day.
 
 export const TASKS = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'] as const;
 export type Task = (typeof TASKS)[number];
 
-// The first four agents cover one each of Dashboard, Intercom, KYC, Notion (in
-// that order for smaller shifts); every agent beyond the fourth goes to Dashboard.
+// The first four slots cover one each of Dashboard, Intercom, KYC, Notion (in that
+// order for smaller shifts); every slot beyond the fourth is Dashboard.
 const BASE_PRIORITY: Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'];
 
 // Slot allocation by team size:
@@ -36,16 +38,6 @@ function daysSinceReference(shiftDate: string): number {
   return Math.floor((t - REFERENCE_DATE_MS) / 86_400_000);
 }
 
-// Stable per-agent starting point in the rotation (0..TASKS.length-1) so different
-// agents are offset from each other and the shift naturally spreads across tasks.
-function agentOffset(agentId: string): number {
-  let h = 0;
-  for (let i = 0; i < agentId.length; i++) {
-    h = (h * 31 + agentId.charCodeAt(i)) >>> 0;
-  }
-  return h % TASKS.length;
-}
-
 export function getTaskAssignments(
   shiftDate: string,
   agentIds: string[],
@@ -55,45 +47,15 @@ export function getTaskAssignments(
   const n = sorted.length;
   if (n === 0) return result;
 
-  // Per-task coverage quota (e.g. 4 agents -> 1 each of Intercom/Dashboard/KYC/Notion).
-  const remaining: Record<Task, number> = { Dashboard: 0, Intercom: 0, KYC: 0, 'Notion Tasks': 0 };
-  for (const slot of buildSlots(n)) remaining[slot]++;
+  // The coverage quota as an ordered list, e.g. 5 agents -> [D, I, KYC, N, D].
+  const slots = buildSlots(n);
 
-  // Each agent's preferred task advances one step per calendar day.
+  // Each agent (by rank) takes the slot `day` steps along from their rank, so the
+  // whole shift rotates one slot per calendar day and every agent visits every slot.
   const day = daysSinceReference(shiftDate);
-  const preferred = new Map<string, Task>();
-  for (const id of sorted) {
-    preferred.set(id, TASKS[(((day + agentOffset(id)) % TASKS.length) + TASKS.length) % TASKS.length]);
-  }
-
-  // Whose preference wins a contested task rotates by day, so the agent who gets
-  // bumped isn't always the same person.
-  const order = sorted.map((_, i) => sorted[(i + day) % n]);
-
-  // Pass 1: grant preferred tasks while quota remains.
-  const bumped: string[] = [];
-  for (const id of order) {
-    const t = preferred.get(id)!;
-    if (remaining[t] > 0) {
-      result.set(id, t);
-      remaining[t]--;
-    } else {
-      bumped.push(id);
-    }
-  }
-
-  // Pass 2: bumped agents advance to the next task in their own cycle that still
-  // has room — a sensible "next in rotation" rather than an arbitrary leftover.
-  for (const id of bumped) {
-    const start = TASKS.indexOf(preferred.get(id)!);
-    for (let k = 1; k <= TASKS.length; k++) {
-      const t = TASKS[(start + k) % TASKS.length];
-      if (remaining[t] > 0) {
-        result.set(id, t);
-        remaining[t]--;
-        break;
-      }
-    }
+  for (let rank = 0; rank < n; rank++) {
+    const pos = (((rank + day) % n) + n) % n;
+    result.set(sorted[rank], slots[pos]);
   }
 
   return result;
