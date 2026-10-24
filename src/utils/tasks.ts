@@ -1,8 +1,7 @@
 // Deterministic per-shift task rotation. Two goals held at once, statelessly:
-//   1. Coverage — every shift covers one each of Dashboard, Intercom, KYC and
-//      Notion first, then every extra agent goes to Dashboard (the highest-traffic
-//      queue). So Intercom/KYC/Notion stay at one and Dashboard absorbs the surplus
-//      (e.g. 5 agents -> 2 Dashboard, 1 Intercom, 1 KYC, 1 Notion).
+//   1. Coverage — every shift covers one each of the coverage tasks first, then
+//      every extra agent goes to Dashboard (the highest-traffic queue). So the
+//      non-Dashboard tasks stay at one person and Dashboard absorbs the surplus.
 //   2. Fair per-agent rotation — agents are ranked by id, and each agent takes the
 //      coverage slot at (rank + day) mod n. Because that's a straight rotation of a
 //      fixed slot list, every agent walks through *all* the slots over n days: the
@@ -12,21 +11,36 @@
 // This is deliberately collision-free: an earlier version gave each agent a hashed
 // "preferred" task and bumped losers off contested tasks, which could pin an agent
 // (whose hash collided with a teammate's) to Dashboard every single day.
+//
+// KYC + Notion merge: from 2026-10-23 onward KYC and Notion are a single combined
+// task ("KYC / Notion") handled by one person, so the rotation runs on three tasks
+// (Dashboard, Intercom, KYC / Notion). Shifts *before* that date keep the historical
+// four-task split, so past rosters and reports are unchanged. The cutoff is applied
+// per shift date and mirrored in the SQL shift_task_map.
 
-export const TASKS = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'] as const;
-export type Task = (typeof TASKS)[number];
+// All task labels the app can display (current + legacy). The active rotation set
+// is chosen per date in `baseTasksForDate`.
+export type Task = 'Dashboard' | 'Intercom' | 'KYC' | 'Notion Tasks' | 'KYC / Notion';
+export const TASKS: readonly Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks', 'KYC / Notion'];
 
-// The first four slots cover one each of Dashboard, Intercom, KYC, Notion (in that
-// order for smaller shifts); every slot beyond the fourth is Dashboard.
-const BASE_PRIORITY: Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'];
+// Date (inclusive) from which KYC and Notion are one combined task. ISO yyyy-mm-dd
+// compares chronologically as a string, so a plain string compare picks the era.
+export const KYC_NOTION_MERGE_FROM = '2026-10-23';
 
-// Slot allocation by team size:
-//   1 → [D]                      2 → [D, I]
-//   3 → [D, I, KYC]              4 → [D, I, KYC, N]
-//   5 → [D, I, KYC, N, D]        6 → [D, I, KYC, N, D, D]
-function buildSlots(n: number): Task[] {
+// The coverage tasks in priority order for a given shift date. The first slots cover
+// one each of these; every extra agent beyond the list goes to Dashboard.
+function baseTasksForDate(shiftDate: string): Task[] {
+  return shiftDate >= KYC_NOTION_MERGE_FROM
+    ? ['Dashboard', 'Intercom', 'KYC / Notion']
+    : ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'];
+}
+
+// Slot allocation by team size, e.g. for the 3-task era:
+//   1 → [D]            2 → [D, I]            3 → [D, I, KN]
+//   4 → [D, I, KN, D]  5 → [D, I, KN, D, D]
+function buildSlots(n: number, base: Task[]): Task[] {
   const slots: Task[] = [];
-  for (let i = 0; i < n; i++) slots.push(i < BASE_PRIORITY.length ? BASE_PRIORITY[i] : 'Dashboard');
+  for (let i = 0; i < n; i++) slots.push(i < base.length ? base[i] : 'Dashboard');
   return slots;
 }
 
@@ -47,8 +61,8 @@ export function getTaskAssignments(
   const n = sorted.length;
   if (n === 0) return result;
 
-  // The coverage quota as an ordered list, e.g. 5 agents -> [D, I, KYC, N, D].
-  const slots = buildSlots(n);
+  // The coverage quota as an ordered list (task set depends on the shift date).
+  const slots = buildSlots(n, baseTasksForDate(shiftDate));
 
   // Each agent (by rank) takes the slot `day` steps along from their rank, so the
   // whole shift rotates one slot per calendar day and every agent visits every slot.
@@ -61,7 +75,7 @@ export function getTaskAssignments(
   return result;
 }
 
-// iconUrl is optional — tasks without an icon asset (KYC) render as a text badge.
+// iconUrl is optional — tasks without an icon asset render as a text badge.
 export const TASK_STYLES: Record<
   Task,
   { bg: string; iconUrl?: string; badge?: string; tooltip: string }
@@ -76,6 +90,12 @@ export const TASK_STYLES: Record<
     iconUrl: '/icons/intercom.png',
     tooltip: 'This shift you will mainly work on Intercom tickets',
   },
+  'KYC / Notion': {
+    bg: 'bg-rose-100',
+    badge: 'bg-rose-100 text-rose-700',
+    tooltip: 'This shift you will mainly work on KYC and Notion tasks',
+  },
+  // Legacy single tasks — still shown for shifts before the KYC+Notion merge.
   KYC: {
     bg: 'bg-rose-100',
     badge: 'bg-rose-100 text-rose-700',
