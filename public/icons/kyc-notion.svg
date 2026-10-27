@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Shield = KYC / identity verification, with a check. Reads clearly at small sizes. -->
+  <path d="M12 2.2l7 2.9v5.8c0 4.4-2.98 7.62-7 8.9-4.02-1.28-7-4.5-7-8.9V5.1l7-2.9z" fill="#e11d48"/>
+  <path d="M8.3 12.1l2.5 2.5 4.9-5.1" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

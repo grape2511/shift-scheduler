@@ -1,7 +1,7 @@
 // Deterministic per-shift task rotation. Two goals held at once, statelessly:
-//   1. Coverage — every shift covers one each of the coverage tasks first, then
-//      every extra agent goes to Dashboard (the highest-traffic queue). So the
-//      non-Dashboard tasks stay at one person and Dashboard absorbs the surplus.
+//   1. Coverage — every shift covers one each of the coverage tasks (see
+//      buildSlots for the exact per-size makeup), with Dashboard taking the
+//      surplus up to its cap. buildSlots defines the mix for each era.
 //   2. Fair per-agent rotation — agents are ranked by id, and each agent takes the
 //      coverage slot at (rank + day) mod n. Because that's a straight rotation of a
 //      fixed slot list, every agent walks through *all* the slots over n days: the
@@ -27,22 +27,34 @@ export const TASKS: readonly Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion T
 // compares chronologically as a string, so a plain string compare picks the era.
 export const KYC_NOTION_MERGE_FROM = '2026-10-23';
 
-// The coverage tasks in priority order for a given shift date. The first slots cover
-// one each of these; every extra agent beyond the list goes to Dashboard.
-function baseTasksForDate(shiftDate: string): Task[] {
-  return shiftDate >= KYC_NOTION_MERGE_FROM
-    ? ['Dashboard', 'Intercom', 'KYC / Notion']
-    : ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'];
-}
-
-// Slot allocation by team size, e.g. for the 3-task era:
-//   1 → [D]            2 → [D, I]            3 → [D, I, KN]
-//   4 → [D, I, KN, D]  5 → [D, I, KN, D, D]
-function buildSlots(n: number, base: Task[]): Task[] {
+// The per-rank coverage slot list for a shift, in priority order. Rank r takes
+// slots[(r + day) mod n], so this list's makeup sets each shift's task mix.
+function buildSlots(n: number, shiftDate: string): Task[] {
   const slots: Task[] = [];
-  for (let i = 0; i < n; i++) slots.push(i < base.length ? base[i] : 'Dashboard');
+  if (shiftDate < KYC_NOTION_MERGE_FROM) {
+    // Legacy four-task era (history, unchanged): D, I, KYC, Notion, extras → Dashboard.
+    const base: Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'];
+    for (let i = 0; i < n; i++) slots.push(i < base.length ? base[i] : 'Dashboard');
+    return slots;
+  }
+  // Merged three-task era: cover one each (Dashboard, Intercom, KYC/Notion); the
+  // 4th person is a 2nd Dashboard (cap); every further person alternates Intercom /
+  // KYC-Notion, so Dashboard stays at 2 and the other two stay even.
+  //   1 → [D]            2 → [D, I]              3 → [D, I, KN]
+  //   4 → [D, I, KN, D]  5 → [D, I, KN, D, I]    6 → [D, I, KN, D, I, KN]
+  for (let i = 0; i < n; i++) {
+    if (i === 0) slots.push('Dashboard');
+    else if (i === 1) slots.push('Intercom');
+    else if (i === 2) slots.push('KYC / Notion');
+    else if (i === 3) slots.push('Dashboard');
+    else slots.push((i - 4) % 2 === 0 ? 'Intercom' : 'KYC / Notion');
+  }
   return slots;
 }
+
+// Shifts outside the support rotation (no Dashboard/Intercom/KYC duties). Mirrored
+// in the SQL compute_shift_tasks, which skips these names.
+export const NON_SUPPORT_SHIFTS: ReadonlySet<string> = new Set(['Finance Shift']);
 
 const REFERENCE_DATE_MS = Date.UTC(2026, 0, 1); // 2026-01-01
 
@@ -61,8 +73,8 @@ export function getTaskAssignments(
   const n = sorted.length;
   if (n === 0) return result;
 
-  // The coverage quota as an ordered list (task set depends on the shift date).
-  const slots = buildSlots(n, baseTasksForDate(shiftDate));
+  // The coverage quota as an ordered list (makeup depends on the shift date).
+  const slots = buildSlots(n, shiftDate);
 
   // Each agent (by rank) takes the slot `day` steps along from their rank, so the
   // whole shift rotates one slot per calendar day and every agent visits every slot.
@@ -92,7 +104,7 @@ export const TASK_STYLES: Record<
   },
   'KYC / Notion': {
     bg: 'bg-rose-100',
-    badge: 'bg-rose-100 text-rose-700',
+    iconUrl: '/icons/kyc-notion.svg',
     tooltip: 'This shift you will mainly work on KYC and Notion tasks',
   },
   // Legacy single tasks — still shown for shifts before the KYC+Notion merge.
