@@ -8,7 +8,7 @@ import type { Shift } from '../types';
  * shift — by default for this day and every later day in the same recurring
  * series, or for this one day only. Times are in the shift's own timezone.
  */
-export function EditHoursModal({ shift, onClose }: { shift: Shift; onClose: () => void }) {
+export function EditHoursModal({ shift, onClose, onSaved }: { shift: Shift; onClose: () => void; onSaved?: () => void }) {
   const { state, dispatch } = useApp();
   const me = state.currentUser;
   const tz = shift.timezone.split('/').pop()?.replace('_', ' ');
@@ -44,6 +44,7 @@ export function EditHoursModal({ shift, onClose }: { shift: Shift; onClose: () =
       },
     });
     onClose();
+    onSaved?.();
   };
 
   return (

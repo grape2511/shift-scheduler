@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { v4 as uuid } from 'uuid';
-import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft, MessageSquare } from 'lucide-react';
+import { X, UserPlus, Check, Trash2, ChevronDown, ArrowRightLeft, MessageSquare, Clock } from 'lucide-react';
 import { SHIFT_COLORS, getNextColor } from '../utils/colors';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import { useSelfLeave } from '../hooks/useSelfLeave';
 import { JoinShiftModal } from './JoinShiftModal';
+import { EditHoursModal } from './EditHoursModal';
+import { canEditOwnHours } from '../utils/editHours';
 import type { Shift } from '../types';
 
 interface ShiftModalProps {
@@ -720,6 +722,7 @@ function AgentShiftView({
   const { state, dispatch, activeAgents: agents, getSwapRequestsForShift, getShiftsForAgent } = useApp();
   const [showSwap, setShowSwap] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [showEditHours, setShowEditHours] = useState(false);
   const [swapTargetId, setSwapTargetId] = useState('');
   const [swapTargetShiftId, setSwapTargetShiftId] = useState('');
   const [swapReason, setSwapReason] = useState('');
@@ -796,6 +799,15 @@ function AgentShiftView({
             </div>
             <p className="text-sm text-gray-500 mt-1">{shift.date}</p>
             <p className="text-sm text-gray-500">{shift.startTime} – {shift.endTime} ({shift.timezone.split('/').pop()})</p>
+            {canEditOwnHours(state.currentUser, shift) && (
+              <button
+                onClick={() => setShowEditHours(true)}
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+              >
+                <Clock className="w-4 h-4" />
+                Edit my hours
+              </button>
+            )}
           </div>
 
           {/* Vacancy */}
@@ -969,6 +981,7 @@ function AgentShiftView({
         </div>
       </div>
       {showJoin && <JoinShiftModal shift={shift} onClose={() => { setShowJoin(false); onClose(); }} />}
+      {showEditHours && <EditHoursModal shift={shift} onClose={() => setShowEditHours(false)} onSaved={onClose} />}
     </div>
   );
 }

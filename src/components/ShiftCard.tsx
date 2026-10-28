@@ -8,9 +8,9 @@ import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShift
 import { getTaskAssignments, TASK_STYLES, NON_SUPPORT_SHIFTS } from '../utils/tasks';
 import { confirmClockOut } from '../utils/clock';
 import { useSelfLeave } from '../hooks/useSelfLeave';
-import { format } from 'date-fns';
 import { JoinShiftModal } from './JoinShiftModal';
 import { EditHoursModal } from './EditHoursModal';
+import { canEditOwnHours } from '../utils/editHours';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -127,10 +127,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   };
 
   const isAssignedToMe = shift.assignedAgentIds.includes(state.currentUser.id);
-  // Per-agent permission (e.g. the Finance shift): change own start/end times on
-  // today's and upcoming shifts.
-  const canEditMyHours = !isAdmin && isAssignedToMe && !!state.currentUser.canEditOwnHours
-    && shift.date >= format(new Date(), 'yyyy-MM-dd');
+  const canEditMyHours = canEditOwnHours(state.currentUser, shift);
   const myClockRecord = isAssignedToMe ? getClockRecord(shift.id, state.currentUser.id) : undefined;
 
   const handleClockIn = () => {
