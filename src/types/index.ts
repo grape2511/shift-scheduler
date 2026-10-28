@@ -18,6 +18,7 @@ export interface User {
   slackMissedClockInWebhookUrl?: string; // optional: routes ONLY missed clock-in alerts to a separate channel; falls back to slackWebhookUrl when unset
   slackNotifications?: Record<string, boolean>;
   active?: boolean; // default true
+  canEditOwnHours?: boolean; // agent may change the start/end time of their own shifts (set per agent in the DB)
 }
 
 export interface Shift {

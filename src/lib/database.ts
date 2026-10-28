@@ -51,6 +51,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     slackMissedClockInWebhookUrl: p.slack_missed_clockin_webhook_url || undefined,
     slackNotifications: p.slack_notifications || undefined,
     active: p.active ?? true,
+    canEditOwnHours: p.can_edit_own_hours ?? false,
   }));
 }
 

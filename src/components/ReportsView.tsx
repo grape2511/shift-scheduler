@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { formatDate } from '../utils/dates';
-import { getTaskAssignments } from '../utils/tasks';
+import { getTaskAssignments, NON_SUPPORT_SHIFTS } from '../utils/tasks';
 import { subDays, subMonths, subYears, format, parseISO } from 'date-fns';
 import { Download, FileText, Filter } from 'lucide-react';
 
@@ -87,7 +87,8 @@ export function ReportsView() {
       if (cutoffStr && shift.date < cutoffStr) continue;
 
       const stored = getShiftTasks(shift.id);
-      const computed = stored && stored.size > 0 ? null : getTaskAssignments(shift.date, shift.assignedAgentIds);
+      const computed = stored && stored.size > 0 ? null
+        : NON_SUPPORT_SHIFTS.has(shift.name) ? new Map() : getTaskAssignments(shift.date, shift.assignedAgentIds);
 
       for (const agentId of [...new Set(shift.assignedAgentIds)]) {
         if (agentFilter !== 'all' && agentId !== agentFilter) continue;

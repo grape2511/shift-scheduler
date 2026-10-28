@@ -51,6 +51,7 @@ type Action =
   | { type: 'ADD_WEEKEND_ROTATION'; payload: { shift: Shift; groupA: string[]; groupB: string[] } }
   | { type: 'UPDATE_SHIFT_ALL_RECURRING'; payload: Shift }
   | { type: 'UPDATE_SHIFT_FUTURE'; payload: Shift }
+  | { type: 'UPDATE_OWN_SHIFT_HOURS'; payload: { shiftIds: string[]; startTime: string; endTime: string; summary: string } }
   | { type: 'CLOCK_IN'; payload: ClockRecord }
   | { type: 'CLOCK_OUT'; payload: { shiftId: string; userId: string; clockOut: string } }
   | { type: 'UPSERT_CLOCK_RECORD'; payload: ClockRecord }
@@ -430,6 +431,22 @@ function reducer(state: AppState, action: Action): AppState {
         return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents };
       });
       return { ...state, shifts: newShifts, notifications: [...state.notifications, ...notifications] };
+    }
+
+    // An agent with canEditOwnHours changing their own shift times. Unlike the admin
+    // edits above this sends no per-shift notifications (it can touch months of
+    // rows); admins get a single summary instead. Persisted by the sync effect.
+    case 'UPDATE_OWN_SHIFT_HOURS': {
+      const { shiftIds, startTime, endTime, summary } = action.payload;
+      const ids = new Set(shiftIds);
+      const notifications = state.users
+        .filter(u => u.role === 'admin' && u.active !== false)
+        .map(u => createNotification(u.id, summary, 'change'));
+      return {
+        ...state,
+        shifts: state.shifts.map(s => ids.has(s.id) ? { ...s, startTime, endTime } : s),
+        notifications: [...state.notifications, ...notifications],
+      };
     }
 
     case 'DELETE_SHIFT': {
