@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, BarChart3, CalendarCheck, Timer, Moon, Sun, Eye, Settings, Activity, History } from 'lucide-react';
+import { Calendar, Users, Bell, Clock, ChevronDown, Menu, X, LogOut, Globe, MapPin, BarChart3, CalendarCheck, Timer, Moon, Sun, Eye, Settings, Activity, History, Search } from 'lucide-react';
 import { NotificationPanel } from './NotificationPanel';
 import { AppIcon } from './AppIcon';
 import { COUNTRIES } from '../utils/holidays';
@@ -46,6 +46,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showViewAs, setShowViewAs] = useState(false);
+  const [viewAsQuery, setViewAsQuery] = useState('');
   const realAdminRef = useRef(state.currentUser.role === 'admin' ? state.currentUser : null);
   const isImpersonating = realAdminRef.current && state.currentUser.id !== realAdminRef.current.id;
 
@@ -217,7 +218,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                       {(realAdminRef.current || isAdmin) && !isImpersonating && (
                         <div className="px-3 py-2 border-b border-gray-100">
                           <button
-                            onClick={() => setShowViewAs(!showViewAs)}
+                            onClick={() => { setShowViewAs(!showViewAs); setViewAsQuery(''); }}
                             className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-700"
                           >
                             <div className="flex items-center gap-1.5">
@@ -226,9 +227,29 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                             </div>
                             <ChevronDown className={`w-3 h-3 transition-transform ${showViewAs ? 'rotate-180' : ''}`} />
                           </button>
-                          {showViewAs && (
+                          {showViewAs && (() => {
+                            const q = viewAsQuery.trim().toLowerCase();
+                            const matches = state.users
+                              .filter(u => u.id !== state.currentUser.id)
+                              .filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+                            return (
+                            <>
+                            <div className="relative mt-2">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                              <input
+                                autoFocus
+                                value={viewAsQuery}
+                                onChange={e => setViewAsQuery(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && matches.length > 0) handleViewAs(matches[0].id); }}
+                                placeholder="Search agents…"
+                                className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
                             <div className="mt-2 -mx-3 max-h-48 overflow-y-auto border-t border-gray-100">
-                              {state.users.filter(u => u.id !== state.currentUser.id).map(u => (
+                              {matches.length === 0 && (
+                                <p className="px-3 py-3 text-xs text-gray-400 text-center">No one matches "{viewAsQuery}"</p>
+                              )}
+                              {matches.map(u => (
                                 <button
                                   key={u.id}
                                   onClick={() => handleViewAs(u.id)}
@@ -242,7 +263,9 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                                 </button>
                               ))}
                             </div>
-                          )}
+                            </>
+                            );
+                          })()}
                         </div>
                       )}
                       {/* Timezone selector */}
