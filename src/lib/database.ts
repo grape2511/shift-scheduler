@@ -7,10 +7,19 @@ import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification
 // batch the browser downloaded, so the UI still showed "Clock In". This pages
 // through in 1000-row chunks and returns every row.
 const PAGE = 1000;
-async function fetchAllRows(table: string): Promise<any[]> {
+// Paging across the 1000-row cap REQUIRES a stable total order. Without an
+// explicit ORDER BY, PostgREST's successive .range() requests can return rows in
+// a different order each time, so the page boundary skips some rows and repeats
+// others — once a table passes 1000 rows a session silently loses data (e.g. an
+// agent who couldn't see any of their assigned shifts). Order by a unique key
+// (the primary key) so every row is fetched exactly once. Tables without an `id`
+// column pass their composite PK columns.
+async function fetchAllRows(table: string, orderBy: string[] = ['id']): Promise<any[]> {
   const all: any[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.from(table).select('*').range(from, from + PAGE - 1);
+    let query = supabase.from(table).select('*');
+    for (const col of orderBy) query = query.order(col, { ascending: true });
+    const { data, error } = await query.range(from, from + PAGE - 1);
     if (error) { console.error(`fetchAllRows(${table})`, error); break; }
     if (!data || data.length === 0) break;
     all.push(...data);
@@ -290,7 +299,7 @@ export async function updateSwapRequestStatus(id: string, status: 'accepted' | '
 // ---- Coverage Notes ----
 
 export async function fetchAllCoverageNotes(): Promise<CoverageNote[]> {
-  const data = await fetchAllRows('coverage_notes');
+  const data = await fetchAllRows('coverage_notes', ['user_id', 'week_start']);
   return data.map(n => ({
     userId: n.user_id,
     weekStart: n.week_start,
@@ -317,7 +326,7 @@ export async function deleteCoverageNote(userId: string, weekStart: string) {
 // ---- Shift Tasks (authoritative task assignments, maintained by a DB trigger) ----
 
 export async function fetchAllShiftTasks(): Promise<ShiftTask[]> {
-  const data = await fetchAllRows('shift_tasks');
+  const data = await fetchAllRows('shift_tasks', ['shift_id', 'user_id']);
   return data.map(t => ({
     shiftId: t.shift_id,
     userId: t.user_id,
@@ -328,7 +337,7 @@ export async function fetchAllShiftTasks(): Promise<ShiftTask[]> {
 // ---- Shift Partials (per-agent partial-coverage windows) ----
 
 export async function fetchAllShiftPartials(): Promise<PartialCoverage[]> {
-  const data = await fetchAllRows('shift_partials');
+  const data = await fetchAllRows('shift_partials', ['shift_id', 'user_id']);
   return data.map(p => ({
     shiftId: p.shift_id,
     userId: p.user_id,
