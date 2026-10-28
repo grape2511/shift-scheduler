@@ -4,7 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { ShiftCard } from './ShiftCard';
 import { Calendar, X, ArrowRightLeft, Check, XCircle, Clock, ChevronLeft, ChevronRight, Plus, LogIn, LogOut, AlertTriangle } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay, addMonths, addDays, isSameMonth, isToday } from 'date-fns';
-import { getHolidays, getCountryName } from '../utils/holidays';
+import { getHolidays, getCountryName, isPublicHoliday } from '../utils/holidays';
 import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from '../utils/dates';
 import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
 import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, updateSwapRequestStatus } from '../lib/database';
@@ -75,6 +75,7 @@ export function MyShiftsView() {
     setIsSubmitting(true);
     try {
       let anyInserted = false;
+      const failures: string[] = [];
       for (const date of dates) {
         const timeOffRecord = {
           id: uuid(),
@@ -85,11 +86,18 @@ export function MyShiftsView() {
           status,
           halfDay: timeOffHalfDay,
         };
-        const ok = await insertTimeOff(timeOffRecord);
-        if (ok) {
+        const result = await insertTimeOff(timeOffRecord);
+        if (result.ok) {
           dispatch({ type: 'ADD_TIME_OFF', payload: timeOffRecord });
           anyInserted = true;
+        } else if (!result.duplicate) {
+          failures.push(`${date}: ${result.message}`);
         }
+      }
+
+      if (failures.length > 0) {
+        alert(`Couldn't save your day off request for:\n${failures.join('\n')}\n\nPlease try again or contact an admin.`);
+        if (!anyInserted) return;
       }
 
       // Every date was a duplicate (rejected by the DB) — don't notify.
@@ -141,13 +149,21 @@ export function MyShiftsView() {
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
   const enforceFromDate = new Date('2026-04-06'); // Start enforcing from next week
   const MIN_WEEKLY_SHIFTS = 5;
-  let weeklyShiftCount = 0;
+  // Approved days off and public holidays count toward the minimum — an agent
+  // taking PTO they're entitled to shouldn't be flagged as under-scheduled.
+  let weeklyAssignedShifts = 0;
+  let weeklyDaysOff = 0;
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + i);
     const ds = d.toISOString().split('T')[0];
-    if (myShifts.some(s => s.date === ds)) weeklyShiftCount++;
+    if (myShifts.some(s => s.date === ds)) weeklyAssignedShifts++;
+    else if (
+      myTimeOffs.some(t => t.date === ds && (t.status || 'approved') === 'approved') ||
+      (state.currentUser.country && isPublicHoliday(state.currentUser.country, ds))
+    ) weeklyDaysOff++;
   }
+  const weeklyShiftCount = weeklyAssignedShifts + weeklyDaysOff;
   const underMinShifts = state.currentUser.role !== 'admin' && weeklyShiftCount < MIN_WEEKLY_SHIFTS && weekStart >= enforceFromDate;
 
   return (
@@ -177,12 +193,13 @@ export function MyShiftsView() {
               weeklyShiftCount === MIN_WEEKLY_SHIFTS ? 'text-blue-800' :
               'text-amber-800'
             }`}>
-              You are assigned to <strong>{weeklyShiftCount} shifts</strong> this week
+              You are assigned to <strong>{weeklyAssignedShifts} shifts</strong> this week
+              {weeklyDaysOff > 0 && <> + {weeklyDaysOff} day{weeklyDaysOff > 1 ? 's' : ''} off</>}
             </span>
             <div className="relative group">
               <span className="w-4 h-4 rounded-full bg-gray-300 text-white text-[10px] font-bold flex items-center justify-center cursor-help">?</span>
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 hidden group-hover:block z-10">
-                <p className="mb-1">Minimum required: {MIN_WEEKLY_SHIFTS} shifts per week.</p>
+                <p className="mb-1">Minimum required: {MIN_WEEKLY_SHIFTS} shifts per week. Approved days off and public holidays count toward it.</p>
                 {weeklyShiftCount > MIN_WEEKLY_SHIFTS ? (
                   <p>You have extra shifts. You can leave a shift where there are more than the minimum required agents assigned.</p>
                 ) : weeklyShiftCount === MIN_WEEKLY_SHIFTS ? (

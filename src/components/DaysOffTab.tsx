@@ -123,6 +123,7 @@ export function DaysOffTab() {
     setIsSubmitting(true);
     try {
       let anyInserted = false;
+      const failures: string[] = [];
       for (const date of effectiveDates) {
         const record = {
           id: uuid(),
@@ -134,11 +135,18 @@ export function DaysOffTab() {
           halfDay: timeOffHalfDay,
           createdAt: submittedAt,
         };
-        const ok = await insertTimeOff(record);
-        if (ok) {
+        const result = await insertTimeOff(record);
+        if (result.ok) {
           dispatch({ type: 'ADD_TIME_OFF', payload: record });
           anyInserted = true;
+        } else if (!result.duplicate) {
+          failures.push(`${date}: ${result.message}`);
         }
+      }
+
+      if (failures.length > 0) {
+        alert(`Couldn't save your day off request for:\n${failures.join('\n')}\n\nPlease try again or contact an admin.`);
+        if (!anyInserted) return;
       }
 
       // Every date was a duplicate (rejected by the DB) — don't notify.

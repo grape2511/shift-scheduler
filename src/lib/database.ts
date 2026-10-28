@@ -176,7 +176,11 @@ export async function fetchAllTimeOffs(): Promise<TimeOff[]> {
   }));
 }
 
-export async function insertTimeOff(timeOff: TimeOff): Promise<boolean> {
+// Distinguishes a duplicate day (unique index on user_id+date, code 23505) from
+// real failures (RLS, network, …) so the UI doesn't report every error as a duplicate.
+export type InsertTimeOffResult = { ok: true } | { ok: false; duplicate: boolean; message: string };
+
+export async function insertTimeOff(timeOff: TimeOff): Promise<InsertTimeOffResult> {
   const { error } = await supabase.from('time_offs').insert({
     id: timeOff.id,
     user_id: timeOff.userId,
@@ -187,8 +191,9 @@ export async function insertTimeOff(timeOff: TimeOff): Promise<boolean> {
     half_day: timeOff.halfDay || false,
     created_at: timeOff.createdAt || new Date().toISOString(),
   });
-  if (error) console.error('insertTimeOff', error);
-  return !error;
+  if (!error) return { ok: true };
+  console.error('insertTimeOff', error);
+  return { ok: false, duplicate: error.code === '23505', message: error.message };
 }
 
 export async function deleteTimeOff(id: string) {
