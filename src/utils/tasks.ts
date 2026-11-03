@@ -12,42 +12,45 @@
 // "preferred" task and bumped losers off contested tasks, which could pin an agent
 // (whose hash collided with a teammate's) to Dashboard every single day.
 //
-// KYC + Notion merge: from 2026-10-23 onward KYC and Notion are a single combined
-// task ("KYC / Notion") handled by one person, so the rotation runs on three tasks
-// (Dashboard, Intercom, KYC / Notion). Shifts *before* that date keep the historical
-// four-task split, so past rosters and reports are unchanged. The cutoff is applied
-// per shift date and mirrored in the SQL shift_task_map.
+// Three-task era: from 2026-10-23 onward the rotation runs on three tasks, so one
+// person covers the third role alongside the two queues. The third role was briefly
+// "KYC / Notion"; KYC was then dropped, and since Notion is light the role is now
+// "Dashboard + Notion" — that person helps on Dashboard and handles Notion. Shifts
+// *before* the cutoff keep the historical four-task split (D, I, KYC, Notion), so
+// past rosters/reports are unchanged. The cutoff is mirrored in SQL shift_task_map.
 
 // All task labels the app can display (current + legacy). The active rotation set
-// is chosen per date in `baseTasksForDate`.
-export type Task = 'Dashboard' | 'Intercom' | 'KYC' | 'Notion Tasks' | 'KYC / Notion';
-export const TASKS: readonly Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks', 'KYC / Notion'];
+// is chosen per date in buildSlots.
+export type Task =
+  | 'Dashboard' | 'Intercom' | 'Dashboard + Notion'   // current (three-task era)
+  | 'KYC' | 'Notion Tasks' | 'KYC / Notion';          // legacy, shown on old shifts
+export const TASKS: readonly Task[] = ['Dashboard', 'Intercom', 'Dashboard + Notion', 'KYC', 'Notion Tasks', 'KYC / Notion'];
 
-// Date (inclusive) from which KYC and Notion are one combined task. ISO yyyy-mm-dd
+// Date (inclusive) from which the rotation is the three-task set. ISO yyyy-mm-dd
 // compares chronologically as a string, so a plain string compare picks the era.
-export const KYC_NOTION_MERGE_FROM = '2026-10-23';
+export const THREE_TASK_FROM = '2026-10-23';
 
 // The per-rank coverage slot list for a shift, in priority order. Rank r takes
 // slots[(r + day) mod n], so this list's makeup sets each shift's task mix.
 function buildSlots(n: number, shiftDate: string): Task[] {
   const slots: Task[] = [];
-  if (shiftDate < KYC_NOTION_MERGE_FROM) {
+  if (shiftDate < THREE_TASK_FROM) {
     // Legacy four-task era (history, unchanged): D, I, KYC, Notion, extras → Dashboard.
     const base: Task[] = ['Dashboard', 'Intercom', 'KYC', 'Notion Tasks'];
     for (let i = 0; i < n; i++) slots.push(i < base.length ? base[i] : 'Dashboard');
     return slots;
   }
-  // Merged three-task era: cover one each (Dashboard, Intercom, KYC/Notion); the
+  // Three-task era: cover one each (Dashboard, Intercom, Dashboard + Notion); the
   // 4th person is a 2nd Dashboard (cap); every further person alternates Intercom /
-  // KYC-Notion, so Dashboard stays at 2 and the other two stay even.
-  //   1 → [D]            2 → [D, I]              3 → [D, I, KN]
-  //   4 → [D, I, KN, D]  5 → [D, I, KN, D, I]    6 → [D, I, KN, D, I, KN]
+  // Dashboard-Notion, so Dashboard stays at 2 and the other two stay even.
+  //   1 → [D]            2 → [D, I]              3 → [D, I, DN]
+  //   4 → [D, I, DN, D]  5 → [D, I, DN, D, I]    6 → [D, I, DN, D, I, DN]
   for (let i = 0; i < n; i++) {
     if (i === 0) slots.push('Dashboard');
     else if (i === 1) slots.push('Intercom');
-    else if (i === 2) slots.push('KYC / Notion');
+    else if (i === 2) slots.push('Dashboard + Notion');
     else if (i === 3) slots.push('Dashboard');
-    else slots.push((i - 4) % 2 === 0 ? 'Intercom' : 'KYC / Notion');
+    else slots.push((i - 4) % 2 === 0 ? 'Intercom' : 'Dashboard + Notion');
   }
   return slots;
 }
@@ -102,12 +105,17 @@ export const TASK_STYLES: Record<
     iconUrl: '/icons/intercom.png',
     tooltip: 'This shift you will mainly work on Intercom tickets',
   },
+  'Dashboard + Notion': {
+    bg: 'bg-blue-50',
+    iconUrl: '/icons/dashboard-notion.svg',
+    tooltip: 'This shift you will work on Dashboard, plus Notion tasks',
+  },
+  // Legacy tasks — still shown for older shifts.
   'KYC / Notion': {
     bg: 'bg-rose-100',
     iconUrl: '/icons/kyc-notion.svg',
     tooltip: 'This shift you will mainly work on KYC and Notion tasks',
   },
-  // Legacy single tasks — still shown for shifts before the KYC+Notion merge.
   KYC: {
     bg: 'bg-rose-100',
     badge: 'bg-rose-100 text-rose-700',
