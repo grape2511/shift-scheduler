@@ -138,13 +138,21 @@ function reducer(state: AppState, action: Action): AppState {
       const activeClockIns = state.clockRecords.filter(r => r.clockIn && !r.clockOut);
       const loadedClockIds = new Set(action.payload.clockRecords.map(r => r.id));
       const missingActiveClockIns = activeClockIns.filter(r => !loadedClockIds.has(r.id));
+      // A refresh fetched before a clock-out saved returns the record still open.
+      // Never let that stale copy undo a clock-out we already have locally — the
+      // sync effect would otherwise write clock_out = NULL back to the DB.
+      const localByKey = new Map(state.clockRecords.map(r => [`${r.shiftId}|${r.userId}`, r]));
+      const loadedClockRecords = action.payload.clockRecords.map(r => {
+        const local = localByKey.get(`${r.shiftId}|${r.userId}`);
+        return local?.clockOut && !r.clockOut ? { ...r, clockOut: local.clockOut } : r;
+      });
       return {
         ...action.payload,
         shifts: action.payload.shifts.map(s => ({
           ...s,
           assignedAgentIds: [...new Set(s.assignedAgentIds)],
         })),
-        clockRecords: [...action.payload.clockRecords, ...missingActiveClockIns],
+        clockRecords: [...loadedClockRecords, ...missingActiveClockIns],
       };
     }
 
@@ -1079,7 +1087,11 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const updatedClockRecords = state.clockRecords.filter(r => {
       if (r.userId !== myId) return false;
       const pr = prev.clockRecords.find(pr => pr.id === r.id);
-      return pr && JSON.stringify(pr) !== JSON.stringify(r);
+      if (!pr || JSON.stringify(pr) === JSON.stringify(r)) return false;
+      // Clearing a clock-in/out is never a user action — it's a stale reload.
+      // Don't write it back (the DB trigger protect_clock_record blocks it too).
+      if ((pr.clockOut && !r.clockOut) || (pr.clockIn && !r.clockIn)) return false;
+      return true;
     });
     newClockRecords.forEach(r => db.upsertClockRecord(r));
     updatedClockRecords.forEach(r => db.upsertClockRecord(r));

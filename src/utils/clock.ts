@@ -59,6 +59,23 @@ export function localHHMMToIso(hhmm: string, shiftDate: string, timezone: string
   return new Date(shiftStartUtcMs(date, hhmm, timezone)).toISOString();
 }
 
+// Convert an HH:MM entered in the agent's own timezone to a UTC ISO instant,
+// picking whichever calendar day puts it closest to `refMs` (the scheduled start
+// or end). An agent in Manila entering 06:23 for a 00:00 Amsterdam shift means
+// the morning of the shift date there, which is the previous evening in
+// Amsterdam; anchoring on the shift date alone would land 7 hours off.
+// `notBeforeMs` keeps a clock-out after its clock-in.
+export function hhmmNearestIso(hhmm: string, tz: string, refMs: number, notBeforeMs?: number): string {
+  const refDate = new Date(refMs).toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+  const day0 = new Date(`${refDate}T00:00:00Z`).getTime();
+  const candidates = [-1, 0, 1]
+    .map(k => new Date(day0 + k * 86400000).toISOString().slice(0, 10))
+    .map(d => shiftStartUtcMs(d, hhmm, tz))
+    .filter(ms => notBeforeMs === undefined || ms > notBeforeMs);
+  const best = candidates.reduce((a, b) => (Math.abs(b - refMs) < Math.abs(a - refMs) ? b : a));
+  return new Date(best).toISOString();
+}
+
 // Render an ISO instant as HH:MM in a given timezone, for time inputs.
 export function isoToLocalHHMM(iso: string | null, tz: string): string {
   if (!iso) return '';
