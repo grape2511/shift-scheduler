@@ -18,17 +18,24 @@
 // "Dashboard + Notion" — that person helps on Dashboard and handles Notion. Shifts
 // *before* the cutoff keep the historical four-task split (D, I, KYC, Notion), so
 // past rosters/reports are unchanged. The cutoff is mirrored in SQL shift_task_map.
+//
+// Two-task era: from 2026-11-07 Intercom is light, so Notion moves onto it. There
+// are two roles: exactly one "Intercom + Notion" person per shift and everyone
+// else on Dashboard. The three-task window (2026-10-23 → 2026-11-06) keeps its
+// history. Cutoff TWO_TASK_FROM is mirrored in SQL shift_task_map.
 
 // All task labels the app can display (current + legacy). The active rotation set
 // is chosen per date in buildSlots.
 export type Task =
-  | 'Dashboard' | 'Intercom' | 'Dashboard + Notion'   // current (three-task era)
-  | 'KYC' | 'Notion Tasks' | 'KYC / Notion';          // legacy, shown on old shifts
-export const TASKS: readonly Task[] = ['Dashboard', 'Intercom', 'Dashboard + Notion', 'KYC', 'Notion Tasks', 'KYC / Notion'];
+  | 'Dashboard' | 'Intercom + Notion'                  // current (two-task era)
+  | 'Intercom' | 'Dashboard + Notion'                  // three-task era history
+  | 'KYC' | 'Notion Tasks' | 'KYC / Notion';           // legacy, shown on old shifts
+export const TASKS: readonly Task[] = ['Dashboard', 'Intercom + Notion', 'Intercom', 'Dashboard + Notion', 'KYC', 'Notion Tasks', 'KYC / Notion'];
 
 // Date (inclusive) from which the rotation is the three-task set. ISO yyyy-mm-dd
 // compares chronologically as a string, so a plain string compare picks the era.
 export const THREE_TASK_FROM = '2026-10-23';
+export const TWO_TASK_FROM = '2026-11-07';
 
 // The per-rank coverage slot list for a shift, in priority order. Rank r takes
 // slots[(r + day) mod n], so this list's makeup sets each shift's task mix.
@@ -40,7 +47,13 @@ function buildSlots(n: number, shiftDate: string): Task[] {
     for (let i = 0; i < n; i++) slots.push(i < base.length ? base[i] : 'Dashboard');
     return slots;
   }
-  // Three-task era: cover one each (Dashboard, Intercom, Dashboard + Notion); the
+  if (shiftDate >= TWO_TASK_FROM) {
+    // Two-task era: one Intercom + Notion, everyone else Dashboard.
+    //   1 → [D]   2 → [D, IN]   3 → [D, IN, D]   4 → [D, IN, D, D] …
+    for (let i = 0; i < n; i++) slots.push(i === 1 ? 'Intercom + Notion' : 'Dashboard');
+    return slots;
+  }
+  // Three-task era (history): cover one each (Dashboard, Intercom, Dashboard + Notion); the
   // 4th person is a 2nd Dashboard (cap); every further person alternates Intercom /
   // Dashboard-Notion, so Dashboard stays at 2 and the other two stay even.
   //   1 → [D]            2 → [D, I]              3 → [D, I, DN]
@@ -55,7 +68,7 @@ function buildSlots(n: number, shiftDate: string): Task[] {
   return slots;
 }
 
-// Shifts outside the support rotation (no Dashboard/Intercom/KYC duties). Mirrored
+// Shifts outside the support rotation (no Dashboard/Intercom/Notion duties). Mirrored
 // in the SQL compute_shift_tasks, which skips these names.
 export const NON_SUPPORT_SHIFTS: ReadonlySet<string> = new Set(['Finance Shift']);
 
@@ -99,6 +112,11 @@ export const TASK_STYLES: Record<
     bg: 'bg-blue-50',
     iconUrl: '/icons/dashboard.png',
     tooltip: 'This shift you will mainly work on Dashboard Tickets',
+  },
+  'Intercom + Notion': {
+    bg: 'bg-purple-50',
+    iconUrl: '/icons/intercom-notion.svg',
+    tooltip: 'This shift you will work on Intercom tickets, plus Notion tasks',
   },
   Intercom: {
     bg: 'bg-purple-50',
