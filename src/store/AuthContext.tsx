@@ -70,10 +70,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let mounted = true;
 
-    // Absolute failsafe — always stop loading after 3 seconds
-    const timeout = setTimeout(() => {
+    // Last-resort failsafe so the spinner can't hang forever. It used to fire at
+    // 3s and simply stop loading — but on a slow restore (e.g. supabase-js
+    // storage-lock contention across tabs) getSession hadn't resolved yet, so
+    // `session` was still null and the app flashed the LOGIN page even though the
+    // user was signed in ("the schedule logged me out automatically"). Now it
+    // waits longer and, before giving up, makes one more attempt to read the
+    // session — so a valid-but-slow session resolves instead of showing login.
+    const timeout = setTimeout(async () => {
+      if (!mounted) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(session);
+        if (session?.user) loadProfile(session.user.id);
+      } catch {
+        /* ignore — fall through to stop loading */
+      }
       if (mounted) setLoading(false);
-    }, 3000);
+    }, 10000);
 
     // Fetch profile and enforce the `active` flag. Deactivated accounts get
     // signed out immediately so the app never renders for them; the
