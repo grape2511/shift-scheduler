@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
+import { Plus, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search, Pencil } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
 import { TIME_OFF_CATEGORIES, type User } from '../types';
 import { DeactivateAgentModal } from './DeactivateAgentModal';
+import { EditAgentModal } from './EditAgentModal';
 import { updateProfile } from '../lib/database';
 import * as db from '../lib/database';
 import { v4 as uuid } from 'uuid';
@@ -15,6 +16,7 @@ export function AgentsView() {
   const { state, agents, addAgent, dispatch, getMonthlyHours, getPtoBalance, setAgentActive } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<User | null>(null);
+  const [editTarget, setEditTarget] = useState<User | null>(null);
   const [showHolidayDropdown, setShowHolidayDropdown] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -335,6 +337,15 @@ export function AgentsView() {
                     <span className={`text-sm font-bold w-16 text-right ${isOvertime ? 'text-red-600' : 'text-gray-700'}`}>{hours}/{TARGET_HOURS}h</span>
                     <span className={`hidden sm:block text-sm font-bold w-16 text-right ${isOverPto ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>{remaining}/{total}</span>
                     <span className={`hidden sm:block text-sm font-bold w-12 text-right ${sickRemaining <= 1 ? 'text-red-600' : 'text-gray-500'}`}>{sickRemaining}/{sickTotal}</span>
+                    <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditTarget(agent)}
+                      className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
+                      title="Edit name / email"
+                      aria-label={`Edit ${agent.name}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                     <div
                       onClick={() => {
                         const newActive = agent.active === false ? true : false;
@@ -348,6 +359,7 @@ export function AgentsView() {
                       title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
                     >
                       <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${agent.active !== false ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
                     </div>
                   </div>
                 );
@@ -388,7 +400,15 @@ export function AgentsView() {
                   </div>
                 )}
               </div>
-              <div
+              <button
+                  onClick={() => setEditTarget(agent)}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md shrink-0"
+                  title="Edit name / email"
+                  aria-label={`Edit ${agent.name}`}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <div
                 onClick={() => {
                   const newActive = agent.active === false ? true : false;
                   if (!newActive) {
@@ -702,6 +722,9 @@ export function AgentsView() {
 
       {deactivateTarget && (
         <DeactivateAgentModal agent={deactivateTarget} onClose={() => setDeactivateTarget(null)} />
+      )}
+      {editTarget && (
+        <EditAgentModal agent={editTarget} onClose={() => setEditTarget(null)} />
       )}
     </div>
   );

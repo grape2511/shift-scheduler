@@ -79,6 +79,18 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (error) console.error('updateProfile', error);
 }
 
+// Admin-only: changes an agent's email everywhere it lives — profile, login
+// account (auth.users) and sign-in identities — in one transaction. Returns an
+// error message on failure (e.g. invalid or already-used address).
+export async function adminUpdateEmail(userId: string, email: string): Promise<string | null> {
+  const { error } = await supabase.rpc('admin_update_agent_email', { p_user_id: userId, p_email: email });
+  if (error) {
+    console.error('adminUpdateEmail', error);
+    return error.message;
+  }
+  return null;
+}
+
 export async function deleteProfile(id: string) {
   // Delete from auth (cascades to profiles via trigger)
   // For now just delete the profile row — auth admin delete requires service role
