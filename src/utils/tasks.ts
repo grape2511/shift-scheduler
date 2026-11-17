@@ -70,7 +70,7 @@ function buildSlots(n: number, shiftDate: string): Task[] {
 
 // Shifts outside the support rotation (no Dashboard/Intercom/Notion duties). Mirrored
 // in the SQL compute_shift_tasks, which skips these names.
-export const NON_SUPPORT_SHIFTS: ReadonlySet<string> = new Set(['Finance Shift']);
+export const NON_SUPPORT_SHIFTS: ReadonlySet<string> = new Set(['Finance Shift', 'Flexible Shift']);
 
 const REFERENCE_DATE_MS = Date.UTC(2026, 0, 1); // 2026-01-01
 

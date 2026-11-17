@@ -4,11 +4,12 @@ import { X, Info } from 'lucide-react';
 import { adminUpdateEmail } from '../lib/database';
 import type { User } from '../types';
 
-/** Admin-only editor for an agent's name and email. */
+/** Admin-only editor for an agent's name, email and flexible-hours setting. */
 export function EditAgentModal({ agent, onClose }: { agent: User; onClose: () => void }) {
   const { dispatch } = useApp();
   const [name, setName] = useState(agent.name);
   const [email, setEmail] = useState(agent.email);
+  const [flexible, setFlexible] = useState(!!agent.flexibleHours);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +18,8 @@ export function EditAgentModal({ agent, onClose }: { agent: User; onClose: () =>
   const nameChanged = cleanName !== agent.name;
   const emailChanged = cleanEmail !== agent.email.toLowerCase();
   const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanEmail);
-  const canSave = !busy && !!cleanName && emailValid && (nameChanged || emailChanged);
+  const flexChanged = flexible !== !!agent.flexibleHours;
+  const canSave = !busy && !!cleanName && emailValid && (nameChanged || emailChanged || flexChanged);
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -34,6 +36,7 @@ export function EditAgentModal({ agent, onClose }: { agent: User; onClose: () =>
     const updates: Partial<User> = {};
     if (nameChanged) updates.name = cleanName;
     if (emailChanged) updates.email = cleanEmail;
+    if (flexChanged) updates.flexibleHours = flexible;
     dispatch({ type: 'UPDATE_USER', payload: { id: agent.id, updates } });
     setBusy(false);
     onClose();
@@ -66,6 +69,14 @@ export function EditAgentModal({ agent, onClose }: { agent: User; onClose: () =>
             />
             {email && !emailValid && <p className="mt-1 text-xs text-red-600">Enter a valid email address.</p>}
           </div>
+
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" checked={flexible} onChange={e => setFlexible(e.target.checked)} className="mt-0.5 rounded border-gray-300 text-indigo-600" />
+            <span className="text-sm text-gray-700">
+              Flexible hours
+              <span className="block text-xs text-gray-400">No fixed shifts. Gets a Clock In / Out button that works any time; each session shows on the schedule as a "Flexible Shift".</span>
+            </span>
+          </label>
 
           {emailChanged && emailValid && (
             <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 flex gap-1.5">

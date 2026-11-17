@@ -52,6 +52,7 @@ export async function fetchAllProfiles(): Promise<User[]> {
     slackNotifications: p.slack_notifications || undefined,
     active: p.active ?? true,
     canEditOwnHours: p.can_edit_own_hours ?? false,
+    flexibleHours: p.flexible_hours ?? false,
   }));
 }
 
@@ -75,6 +76,7 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (updates.slackMissedClockInWebhookUrl !== undefined) dbUpdates.slack_missed_clockin_webhook_url = updates.slackMissedClockInWebhookUrl || null;
   if ((updates as any).slackNotifications !== undefined) dbUpdates.slack_notifications = (updates as any).slackNotifications;
   if (updates.active !== undefined) dbUpdates.active = updates.active;
+  if (updates.flexibleHours !== undefined) dbUpdates.flexible_hours = updates.flexibleHours;
   const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
   if (error) console.error('updateProfile', error);
 }
@@ -89,6 +91,71 @@ export async function adminUpdateEmail(userId: string, email: string): Promise<s
     return error.message;
   }
   return null;
+}
+
+// ---- Flexible hours (no fixed schedule) ----
+// Each clock-in creates its own "Flexible Shift" row + clock record server-side,
+// atomically; a DB trigger keeps that shift's start/end equal to the clock times.
+
+export async function flexClockIn(): Promise<string | null> {
+  const { error } = await supabase.rpc('flex_clock_in');
+  if (error) { console.error('flexClockIn', error); return error.message; }
+  return null;
+}
+
+export async function flexClockOut(shiftId: string): Promise<string | null> {
+  const { error } = await supabase.rpc('flex_clock_out', { p_shift_id: shiftId });
+  if (error) { console.error('flexClockOut', error); return error.message; }
+  return null;
+}
+
+// ---- Invites (admin only; RLS) ----
+
+export interface Invite {
+  id: string;
+  email: string;
+  name: string;
+  country?: string;
+  labels: string[];
+  flexibleHours: boolean;
+  createdAt: string;
+  acceptedAt?: string;
+}
+
+export async function fetchInvites(): Promise<Invite[]> {
+  const { data, error } = await supabase.from('invites').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('fetchInvites', error); return []; }
+  return (data || []).map(r => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    country: r.country || undefined,
+    labels: r.labels || [],
+    flexibleHours: r.flexible_hours,
+    createdAt: r.created_at,
+    acceptedAt: r.accepted_at || undefined,
+  }));
+}
+
+export async function createInvite(invite: { email: string; name: string; country?: string; labels: string[]; flexibleHours: boolean; invitedBy: string }): Promise<string | null> {
+  const { error } = await supabase.from('invites').insert({
+    email: invite.email.trim().toLowerCase(),
+    name: invite.name.trim(),
+    country: invite.country || null,
+    labels: invite.labels,
+    flexible_hours: invite.flexibleHours,
+    invited_by: invite.invitedBy,
+  });
+  if (error) {
+    console.error('createInvite', error);
+    return error.code === '23505' ? 'This email has already been invited.' : error.message;
+  }
+  return null;
+}
+
+export async function deleteInvite(id: string) {
+  const { error } = await supabase.from('invites').delete().eq('id', id);
+  if (error) console.error('deleteInvite', error);
 }
 
 export async function deleteProfile(id: string) {

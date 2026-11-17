@@ -10,6 +10,7 @@ import { TIME_OFF_CATEGORIES, type TimeOffCategory } from '../types';
 import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, updateSwapRequestStatus } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import { confirmClockOut } from '../utils/clock';
+import { FlexClockCard } from './FlexClockCard';
 
 export function MyShiftsView() {
   const { state, dispatch, getShiftsForAgent, getPendingSwapRequests, getAgentById, getMonthlyHours, getPtoBalance } = useApp();
@@ -164,10 +165,13 @@ export function MyShiftsView() {
     ) weeklyDaysOff++;
   }
   const weeklyShiftCount = weeklyAssignedShifts + weeklyDaysOff;
-  const underMinShifts = state.currentUser.role !== 'admin' && weeklyShiftCount < MIN_WEEKLY_SHIFTS && weekStart >= enforceFromDate;
+  // Flexible-hours agents have no fixed schedule, so no weekly minimum.
+  const underMinShifts = !state.currentUser.flexibleHours && (state.currentUser.role !== 'admin' && weeklyShiftCount < MIN_WEEKLY_SHIFTS && weekStart >= enforceFromDate);
 
   return (
     <div>
+      <FlexClockCard />
+
       {/* Under minimum shifts warning */}
       {underMinShifts && (
         <div className="mb-4 bg-red-600 text-white rounded-xl px-4 py-3 flex items-center gap-3">

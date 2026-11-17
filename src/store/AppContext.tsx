@@ -1073,6 +1073,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         enabledHolidayCountries: u.enabledHolidayCountries,
         ptoAllowance: u.ptoAllowance,
         sickDaysAllowance: u.sickDaysAllowance,
+        flexibleHours: u.flexibleHours,
       }));
     }
 

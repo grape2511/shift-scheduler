@@ -3,6 +3,7 @@ import { useApp } from '../store/AppContext';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayView } from './DayView';
+import { ClockedInNow } from './ClockedInNow';
 import { Calendar, CalendarDays, List, Clock } from 'lucide-react';
 import { getWeekDays, formatDate } from '../utils/dates';
 import { convertTime, getUserTimezone } from '../utils/timezone';
@@ -47,6 +48,8 @@ export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; fo
 
   return (
     <div>
+      <ClockedInNow />
+
       {/* My Shifts This Week Banner */}
       {!isAdmin && myWeekShifts.length > 0 && (
         <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-200 dark:border-indigo-800 px-4 py-3">
