@@ -18,7 +18,7 @@ export interface User {
   slackMissedClockInWebhookUrl?: string; // optional: routes ONLY missed clock-in alerts to a separate channel; falls back to slackWebhookUrl when unset
   slackNotifications?: Record<string, boolean>;
   active?: boolean; // default true
-  flexibleHours?: boolean; // no fixed schedule: clocks in/out freely, each session becomes a 'Flexible Shift'
+  flexibleHours?: boolean; // no fixed schedule: clocks in/out freely, each session becomes a 'Compliance Team' shift
   canEditOwnHours?: boolean; // agent may change the start/end time of their own shifts (set per agent in the DB)
 }
 

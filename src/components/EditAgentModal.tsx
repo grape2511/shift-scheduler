@@ -74,7 +74,7 @@ export function EditAgentModal({ agent, onClose }: { agent: User; onClose: () =>
             <input type="checkbox" checked={flexible} onChange={e => setFlexible(e.target.checked)} className="mt-0.5 rounded border-gray-300 text-indigo-600" />
             <span className="text-sm text-gray-700">
               Flexible hours
-              <span className="block text-xs text-gray-400">No fixed shifts. Gets a Clock In / Out button that works any time; each session shows on the schedule as a "Flexible Shift".</span>
+              <span className="block text-xs text-gray-400">No fixed shifts. Gets a Clock In / Out button that works any time; each session shows on the schedule as a "Compliance Team" shift.</span>
             </span>
           </label>
 

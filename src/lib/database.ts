@@ -94,7 +94,7 @@ export async function adminUpdateEmail(userId: string, email: string): Promise<s
 }
 
 // ---- Flexible hours (no fixed schedule) ----
-// Each clock-in creates its own "Flexible Shift" row + clock record server-side,
+// Each clock-in creates its own "Compliance Team" shift row + clock record server-side,
 // atomically; a DB trigger keeps that shift's start/end equal to the clock times.
 
 export async function flexClockIn(): Promise<string | null> {

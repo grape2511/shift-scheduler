@@ -7,7 +7,7 @@ import { FLEX_SHIFT } from '../utils/clockedIn';
 
 /**
  * Clock in / out for agents with flexible hours (no fixed schedule). Every
- * session becomes its own "Flexible Shift" so hours, logs and corrections work
+ * session becomes its own "Compliance Team" shift so hours, logs and corrections work
  * exactly like regular shifts. Renders nothing for everyone else.
  */
 export function FlexClockCard() {

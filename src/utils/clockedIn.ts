@@ -1,6 +1,6 @@
 import type { ClockRecord, Shift, User } from '../types';
 
-export const FLEX_SHIFT = 'Flexible Shift';
+export const FLEX_SHIFT = 'Compliance Team';
 
 // An open clock record older than this is a forgotten / wiped clock-out, not
 // someone actually working right now.
