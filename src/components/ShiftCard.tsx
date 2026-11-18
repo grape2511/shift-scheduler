@@ -27,6 +27,16 @@ function agentTags(agent: { labels?: string[]; label?: string } | undefined): st
   return (agent.labels || (agent.label ? [agent.label] : [])).filter(l => !TEAM_LABELS.has(l));
 }
 
+// Per-tag look on the shift card. `short` is used in the compact week view.
+const TAG_STYLES: Record<string, { short?: string; cls: string; tip: (first: string) => string }> = {
+  'Trainee': { cls: 'bg-amber-100 text-amber-700 border-amber-200', tip: n => `${n} is a trainee — keep them supported on shift` },
+  'Finance Specialist': { short: 'Fin Spec', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', tip: n => `${n} is this shift's finance specialist` },
+};
+const DEFAULT_TAG = { cls: 'bg-sky-100 text-sky-700 border-sky-200', tip: (n: string) => n };
+function tagStyle(label: string) {
+  return TAG_STYLES[label] ?? { ...DEFAULT_TAG, tip: (n: string) => `${n}: ${label}` };
+}
+
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord, getShiftTasks, getPartial } = useApp();
   const attemptSelfLeave = useSelfLeave();
@@ -236,10 +246,10 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   {agentTags(agent).map(l => (
                     <span
                       key={l}
-                      className="shrink-0 px-1 py-px rounded-full bg-amber-100 text-amber-700 text-[7px] font-semibold uppercase tracking-wide leading-none"
-                      title={l}
+                      className={`shrink-0 px-1 py-px rounded-full ${tagStyle(l).cls} text-[7px] font-semibold uppercase tracking-wide leading-none`}
+                      title={tagStyle(l).tip(agent!.name.split(' ')[0])}
                     >
-                      {l}
+                      {tagStyle(l).short ?? l}
                     </span>
                   ))}
                   {style && (!style.iconUrl ? (
@@ -450,8 +460,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                       {agentTags(agent).map(l => (
                         <span
                           key={l}
-                          className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-semibold"
-                          title={`${agent!.name.split(' ')[0]} is a trainee — keep them supported on shift`}
+                          className={`px-1.5 py-0.5 rounded-full ${tagStyle(l).cls} border text-[10px] font-semibold`}
+                          title={tagStyle(l).tip(agent!.name.split(' ')[0])}
                         >
                           {l}
                         </span>
