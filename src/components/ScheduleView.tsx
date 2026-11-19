@@ -17,10 +17,14 @@ export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; fo
   const { state, getShiftsForDate } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekDate, setWeekDate] = useState(new Date());
+  const [dayDate, setDayDate] = useState(new Date());
 
+  // Reviewing a request opens the Day view (full agent names, unlike the
+  // compact week grid). Week is moved too so toggling stays on that date.
   useEffect(() => {
     if (!focusDate) return;
-    setViewMode('week');
+    setViewMode('day');
+    setDayDate(parseISO(focusDate));
     setWeekDate(parseISO(focusDate));
   }, [focusToken, focusDate]);
 
@@ -117,7 +121,7 @@ export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; fo
 
       {viewMode === 'month' && <MonthView />}
       {viewMode === 'week' && <WeekView weekDate={weekDate} onWeekDateChange={setWeekDate} focusDate={focusDate} />}
-      {viewMode === 'day' && <DayView />}
+      {viewMode === 'day' && <DayView dayDate={dayDate} onDayDateChange={setDayDate} focusDate={focusDate} />}
     </div>
   );
 }

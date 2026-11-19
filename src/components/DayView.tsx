@@ -7,9 +7,14 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { isToday } from 'date-fns';
 import type { Shift } from '../types';
 
-export function DayView() {
+// `dayDate`/`onDayDateChange` are optional so the parent (ScheduleView) can
+// drive the date — e.g. jumping here when an admin clicks a pending request.
+// `focusDate` marks the day being reviewed with a "Reviewing" badge.
+export function DayView({ dayDate, onDayDateChange, focusDate }: { dayDate?: Date; onDayDateChange?: (d: Date) => void; focusDate?: string } = {}) {
   const { state, getShiftsForDate, getPublicHolidaysForDate, getTimeOffsForDate } = useApp();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [localDate, setLocalDate] = useState(new Date());
+  const currentDate = dayDate ?? localDate;
+  const setCurrentDate = onDayDateChange ?? setLocalDate;
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
 
@@ -53,6 +58,11 @@ export function DayView() {
             {isToday(currentDate) && (
               <span className="ml-2 text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
                 Today
+              </span>
+            )}
+            {focusDate === dateStr && (
+              <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-white bg-indigo-600 px-2 py-0.5 rounded-full">
+                Reviewing
               </span>
             )}
           </h2>
