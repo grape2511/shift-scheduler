@@ -5,7 +5,7 @@ import { getUserTimezone, convertTime } from '../utils/timezone';
 import { insertClockCorrection, insertNotification } from '../lib/database';
 import type { ClockCorrection, Notification } from '../types';
 import {
-  shiftStartUtcMs, shiftEndUtcMs, isoToLocalHHMM, localHHMMToIso, clockStatus, LATE_THRESHOLD_MIN,
+  shiftStartUtcMs, shiftEndUtcMs, isoToLocalHHMM, hhmmNearestIso, clockStatus, LATE_THRESHOLD_MIN,
   type ClockStatus,
 } from '../utils/clock';
 import { format, parseISO } from 'date-fns';
@@ -32,6 +32,8 @@ interface EditTarget {
   shiftName: string;
   shiftDate: string;
   shiftTimezone: string;
+  startUtcMs: number;
+  endUtcMs: number;
   clockInIso: string | null;
   clockOutIso: string | null;
 }
@@ -63,7 +65,7 @@ export function MyClockLog() {
     const cutoffMs = Date.now() - rangeDays * 86400000;
     const out: {
       shiftId: string; shiftName: string; shiftDate: string; shiftTimezone: string;
-      scheduledStart: string; scheduledEnd: string; startUtcMs: number;
+      scheduledStart: string; scheduledEnd: string; startUtcMs: number; endUtcMs: number;
       clockInIso: string | null; clockOutIso: string | null;
       durationMin: number | null; status: ClockStatus;
     }[] = [];
@@ -78,7 +80,7 @@ export function MyClockLog() {
       const { status, durationMin } = clockStatus(record?.clockIn || null, record?.clockOut || null, startUtcMs, endUtcMs);
       out.push({
         shiftId: shift.id, shiftName: shift.name, shiftDate: shift.date, shiftTimezone: shift.timezone,
-        scheduledStart: shift.startTime, scheduledEnd: shift.endTime, startUtcMs,
+        scheduledStart: shift.startTime, scheduledEnd: shift.endTime, startUtcMs, endUtcMs,
         clockInIso: record?.clockIn || null, clockOutIso: record?.clockOut || null,
         durationMin, status,
       });
@@ -89,9 +91,9 @@ export function MyClockLog() {
 
   const openEdit = (t: EditTarget) => {
     setEdit(t);
-    // Prefill with existing times, or the scheduled window as a sensible starting point.
-    setEditIn(isoToLocalHHMM(t.clockInIso, t.shiftTimezone) || '');
-    setEditOut(isoToLocalHHMM(t.clockOutIso, t.shiftTimezone) || '');
+    // Prefill with the existing times, in the agent's own timezone like the rest of the page.
+    setEditIn(isoToLocalHHMM(t.clockInIso, viewerTz) || '');
+    setEditOut(isoToLocalHHMM(t.clockOutIso, viewerTz) || '');
     setNote('');
   };
 
@@ -101,8 +103,10 @@ export function MyClockLog() {
     if (editOut && !editIn) { alert('Set a clock-in time before a clock-out time.'); return; }
     setSaving(true);
     try {
-      const proposedClockIn = editIn ? localHHMMToIso(editIn, edit.shiftDate, edit.shiftTimezone) : null;
-      const proposedClockOut = editOut ? localHHMMToIso(editOut, edit.shiftDate, edit.shiftTimezone, editIn) : null;
+      const proposedClockIn = editIn ? hhmmNearestIso(editIn, viewerTz, edit.startUtcMs) : null;
+      const proposedClockOut = editOut && proposedClockIn
+        ? hhmmNearestIso(editOut, viewerTz, edit.endUtcMs, new Date(proposedClockIn).getTime())
+        : null;
       const correction: ClockCorrection = {
         id: uuid(),
         shiftId: edit.shiftId,
@@ -211,7 +215,8 @@ export function MyClockLog() {
                       <button
                         onClick={() => openEdit({
                           shiftId: r.shiftId, shiftName: r.shiftName, shiftDate: r.shiftDate,
-                          shiftTimezone: r.shiftTimezone, clockInIso: r.clockInIso, clockOutIso: r.clockOutIso,
+                          shiftTimezone: r.shiftTimezone, startUtcMs: r.startUtcMs, endUtcMs: r.endUtcMs,
+                          clockInIso: r.clockInIso, clockOutIso: r.clockOutIso,
                         })}
                         className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                       >
@@ -268,7 +273,7 @@ export function MyClockLog() {
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                Times are in the shift's timezone ({edit.shiftTimezone}). Your request goes to an admin for approval — nothing changes until they approve it.
+                Enter times in <strong>your local time ({viewerTz})</strong>. Your request goes to an admin for approval — nothing changes until they approve it.
               </p>
             </div>
             <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100 dark:border-gray-700">

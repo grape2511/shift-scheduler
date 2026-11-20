@@ -3,6 +3,7 @@ import { useApp } from '../store/AppContext';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayView } from './DayView';
+import { ClockedInNow } from './ClockedInNow';
 import { Calendar, CalendarDays, List, Clock } from 'lucide-react';
 import { getWeekDays, formatDate } from '../utils/dates';
 import { convertTime, getUserTimezone } from '../utils/timezone';
@@ -16,10 +17,14 @@ export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; fo
   const { state, getShiftsForDate } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekDate, setWeekDate] = useState(new Date());
+  const [dayDate, setDayDate] = useState(new Date());
 
+  // Reviewing a request opens the Day view (full agent names, unlike the
+  // compact week grid). Week is moved too so toggling stays on that date.
   useEffect(() => {
     if (!focusDate) return;
-    setViewMode('week');
+    setViewMode('day');
+    setDayDate(parseISO(focusDate));
     setWeekDate(parseISO(focusDate));
   }, [focusToken, focusDate]);
 
@@ -47,6 +52,8 @@ export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; fo
 
   return (
     <div>
+      <ClockedInNow />
+
       {/* My Shifts This Week Banner */}
       {!isAdmin && myWeekShifts.length > 0 && (
         <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-200 dark:border-indigo-800 px-4 py-3">
@@ -114,7 +121,7 @@ export function ScheduleView({ focusDate, focusToken }: { focusDate?: string; fo
 
       {viewMode === 'month' && <MonthView />}
       {viewMode === 'week' && <WeekView weekDate={weekDate} onWeekDateChange={setWeekDate} focusDate={focusDate} />}
-      {viewMode === 'day' && <DayView />}
+      {viewMode === 'day' && <DayView dayDate={dayDate} onDayDateChange={setDayDate} focusDate={focusDate} />}
     </div>
   );
 }

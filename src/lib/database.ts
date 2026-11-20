@@ -7,10 +7,19 @@ import type { User, Shift, TimeOff, TimeOffCategory, TimeOffStatus, Notification
 // batch the browser downloaded, so the UI still showed "Clock In". This pages
 // through in 1000-row chunks and returns every row.
 const PAGE = 1000;
-async function fetchAllRows(table: string): Promise<any[]> {
+// Paging across the 1000-row cap REQUIRES a stable total order. Without an
+// explicit ORDER BY, PostgREST's successive .range() requests can return rows in
+// a different order each time, so the page boundary skips some rows and repeats
+// others — once a table passes 1000 rows a session silently loses data (e.g. an
+// agent who couldn't see any of their assigned shifts). Order by a unique key
+// (the primary key) so every row is fetched exactly once. Tables without an `id`
+// column pass their composite PK columns.
+async function fetchAllRows(table: string, orderBy: string[] = ['id']): Promise<any[]> {
   const all: any[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.from(table).select('*').range(from, from + PAGE - 1);
+    let query = supabase.from(table).select('*');
+    for (const col of orderBy) query = query.order(col, { ascending: true });
+    const { data, error } = await query.range(from, from + PAGE - 1);
     if (error) { console.error(`fetchAllRows(${table})`, error); break; }
     if (!data || data.length === 0) break;
     all.push(...data);
@@ -42,6 +51,8 @@ export async function fetchAllProfiles(): Promise<User[]> {
     slackMissedClockInWebhookUrl: p.slack_missed_clockin_webhook_url || undefined,
     slackNotifications: p.slack_notifications || undefined,
     active: p.active ?? true,
+    canEditOwnHours: p.can_edit_own_hours ?? false,
+    flexibleHours: p.flexible_hours ?? false,
   }));
 }
 
@@ -65,8 +76,86 @@ export async function updateProfile(id: string, updates: Partial<User> & { enabl
   if (updates.slackMissedClockInWebhookUrl !== undefined) dbUpdates.slack_missed_clockin_webhook_url = updates.slackMissedClockInWebhookUrl || null;
   if ((updates as any).slackNotifications !== undefined) dbUpdates.slack_notifications = (updates as any).slackNotifications;
   if (updates.active !== undefined) dbUpdates.active = updates.active;
+  if (updates.flexibleHours !== undefined) dbUpdates.flexible_hours = updates.flexibleHours;
   const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
   if (error) console.error('updateProfile', error);
+}
+
+// Admin-only: changes an agent's email everywhere it lives — profile, login
+// account (auth.users) and sign-in identities — in one transaction. Returns an
+// error message on failure (e.g. invalid or already-used address).
+export async function adminUpdateEmail(userId: string, email: string): Promise<string | null> {
+  const { error } = await supabase.rpc('admin_update_agent_email', { p_user_id: userId, p_email: email });
+  if (error) {
+    console.error('adminUpdateEmail', error);
+    return error.message;
+  }
+  return null;
+}
+
+// ---- Flexible hours (no fixed schedule) ----
+// Each clock-in creates its own "Compliance Team" shift row + clock record server-side,
+// atomically; a DB trigger keeps that shift's start/end equal to the clock times.
+
+export async function flexClockIn(): Promise<string | null> {
+  const { error } = await supabase.rpc('flex_clock_in');
+  if (error) { console.error('flexClockIn', error); return error.message; }
+  return null;
+}
+
+export async function flexClockOut(shiftId: string): Promise<string | null> {
+  const { error } = await supabase.rpc('flex_clock_out', { p_shift_id: shiftId });
+  if (error) { console.error('flexClockOut', error); return error.message; }
+  return null;
+}
+
+// ---- Invites (admin only; RLS) ----
+
+export interface Invite {
+  id: string;
+  email: string;
+  name: string;
+  country?: string;
+  labels: string[];
+  flexibleHours: boolean;
+  createdAt: string;
+  acceptedAt?: string;
+}
+
+export async function fetchInvites(): Promise<Invite[]> {
+  const { data, error } = await supabase.from('invites').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('fetchInvites', error); return []; }
+  return (data || []).map(r => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    country: r.country || undefined,
+    labels: r.labels || [],
+    flexibleHours: r.flexible_hours,
+    createdAt: r.created_at,
+    acceptedAt: r.accepted_at || undefined,
+  }));
+}
+
+export async function createInvite(invite: { email: string; name: string; country?: string; labels: string[]; flexibleHours: boolean; invitedBy: string }): Promise<string | null> {
+  const { error } = await supabase.from('invites').insert({
+    email: invite.email.trim().toLowerCase(),
+    name: invite.name.trim(),
+    country: invite.country || null,
+    labels: invite.labels,
+    flexible_hours: invite.flexibleHours,
+    invited_by: invite.invitedBy,
+  });
+  if (error) {
+    console.error('createInvite', error);
+    return error.code === '23505' ? 'This email has already been invited.' : error.message;
+  }
+  return null;
+}
+
+export async function deleteInvite(id: string) {
+  const { error } = await supabase.from('invites').delete().eq('id', id);
+  if (error) console.error('deleteInvite', error);
 }
 
 export async function deleteProfile(id: string) {
@@ -167,7 +256,11 @@ export async function fetchAllTimeOffs(): Promise<TimeOff[]> {
   }));
 }
 
-export async function insertTimeOff(timeOff: TimeOff): Promise<boolean> {
+// Distinguishes a duplicate day (unique index on user_id+date, code 23505) from
+// real failures (RLS, network, …) so the UI doesn't report every error as a duplicate.
+export type InsertTimeOffResult = { ok: true } | { ok: false; duplicate: boolean; message: string };
+
+export async function insertTimeOff(timeOff: TimeOff): Promise<InsertTimeOffResult> {
   const { error } = await supabase.from('time_offs').insert({
     id: timeOff.id,
     user_id: timeOff.userId,
@@ -178,8 +271,9 @@ export async function insertTimeOff(timeOff: TimeOff): Promise<boolean> {
     half_day: timeOff.halfDay || false,
     created_at: timeOff.createdAt || new Date().toISOString(),
   });
-  if (error) console.error('insertTimeOff', error);
-  return !error;
+  if (!error) return { ok: true };
+  console.error('insertTimeOff', error);
+  return { ok: false, duplicate: error.code === '23505', message: error.message };
 }
 
 export async function deleteTimeOff(id: string) {
@@ -290,7 +384,7 @@ export async function updateSwapRequestStatus(id: string, status: 'accepted' | '
 // ---- Coverage Notes ----
 
 export async function fetchAllCoverageNotes(): Promise<CoverageNote[]> {
-  const data = await fetchAllRows('coverage_notes');
+  const data = await fetchAllRows('coverage_notes', ['user_id', 'week_start']);
   return data.map(n => ({
     userId: n.user_id,
     weekStart: n.week_start,
@@ -317,7 +411,7 @@ export async function deleteCoverageNote(userId: string, weekStart: string) {
 // ---- Shift Tasks (authoritative task assignments, maintained by a DB trigger) ----
 
 export async function fetchAllShiftTasks(): Promise<ShiftTask[]> {
-  const data = await fetchAllRows('shift_tasks');
+  const data = await fetchAllRows('shift_tasks', ['shift_id', 'user_id']);
   return data.map(t => ({
     shiftId: t.shift_id,
     userId: t.user_id,
@@ -328,7 +422,7 @@ export async function fetchAllShiftTasks(): Promise<ShiftTask[]> {
 // ---- Shift Partials (per-agent partial-coverage windows) ----
 
 export async function fetchAllShiftPartials(): Promise<PartialCoverage[]> {
-  const data = await fetchAllRows('shift_partials');
+  const data = await fetchAllRows('shift_partials', ['shift_id', 'user_id']);
   return data.map(p => ({
     shiftId: p.shift_id,
     userId: p.user_id,

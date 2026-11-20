@@ -51,6 +51,7 @@ type Action =
   | { type: 'ADD_WEEKEND_ROTATION'; payload: { shift: Shift; groupA: string[]; groupB: string[] } }
   | { type: 'UPDATE_SHIFT_ALL_RECURRING'; payload: Shift }
   | { type: 'UPDATE_SHIFT_FUTURE'; payload: Shift }
+  | { type: 'UPDATE_OWN_SHIFT_HOURS'; payload: { shiftIds: string[]; startTime: string; endTime: string; summary: string } }
   | { type: 'CLOCK_IN'; payload: ClockRecord }
   | { type: 'CLOCK_OUT'; payload: { shiftId: string; userId: string; clockOut: string } }
   | { type: 'UPSERT_CLOCK_RECORD'; payload: ClockRecord }
@@ -137,13 +138,21 @@ function reducer(state: AppState, action: Action): AppState {
       const activeClockIns = state.clockRecords.filter(r => r.clockIn && !r.clockOut);
       const loadedClockIds = new Set(action.payload.clockRecords.map(r => r.id));
       const missingActiveClockIns = activeClockIns.filter(r => !loadedClockIds.has(r.id));
+      // A refresh fetched before a clock-out saved returns the record still open.
+      // Never let that stale copy undo a clock-out we already have locally — the
+      // sync effect would otherwise write clock_out = NULL back to the DB.
+      const localByKey = new Map(state.clockRecords.map(r => [`${r.shiftId}|${r.userId}`, r]));
+      const loadedClockRecords = action.payload.clockRecords.map(r => {
+        const local = localByKey.get(`${r.shiftId}|${r.userId}`);
+        return local?.clockOut && !r.clockOut ? { ...r, clockOut: local.clockOut } : r;
+      });
       return {
         ...action.payload,
         shifts: action.payload.shifts.map(s => ({
           ...s,
           assignedAgentIds: [...new Set(s.assignedAgentIds)],
         })),
-        clockRecords: [...action.payload.clockRecords, ...missingActiveClockIns],
+        clockRecords: [...loadedClockRecords, ...missingActiveClockIns],
       };
     }
 
@@ -430,6 +439,22 @@ function reducer(state: AppState, action: Action): AppState {
         return { ...s, name: updated.name, startTime: updated.startTime, endTime: updated.endTime, timezone: updated.timezone, color: updated.color, requiredAgents: updated.requiredAgents };
       });
       return { ...state, shifts: newShifts, notifications: [...state.notifications, ...notifications] };
+    }
+
+    // An agent with canEditOwnHours changing their own shift times. Unlike the admin
+    // edits above this sends no per-shift notifications (it can touch months of
+    // rows); admins get a single summary instead. Persisted by the sync effect.
+    case 'UPDATE_OWN_SHIFT_HOURS': {
+      const { shiftIds, startTime, endTime, summary } = action.payload;
+      const ids = new Set(shiftIds);
+      const notifications = state.users
+        .filter(u => u.role === 'admin' && u.active !== false)
+        .map(u => createNotification(u.id, summary, 'change'));
+      return {
+        ...state,
+        shifts: state.shifts.map(s => ids.has(s.id) ? { ...s, startTime, endTime } : s),
+        notifications: [...state.notifications, ...notifications],
+      };
     }
 
     case 'DELETE_SHIFT': {
@@ -1042,7 +1067,7 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
       // Only send fields that actually changed: re-sending stale admin-only fields
       // (role, allowances) from an agent's session is rejected by the
       // guard_profile_privileged_columns trigger and would drop the whole update.
-      const syncedFields = ['country', 'color', 'name', 'role', 'timezone', 'enabledHolidayCountries', 'ptoAllowance', 'sickDaysAllowance'] as const;
+      const syncedFields = ['country', 'color', 'name', 'role', 'timezone', 'enabledHolidayCountries', 'ptoAllowance', 'sickDaysAllowance', 'flexibleHours'] as const;
       updatedUsers.forEach(u => {
         const pu = prev.users.find(pu => pu.id === u.id)!;
         const changes: Record<string, unknown> = {};
@@ -1064,7 +1089,11 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const updatedClockRecords = state.clockRecords.filter(r => {
       if (r.userId !== myId) return false;
       const pr = prev.clockRecords.find(pr => pr.id === r.id);
-      return pr && JSON.stringify(pr) !== JSON.stringify(r);
+      if (!pr || JSON.stringify(pr) === JSON.stringify(r)) return false;
+      // Clearing a clock-in/out is never a user action — it's a stale reload.
+      // Don't write it back (the DB trigger protect_clock_record blocks it too).
+      if ((pr.clockOut && !r.clockOut) || (pr.clockIn && !r.clockIn)) return false;
+      return true;
     });
     newClockRecords.forEach(r => db.upsertClockRecord(r));
     updatedClockRecords.forEach(r => db.upsertClockRecord(r));

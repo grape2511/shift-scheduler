@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search } from 'lucide-react';
+import { Plus, Mail, MapPin, Clock, Globe, Calendar, Check, ChevronDown, X, LayoutGrid, List, Search, Pencil, UserPlus, Timer } from 'lucide-react';
 import { COUNTRIES, getCountryName } from '../utils/holidays';
 import { TIME_OFF_CATEGORIES, type User } from '../types';
 import { DeactivateAgentModal } from './DeactivateAgentModal';
+import { EditAgentModal } from './EditAgentModal';
+import { InvitePanel } from './InvitePanel';
 import { updateProfile } from '../lib/database';
 import * as db from '../lib/database';
 import { v4 as uuid } from 'uuid';
@@ -12,13 +14,11 @@ import { format, parseISO, addDays } from 'date-fns';
 const TARGET_HOURS = 208;
 
 export function AgentsView() {
-  const { state, agents, addAgent, dispatch, getMonthlyHours, getPtoBalance, setAgentActive } = useApp();
+  const { state, agents, dispatch, getMonthlyHours, getPtoBalance, setAgentActive } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<User | null>(null);
+  const [editTarget, setEditTarget] = useState<User | null>(null);
   const [showHolidayDropdown, setShowHolidayDropdown] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [country, setCountry] = useState('NL');
   const [addingTimeOffFor, setAddingTimeOffFor] = useState<string | null>(null);
   const [timeOffDate, setTimeOffDate] = useState('');
   const [timeOffEndDate, setTimeOffEndDate] = useState('');
@@ -116,15 +116,6 @@ export function AgentsView() {
     updateProfile(state.currentUser.id, { enabledHolidayCountries: updated });
   };
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    addAgent(name.trim(), email.trim(), country);
-    setName('');
-    setEmail('');
-    setCountry('NL');
-    setShowAdd(false);
-  };
 
 
   const handleCountryChange = (agentId: string, newCountry: string) => {
@@ -144,8 +135,8 @@ export function AgentsView() {
           onClick={() => setShowAdd(true)}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
         >
-          <Plus className="w-4 h-4" />
-          Add Agent
+          <UserPlus className="w-4 h-4" />
+          Invite member
         </button>
       </div>
 
@@ -179,62 +170,7 @@ export function AgentsView() {
         </div>
       </div>
 
-      {/* Add Agent Form */}
-      {showAdd && (
-        <form onSubmit={handleAdd} className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Full name"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                autoFocus
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="email@example.com"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Country</label>
-              <select
-                value={country}
-                onChange={e => setCountry(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              >
-                {COUNTRIES.map(c => (
-                  <option key={c.code} value={c.code}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="flex gap-2 mt-3">
-            <button
-              type="button"
-              onClick={() => setShowAdd(false)}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Add
-            </button>
-          </div>
-        </form>
-      )}
+      <InvitePanel open={showAdd} onClose={() => setShowAdd(false)} />
 
       {/* Public Holidays Management */}
       <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
@@ -335,6 +271,15 @@ export function AgentsView() {
                     <span className={`text-sm font-bold w-16 text-right ${isOvertime ? 'text-red-600' : 'text-gray-700'}`}>{hours}/{TARGET_HOURS}h</span>
                     <span className={`hidden sm:block text-sm font-bold w-16 text-right ${isOverPto ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>{remaining}/{total}</span>
                     <span className={`hidden sm:block text-sm font-bold w-12 text-right ${sickRemaining <= 1 ? 'text-red-600' : 'text-gray-500'}`}>{sickRemaining}/{sickTotal}</span>
+                    <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditTarget(agent)}
+                      className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
+                      title="Edit name / email"
+                      aria-label={`Edit ${agent.name}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                     <div
                       onClick={() => {
                         const newActive = agent.active === false ? true : false;
@@ -348,6 +293,7 @@ export function AgentsView() {
                       title={agent.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
                     >
                       <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${agent.active !== false ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
                     </div>
                   </div>
                 );
@@ -375,6 +321,11 @@ export function AgentsView() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1 flex-wrap">
                   <h3 className="font-medium text-gray-900 truncate">{agent.name}</h3>
+                  {agent.flexibleHours && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-full shrink-0" title="Flexible hours: no fixed shifts">
+                      <Timer className="w-2.5 h-2.5" /> Flexible
+                    </span>
+                  )}
                   {(agent.labels || (agent.label ? [agent.label] : [])).map(l => (
                     <span key={l} className="px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full shrink-0">
                       {l}
@@ -388,7 +339,15 @@ export function AgentsView() {
                   </div>
                 )}
               </div>
-              <div
+              <button
+                  onClick={() => setEditTarget(agent)}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md shrink-0"
+                  title="Edit name / email"
+                  aria-label={`Edit ${agent.name}`}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <div
                 onClick={() => {
                   const newActive = agent.active === false ? true : false;
                   if (!newActive) {
@@ -702,6 +661,9 @@ export function AgentsView() {
 
       {deactivateTarget && (
         <DeactivateAgentModal agent={deactivateTarget} onClose={() => setDeactivateTarget(null)} />
+      )}
+      {editTarget && (
+        <EditAgentModal agent={editTarget} onClose={() => setEditTarget(null)} />
       )}
     </div>
   );

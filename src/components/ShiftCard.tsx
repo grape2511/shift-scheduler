@@ -5,10 +5,12 @@ import { convertTime, getUserTimezone, isShiftActiveNow } from '../utils/timezon
 import { useNow } from '../hooks/useNow';
 import { v4 as uuid } from 'uuid';
 import { updateShift as dbUpdateShift, deleteShift as dbDeleteShift, deleteShifts as dbDeleteShifts } from '../lib/database';
-import { getTaskAssignments, TASK_STYLES } from '../utils/tasks';
+import { getTaskAssignments, TASK_STYLES, NON_SUPPORT_SHIFTS } from '../utils/tasks';
 import { confirmClockOut } from '../utils/clock';
 import { useSelfLeave } from '../hooks/useSelfLeave';
 import { JoinShiftModal } from './JoinShiftModal';
+import { EditHoursModal } from './EditHoursModal';
+import { canEditOwnHours } from '../utils/editHours';
 import type { Shift } from '../types';
 
 interface ShiftCardProps {
@@ -25,11 +27,22 @@ function agentTags(agent: { labels?: string[]; label?: string } | undefined): st
   return (agent.labels || (agent.label ? [agent.label] : [])).filter(l => !TEAM_LABELS.has(l));
 }
 
+// Per-tag look on the shift card. `short` is used in the compact week view.
+const TAG_STYLES: Record<string, { short?: string; cls: string; tip: (first: string) => string }> = {
+  'Trainee': { cls: 'bg-amber-100 text-amber-700 border-amber-200', tip: n => `${n} is a trainee — keep them supported on shift` },
+  'Finance Specialist': { short: 'Fin Spec', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', tip: n => `${n} is this shift's finance specialist` },
+};
+const DEFAULT_TAG = { cls: 'bg-sky-100 text-sky-700 border-sky-200', tip: (n: string) => n };
+function tagStyle(label: string) {
+  return TAG_STYLES[label] ?? { ...DEFAULT_TAG, tip: (n: string) => `${n}: ${label}` };
+}
+
 export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   const { state, dispatch, activeAgents: agents, getAgentById, hasConflict, getClockRecord, getShiftTasks, getPartial } = useApp();
   const attemptSelfLeave = useSelfLeave();
   const [showAssign, setShowAssign] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [showEditHours, setShowEditHours] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(shift.notes || '');
@@ -44,9 +57,11 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   // Prefer the authoritative stored assignments (identical for everyone); fall
   // back to local computation only for a shift not yet materialized in the DB.
   const storedTasks = getShiftTasks(shift.id);
-  const taskAssignments = storedTasks && storedTasks.size > 0
-    ? storedTasks
-    : getTaskAssignments(shift.date, shift.assignedAgentIds);
+  const taskAssignments = NON_SUPPORT_SHIFTS.has(shift.name)
+    ? new Map<string, never>()
+    : storedTasks && storedTasks.size > 0
+      ? storedTasks
+      : getTaskAssignments(shift.date, shift.assignedAgentIds);
 
   const handleAssign = (agentId: string) => {
     dispatch({ type: 'ASSIGN_AGENT', payload: { shiftId: shift.id, agentId } });
@@ -122,6 +137,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
   };
 
   const isAssignedToMe = shift.assignedAgentIds.includes(state.currentUser.id);
+  const canEditMyHours = canEditOwnHours(state.currentUser, shift);
   const myClockRecord = isAssignedToMe ? getClockRecord(shift.id, state.currentUser.id) : undefined;
 
   const handleClockIn = () => {
@@ -230,10 +246,10 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                   {agentTags(agent).map(l => (
                     <span
                       key={l}
-                      className="shrink-0 px-1 py-px rounded-full bg-amber-100 text-amber-700 text-[7px] font-semibold uppercase tracking-wide leading-none"
-                      title={l}
+                      className={`shrink-0 px-1 py-px rounded-full ${tagStyle(l).cls} text-[7px] font-semibold uppercase tracking-wide leading-none`}
+                      title={tagStyle(l).tip(agent!.name.split(' ')[0])}
                     >
-                      {l}
+                      {tagStyle(l).short ?? l}
                     </span>
                   ))}
                   {style && (!style.iconUrl ? (
@@ -331,6 +347,15 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                 <span className="text-xs text-indigo-400 ml-1">(your time)</span>
               )}
               <span className="text-xs text-gray-400 ml-1">({shift.timezone.split('/').pop()})</span>
+              {canEditMyHours && (
+                <button
+                  onClick={() => setShowEditHours(true)}
+                  className="ml-1 p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                  title="Edit my hours"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -435,8 +460,8 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
                       {agentTags(agent).map(l => (
                         <span
                           key={l}
-                          className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-semibold"
-                          title={`${agent!.name.split(' ')[0]} is a trainee — keep them supported on shift`}
+                          className={`px-1.5 py-0.5 rounded-full ${tagStyle(l).cls} border text-[10px] font-semibold`}
+                          title={tagStyle(l).tip(agent!.name.split(' ')[0])}
                         >
                           {l}
                         </span>
@@ -615,6 +640,7 @@ export function ShiftCard({ shift, compact, onEdit }: ShiftCardProps) {
           )}
         </div>
         {showJoin && <JoinShiftModal shift={shift} onClose={() => setShowJoin(false)} />}
+        {showEditHours && <EditHoursModal shift={shift} onClose={() => setShowEditHours(false)} />}
 
         {/* Clock In/Out for assigned agent */}
         {isAssignedToMe && (

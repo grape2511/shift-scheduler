@@ -5,6 +5,8 @@ import { LogIn, LogOut, Clock, Calendar } from 'lucide-react';
 import { convertTime, getUserTimezone } from '../utils/timezone';
 import { confirmClockOut } from '../utils/clock';
 import { format } from 'date-fns';
+import { FlexClockCard } from './FlexClockCard';
+import { FLEX_SHIFT } from '../utils/clockedIn';
 
 export function ClockTab() {
   const { state, dispatch, getShiftsForAgent, getClockRecord, getMonthlyHours } = useApp();
@@ -12,7 +14,7 @@ export function ClockTab() {
 
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
-  const myShiftsToday = getShiftsForAgent(state.currentUser.id).filter(s => s.date === todayStr);
+  const myShiftsToday = getShiftsForAgent(state.currentUser.id).filter(s => s.date === todayStr && s.name !== FLEX_SHIFT);
 
   const userTimezone = getUserTimezone(state.currentUser.timezone, state.currentUser.country);
 
@@ -75,6 +77,8 @@ export function ClockTab() {
           </div>
         </div>
       </div>
+
+      <FlexClockCard />
 
       {/* Active Shift Timer */}
       {activeShift && activeRecord && (
