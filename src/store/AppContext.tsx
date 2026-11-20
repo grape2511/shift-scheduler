@@ -1064,17 +1064,18 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
         const pu = prev.users.find(pu => pu.id === u.id);
         return pu && JSON.stringify(pu) !== JSON.stringify(u);
       });
-      updatedUsers.forEach(u => db.updateProfile(u.id, {
-        country: u.country,
-        color: u.color,
-        name: u.name,
-        role: u.role,
-        timezone: u.timezone,
-        enabledHolidayCountries: u.enabledHolidayCountries,
-        ptoAllowance: u.ptoAllowance,
-        sickDaysAllowance: u.sickDaysAllowance,
-        flexibleHours: u.flexibleHours,
-      }));
+      // Only send fields that actually changed: re-sending stale admin-only fields
+      // (role, allowances) from an agent's session is rejected by the
+      // guard_profile_privileged_columns trigger and would drop the whole update.
+      const syncedFields = ['country', 'color', 'name', 'role', 'timezone', 'enabledHolidayCountries', 'ptoAllowance', 'sickDaysAllowance', 'flexibleHours'] as const;
+      updatedUsers.forEach(u => {
+        const pu = prev.users.find(pu => pu.id === u.id)!;
+        const changes: Record<string, unknown> = {};
+        for (const f of syncedFields) {
+          if (JSON.stringify(pu[f]) !== JSON.stringify(u[f])) changes[f] = u[f];
+        }
+        if (Object.keys(changes).length > 0) db.updateProfile(u.id, changes as Partial<User>);
+      });
     }
 
     // Sync clock records — runs unconditionally (no isBulkLoad gate). Restricted to the
