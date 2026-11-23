@@ -10,6 +10,7 @@ import { TIME_OFF_CATEGORIES, type TimeOffCategory, type TimeOff } from '../type
 import { insertTimeOff, deleteTimeOff as dbDeleteTimeOff, insertNotification, updateShiftAssignment } from '../lib/database';
 import { sendSlackNotification } from '../utils/slack';
 import { ScheduleView } from './ScheduleView';
+import { financeGapShifts } from '../utils/leaveGuard';
 
 export function DaysOffTab() {
   const { state, dispatch, getPtoBalance } = useApp();
@@ -109,6 +110,21 @@ export function DaysOffTab() {
       return day !== 0 && day !== 6;
     }) : allDates;
     const daysCount = effectiveDates.length;
+
+    // A finance specialist can't take a full day off from a shift where they're
+    // the only finance specialist (half days keep them on shift).
+    if (state.currentUser.role !== 'admin' && !timeOffHalfDay) {
+      const gaps = effectiveDates.flatMap(d =>
+        financeGapShifts(state.currentUser.id, d, state.shifts, state.users).map(s => `${s.name} on ${d}`)
+      );
+      if (gaps.length > 0) {
+        alert(
+          `You can't take this time off — you're the only finance specialist on:\n\n${gaps.join('\n')}\n\n` +
+          `Swap with another finance specialist first, or ask an admin to arrange cover.`
+        );
+        return;
+      }
+    }
 
     if (timeOffCategory === 'sick' && balance.sickRemaining <= 0) {
       if (!confirm('You have no remaining sick days this year. Continue anyway?')) return;
@@ -320,6 +336,13 @@ export function DaysOffTab() {
   const handleApprove = (id: string) => {
     const to = state.timeOffs.find(t => t.id === id);
     if (!to) return;
+
+    // Finance coverage: warn if this leaves a shift with no finance specialist.
+    const finGaps = to.halfDay ? [] : financeGapShifts(to.userId, to.date, state.shifts, state.users);
+    if (finGaps.length > 0) {
+      const agent = state.users.find(u => u.id === to.userId);
+      if (!confirm(`⚠️ ${agent?.name} is the only finance specialist on ${finGaps.map(s => s.name).join(', ')} (${to.date}). Approving leaves no finance specialist on shift.\n\nApprove anyway?`)) return;
+    }
 
     // Check for coverage shortage
     const shortages = getShortageInfo(to);

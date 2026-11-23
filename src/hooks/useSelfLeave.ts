@@ -24,6 +24,7 @@ export function useSelfLeave() {
       agentId,
       state.shifts,
       state.timeOffs,
+      state.users,
     );
     if (blockedMessage) {
       alert(blockedMessage);

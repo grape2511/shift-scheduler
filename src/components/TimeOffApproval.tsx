@@ -7,6 +7,7 @@ import { getMonthCalendarDays, formatDate, formatDayNum, formatMonthYear } from 
 import { updateTimeOffStatus, updateShiftAssignment } from '../lib/database';
 import { TIME_OFF_CATEGORIES } from '../types';
 import { isSwapExpired } from '../utils/swaps';
+import { financeGapShifts } from '../utils/leaveGuard';
 import { v4 as uuid } from 'uuid';
 
 export function TimeOffApproval() {
@@ -23,6 +24,12 @@ export function TimeOffApproval() {
   const getCategoryInfo = (cat?: string) => TIME_OFF_CATEGORIES.find(c => c.value === cat) || TIME_OFF_CATEGORIES[0];
 
   const handleApprove = (id: string) => {
+    const pending = state.timeOffs.find(t => t.id === id);
+    const finGaps = !pending || pending.halfDay ? [] : financeGapShifts(pending.userId, pending.date, state.shifts, state.users);
+    if (finGaps.length > 0) {
+      const who = state.users.find(u => u.id === pending!.userId)?.name;
+      if (!confirm(`⚠️ ${who} is the only finance specialist on ${finGaps.map(s => s.name).join(', ')} (${pending!.date}). Approving leaves no finance specialist on shift.\n\nApprove anyway?`)) return;
+    }
     dispatch({ type: 'UPDATE_TIME_OFF_STATUS', payload: { id, status: 'approved' } });
     updateTimeOffStatus(id, 'approved');
     const to = state.timeOffs.find(t => t.id === id);

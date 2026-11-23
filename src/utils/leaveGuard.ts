@@ -1,4 +1,27 @@
-import type { Shift, TimeOff } from '../types';
+import type { Shift, TimeOff, User } from '../types';
+import { NON_SUPPORT_SHIFTS } from './tasks';
+
+export const FINANCE_SPECIALIST = 'Finance Specialist';
+
+export function isFinanceSpecialist(user: Pick<User, 'labels'> | undefined): boolean {
+  return !!user?.labels?.includes(FINANCE_SPECIALIST);
+}
+
+/**
+ * Support shifts on `date` that would be left with NO finance specialist if
+ * `agentId` came off them. Empty unless the agent is a finance specialist who
+ * is currently the only one on that shift. Finance / Compliance shifts don't
+ * need the role, so they're skipped.
+ */
+export function financeGapShifts(agentId: string, date: string, shifts: Shift[], users: User[]): Shift[] {
+  if (!isFinanceSpecialist(users.find(u => u.id === agentId))) return [];
+  return shifts.filter(s =>
+    s.date === date &&
+    !NON_SUPPORT_SHIFTS.has(s.name) &&
+    s.assignedAgentIds.includes(agentId) &&
+    !s.assignedAgentIds.some(id => id !== agentId && isFinanceSpecialist(users.find(u => u.id === id)))
+  );
+}
 
 export interface LeaveEval {
   /** Non-null when the agent may NOT leave — show this to the agent. */
@@ -12,7 +35,9 @@ export interface LeaveEval {
 /**
  * Decide whether the current agent may remove themselves from `shift`.
  *
- * Two rules, matching the original inline guard:
+ * Rules:
+ *  0. A finance specialist can't leave a shift that has no other finance
+ *     specialist on it.
  *  1. A shift can't drop below its required headcount.
  *  2. Every agent owes 5 shifts a week unless an admin approved a day off,
  *     in which case the minimum drops by the size of the approved time off.
@@ -27,6 +52,7 @@ export function evalSelfLeave(
   agentId: string,
   shifts: Shift[],
   timeOffs: TimeOff[],
+  users: User[],
 ): LeaveEval {
   const minRequired = shift.requiredAgents || 1;
   const afterCount = shift.assignedAgentIds.length - 1;
@@ -49,6 +75,17 @@ export function evalSelfLeave(
     .filter(t => t.userId === agentId && (t.status || 'approved') === 'approved' && weekDateSet.has(t.date))
     .reduce((sum, t) => sum + (t.halfDay ? 0.5 : 1), 0);
   const weeklyAdjustedMin = Math.max(0, 5 - approvedDaysOff);
+
+  // Rule 0: finance coverage.
+  if (financeGapShifts(agentId, shift.date, [shift], users).length > 0) {
+    return {
+      blockedMessage:
+        `Cannot leave — you're the only finance specialist on this shift. ` +
+        `Swap with another finance specialist, or ask an admin to arrange cover first.`,
+      weeklyDayCount,
+      weeklyAdjustedMin,
+    };
+  }
 
   // Rule 1: headcount.
   if (afterCount < minRequired) {

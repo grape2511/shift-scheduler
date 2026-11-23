@@ -10,6 +10,8 @@ import { JoinShiftModal } from './JoinShiftModal';
 import { EditHoursModal } from './EditHoursModal';
 import { canEditOwnHours } from '../utils/editHours';
 import type { Shift } from '../types';
+import { isFinanceSpecialist } from '../utils/leaveGuard';
+import { NON_SUPPORT_SHIFTS } from '../utils/tasks';
 
 interface ShiftModalProps {
   onClose: () => void;
@@ -747,6 +749,22 @@ function AgentShiftView({
 
   const handleSwapRequest = () => {
     if (!swapTargetId || !swapTargetShiftId) return;
+
+    // Don't let a swap strip the last finance specialist off either shift.
+    const otherShift = state.shifts.find(s => s.id === swapTargetShiftId);
+    if (otherShift) {
+      const me = state.currentUser.id;
+      const isFin = (id: string) => isFinanceSpecialist(state.users.find(u => u.id === id));
+      const loses = (s: Shift, after: string[]) =>
+        !NON_SUPPORT_SHIFTS.has(s.name) && s.assignedAgentIds.some(isFin) && !after.some(isFin);
+      const mineAfter = [...shift.assignedAgentIds.filter(id => id !== me), swapTargetId];
+      const theirsAfter = [...otherShift.assignedAgentIds.filter(id => id !== swapTargetId), me];
+      const broken = [loses(shift, mineAfter) && `${shift.name} on ${shift.date}`, loses(otherShift, theirsAfter) && `${otherShift.name} on ${otherShift.date}`].filter(Boolean);
+      if (broken.length > 0) {
+        alert(`This swap would leave no finance specialist on:\n\n${broken.join('\n')}\n\nSwap with another finance specialist instead, or ask an admin.`);
+        return;
+      }
+    }
     const swapRecord = {
       id: uuid(),
       fromShiftId: shift.id,
