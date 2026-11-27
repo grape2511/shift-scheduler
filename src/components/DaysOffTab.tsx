@@ -112,8 +112,11 @@ export function DaysOffTab() {
     const daysCount = effectiveDates.length;
 
     // A finance specialist can't take a full day off from a shift where they're
-    // the only finance specialist (half days keep them on shift).
-    if (state.currentUser.role !== 'admin' && !timeOffHalfDay) {
+    // the only finance specialist (half days keep them on shift). Sick days are
+    // exempt: being unwell isn't optional, so a finance specialist can always
+    // report sick — the admin still sees the coverage gap at approval time and
+    // arranges cover. The block only applies to discretionary time off.
+    if (state.currentUser.role !== 'admin' && !timeOffHalfDay && timeOffCategory !== 'sick') {
       const gaps = effectiveDates.flatMap(d =>
         financeGapShifts(state.currentUser.id, d, state.shifts, state.users).map(s => `${s.name} on ${d}`)
       );
