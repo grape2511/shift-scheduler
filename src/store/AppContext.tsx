@@ -1268,20 +1268,32 @@ export function AppProvider({ children, currentUser }: { children: ReactNode; cu
     const agentShifts = state.shifts.filter(
       s => s.assignedAgentIds.includes(agentId) && s.date.startsWith(monthStr)
     );
+    // Only shifts the agent actually clocked in to count. Future shifts, missed
+    // clock-ins and days off add nothing.
+    //  - clocked in + out      → the real clocked time
+    //  - clocked in, still on  → time so far (if it started < 16h ago)
+    //  - clocked in, never out → forgotten clock-out: count the scheduled length
+    const OPEN_SESSION_MAX_MS = 16 * 60 * 60 * 1000;
+    const scheduledMinutes = (shift: Shift) => {
+      const [sh, sm] = shift.startTime.split(':').map(Number);
+      const [eh, em] = shift.endTime.split(':').map(Number);
+      let mins = (eh * 60 + em) - (sh * 60 + sm);
+      if (mins < 0) mins += 24 * 60; // overnight shift
+      return mins;
+    };
     let totalMinutes = 0;
+    const nowMs = Date.now();
     for (const shift of agentShifts) {
       const clockRecord = getClockRecord(shift.id, agentId);
-      if (clockRecord?.clockIn && clockRecord?.clockOut) {
-        // Use actual clocked hours
-        const diff = new Date(clockRecord.clockOut).getTime() - new Date(clockRecord.clockIn).getTime();
-        totalMinutes += diff / 60000;
+      if (!clockRecord?.clockIn) continue;
+      const startMs = new Date(clockRecord.clockIn).getTime();
+      if (clockRecord.clockOut) {
+        const diff = new Date(clockRecord.clockOut).getTime() - startMs;
+        if (diff > 0) totalMinutes += diff / 60000;
+      } else if (nowMs - startMs < OPEN_SESSION_MAX_MS) {
+        if (nowMs > startMs) totalMinutes += (nowMs - startMs) / 60000;
       } else {
-        // Use scheduled shift hours
-        const [sh, sm] = shift.startTime.split(':').map(Number);
-        const [eh, em] = shift.endTime.split(':').map(Number);
-        let mins = (eh * 60 + em) - (sh * 60 + sm);
-        if (mins < 0) mins += 24 * 60; // overnight shift
-        totalMinutes += mins;
+        totalMinutes += scheduledMinutes(shift);
       }
     }
     return Math.round((totalMinutes / 60) * 10) / 10; // 1 decimal
