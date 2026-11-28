@@ -425,7 +425,7 @@ export function DaysOffTab() {
     .slice(0, 20);
 
   return (
-    <div className={isApprover ? undefined : 'max-w-5xl mx-auto'}>
+    <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Days Off</h2>
@@ -546,9 +546,9 @@ export function DaysOffTab() {
           scrolling. Agents keep their own calendar and request lists (their
           only place to track/cancel them). */}
       {isApprover ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] gap-4 items-start">
           {/* Left: pending requests (stays in view while the calendar scrolls) */}
-          <div className="lg:col-span-3 lg:sticky lg:top-6 self-start">
+          <div className="lg:sticky lg:top-6 self-start">
             <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
               <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-amber-800">
@@ -619,7 +619,7 @@ export function DaysOffTab() {
           </div>
 
           {/* Right: team schedule / calendar */}
-          <div className="lg:col-span-9 min-w-0">
+          <div className="min-w-0">
             <ScheduleView focusDate={focusDate} focusToken={focusToken} />
           </div>
         </div>
